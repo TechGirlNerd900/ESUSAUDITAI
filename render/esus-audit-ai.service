@@ -1,0 +1,27 @@
+[Unit]
+Description=Esus Audit AI Service
+After=network.target
+
+[Service]
+Type=simple
+User=render
+WorkingDirectory=/opt/render/project/src
+ExecStart=/usr/bin/node server/server.js
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=esus-audit-ai
+Environment=NODE_ENV=production
+# Allow for graceful shutdown
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/render/project/src
+
+[Install]
+WantedBy=multi-user.target

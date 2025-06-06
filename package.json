@@ -1,0 +1,41 @@
+{
+  "name": "esus-audit-ai",
+  "version": "1.0.0",
+  "description": "AI-powered audit automation platform for finance and audit firms with Supabase integration",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "concurrently \"npm run start:client\" \"npm run start:server\"",
+    "start:client": "cd client && npm start",
+    "start:server": "node server/server.js",
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "nodemon server/server.js",
+    "build": "cd client && npm run build",
+    "test": "cd client && npm test",
+    "deploy": "./scripts/deploy.sh",
+    "init": "./scripts/init-local.sh",
+    "db:setup": "psql -f database/schema.sql && psql -f database/seed.sql",
+    "db:migrate": "psql -f database/migrations/001_enhanced_security_and_performance.sql",
+    "supabase:setup": "node scripts/supabase-setup.js"
+  },
+  "keywords": [
+    "audit",
+    "ai",
+    "finance",
+    "supabase",
+    "express",
+    "react",
+    "nodejs"
+  ],
+  "author": "Esus Audit AI Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "dotenv": "^16.5.0",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.2"
+  }
+}
