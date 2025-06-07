@@ -11,7 +11,9 @@ const dotenv = require('dotenv');
 
 // Load environment variables
 dotenv.config({ path: './.env' }); // First try server/.env
-dotenv.config({ path: '../.env' }); // Fallback to root .env
+dotenv.config({ path: '../.env' }); // Try root .env
+dotenv.config({ path: '../config/dev.env' }); // Try config/dev.env
+dotenv.config({ path: '../config/prod.env' }); // Try config/prod.env
 
 // Set up global error handlers
 setupUncaughtHandlers();

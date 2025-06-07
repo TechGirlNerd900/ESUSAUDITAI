@@ -9,6 +9,9 @@ const { applicationInsights } = require('./shared/logging');
 const { validateEnvOrExit } = require('./utils/envValidator');
 const { errorMiddleware } = require('./utils/errorHandler');
 const SecurityService = require('./shared/security');
+const { DocumentAnalysisClient } = require('@azure/ai-form-recognizer');
+const { SearchClient, SearchKeyCredential } = require('@azure/search-documents');
+const { OpenAIClient } = require('@azure/openai');
 
 // Import routes
 const projectsRouter = require('./routes/projects');
@@ -21,7 +24,9 @@ const reportsRouter = require('./routes/reports');
 
 // Load environment variables
 dotenv.config({ path: './.env' });
-dotenv.config({ path: '../.env' }); // Fallback to root .env
+dotenv.config({ path: '../.env' }); // Try root .env
+dotenv.config({ path: '../config/dev.env' }); // Try config/dev.env
+dotenv.config({ path: '../config/prod.env' }); // Try config/prod.env
 
 // Validate environment variables
 validateEnvOrExit();

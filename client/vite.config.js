@@ -13,7 +13,7 @@ export default defineConfig(({ command, mode }) => {
       port: 3001,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'http://localhost:3000',
+          target: env.VITE_API_URL || 'http://localhost:3001',
           changeOrigin: true,
           secure: process.env.NODE_ENV === 'production'
         }
@@ -45,7 +45,7 @@ export default defineConfig(({ command, mode }) => {
     },
     // Environment variable handling
     define: {
-      __API_URL__: JSON.stringify(env.VITE_API_URL || 'http://localhost:3000'),
+      __API_URL__: JSON.stringify(env.VITE_API_URL || 'http://localhost:3001'),
       __SUPABASE_URL__: JSON.stringify(env.VITE_SUPABASE_URL),
       __SUPABASE_ANON_KEY__: JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
       'process.env.NODE_ENV': JSON.stringify(mode)

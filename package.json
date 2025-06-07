@@ -14,8 +14,8 @@
     "test": "cd client && npm test",
     "deploy": "./scripts/deploy.sh",
     "init": "./scripts/init-local.sh",
-    "db:setup": "psql -f database/schema.sql && psql -f database/seed.sql",
-    "db:migrate": "psql -f database/migrations/001_enhanced_security_and_performance.sql",
+    "db:setup": "psql -d esusauditai -f database/schema.sql && psql -d esusauditai -f database/seed.sql",
+    "db:migrate": "psql -d esusauditai -f database/migrations/001_enhanced_security_and_performance.sql",
     "supabase:setup": "node scripts/supabase-setup.js"
   },
   "keywords": [
@@ -30,8 +30,10 @@
   "author": "Esus Audit AI Team",
   "license": "MIT",
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.10",
     "axios": "^1.9.0",
     "dotenv": "^16.5.0",
+    "path": "^0.12.7",
     "postgres": "^3.4.7"
   },
   "devDependencies": {

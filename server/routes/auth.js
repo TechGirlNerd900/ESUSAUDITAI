@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { supabase } = require('../shared/supabaseClient');
+
 const AuthService = require('../shared/auth');
 const SecurityService = require('../shared/security');
 const { applicationInsights } = require('../shared/logging');

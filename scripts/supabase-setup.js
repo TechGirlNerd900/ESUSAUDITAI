@@ -14,6 +14,9 @@ const path = require('path');
 const dotenv = require('dotenv');
 
 // Load environment variables
+dotenv.config({ path: path.join(__dirname, '../.env') });
+// Load from config directory
+dotenv.config({ path: path.join(__dirname, '../config/dev.env') });
 dotenv.config({ path: path.join(__dirname, '../config/prod.env') });
 
 const supabase = createClient(
@@ -22,7 +25,7 @@ const supabase = createClient(
 );
 
 // Storage bucket names
-const DOCUMENT_BUCKET = 'documents';
+const DOCUMENT_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'documents';
 const REPORT_BUCKET = 'reports';
 
 /**
