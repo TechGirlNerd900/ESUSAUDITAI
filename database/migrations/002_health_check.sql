@@ -1,4 +1,6 @@
 -- Create health check table for monitoring
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS health_check (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -16,7 +18,7 @@ BEGIN
     NEW.created_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 -- Create trigger to update timestamp on health check updates
 DROP TRIGGER IF EXISTS update_health_check_timestamp ON health_check;
@@ -39,4 +41,6 @@ BEGIN
     SET count = count + 1
     WHERE id = (SELECT id FROM health_check LIMIT 1);
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
+
+COMMIT;

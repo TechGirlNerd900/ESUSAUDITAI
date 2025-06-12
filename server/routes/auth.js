@@ -1,45 +1,17 @@
-const express = require('express');
+import express from 'express';
+import { supabase } from '../shared/supabaseClient.js';
+import { applicationInsights } from '../shared/logging.js';
+import { authMiddleware } from '../middleware/auth.js';
+
 const router = express.Router();
-const { supabase } = require('../shared/supabaseClient');
 
-const AuthService = require('../shared/auth');
-const SecurityService = require('../shared/security');
-const { applicationInsights } = require('../shared/logging');
-
-const auth = new AuthService();
-const security = new SecurityService();
-
-// Apply rate limiting to auth routes
-const authRateLimit = security.createRateLimit(15 * 60 * 1000, 5); // 5 attempts per 15 minutes
-
-// User registration
+// Register new user
 router.post('/register', async (req, res) => {
     try {
-        const { email, password, firstName, lastName, company, role } = req.body;
+        const { email, password, firstName, lastName, company } = req.body;
 
-        // Validate input
-        if (!email || !password || !firstName || !lastName) {
-            return res.status(400).json({ error: 'Email, password, first name, and last name are required' });
-        }
-        
-        // Validate role if provided
-        const validRoles = ['auditor', 'reviewer', 'admin'];
-        if (role && !validRoles.includes(role)) {
-            return res.status(400).json({ error: 'Invalid role specified' });
-        }
-
-        // Use centralized validation methods
-        if (!security.validateInput(email, 'email')) {
-            return res.status(400).json({ error: 'Invalid email format' });
-        }
-
-        // Use centralized validation methods
-        if (!security.validateInput(password, 'password')) {
-            return res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, number, and special character' });
-        }
-
-        // Register user with Supabase Auth
-        const { data, error } = await supabase.auth.signUp({
+        // First, create the auth user in Supabase
+        const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
             options: {
@@ -50,132 +22,274 @@ router.post('/register', async (req, res) => {
             }
         });
 
-        if (error) throw error;
+        if (authError) {
+            applicationInsights.trackEvent({
+                name: 'RegistrationFailure',
+                properties: {
+                    error: authError.message,
+                    email
+                }
+            });
+            return res.status(400).json({ error: authError.message });
+        }
 
-        // Create user record in database
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .insert([{
-                id: data.user.id,
-                email,
-                first_name: firstName,
-                last_name: lastName,
-                role: role || 'auditor', // Use provided role or default to 'auditor'
-                company
-            }])
-            .select()
-            .single();
-
-        if (userError) throw userError;
-
+        // The user profile will be created automatically via database trigger
         applicationInsights.trackEvent({
             name: 'UserRegistered',
-            properties: { userId: userData.id }
+            properties: {
+                userId: authData.user.id,
+                email
+            }
         });
 
         res.status(201).json({
-            user: auth.sanitizeUser(userData),
-            token: data.session?.access_token
+            message: 'Registration successful',
+            user: authData.user
         });
     } catch (error) {
         applicationInsights.trackException({ exception: error });
-        console.error('Registration error:', error);
-        
-        // Handle Supabase specific errors
-        if (error.code === '23505') { // Unique violation
-            return res.status(409).json({ error: 'Email already registered' });
-        }
-        
-        // Handle other known error types
-        if (error.message && error.message.includes('duplicate')) {
-            return res.status(409).json({ error: 'Email already registered' });
-        }
-        
-        res.status(500).json({ error: error.message || 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error during registration' });
     }
 });
 
-// User login
-router.post('/login', authRateLimit, async (req, res) => {
-  try {
-    const { email, password } = req.body;
+// Login
+router.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
 
-    if (!security.validateInput(email, 'email')) {
-      return res.status(400).json({ error: 'Invalid email format' });
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (authError) {
+            applicationInsights.trackEvent({
+                name: 'LoginFailure',
+                properties: {
+                    error: authError.message,
+                    email
+                }
+            });
+            return res.status(401).json({ error: authError.message });
+        }
+
+        // Get additional user data
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_user_id', authData.user.id)
+            .single();
+
+        if (userError) {
+            applicationInsights.trackEvent({
+                name: 'UserDataFetchFailure',
+                properties: {
+                    error: userError.message,
+                    userId: authData.user.id
+                }
+            });
+            return res.status(500).json({ error: 'Failed to get user data' });
+        }
+
+        applicationInsights.trackEvent({
+            name: 'UserLoggedIn',
+            properties: {
+                userId: authData.user.id,
+                email
+            }
+        });
+
+        res.json({
+            user: {
+                ...userData,
+                auth: authData.user
+            },
+            session: authData.session
+        });
+    } catch (error) {
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error during login' });
     }
-
-    // Check for account lockout
-    const lockoutStatus = await security.checkLoginAttempts(email);
-    if (!lockoutStatus.allowed) {
-      return res.status(429).json({
-        error: 'Account temporarily locked',
-        lockoutTimeRemaining: lockoutStatus.lockoutTimeRemaining
-      });
-    }
-
-    // Authenticate with Supabase
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      await security.recordFailedLogin(email);
-      applicationInsights.trackEvent({
-        name: 'LoginFailed',
-        properties: { email, reason: error.message }
-      });
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Clear failed login attempts on success
-    await security.clearLoginAttempts(email);
-
-    // Get additional user data
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
-
-    if (userError) throw userError;
-
-    applicationInsights.trackEvent({
-      name: 'LoginSuccessful',
-      properties: { userId: userData.id }
-    });
-
-    res.json({
-      user: auth.sanitizeUser(userData),
-      token: data.session.access_token
-    });
-  } catch (error) {
-    applicationInsights.trackException({ exception: error });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Verify token and get user info
-router.get('/verify', async (req, res) => {
-  try {
-    const userData = await auth.authenticateRequest(req);
-    res.json({ user: userData });
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
 });
 
 // Logout
-router.post('/logout', async (req, res) => {
-  try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+router.post('/logout', authMiddleware, async (req, res) => {
+    try {
+        const { error } = await supabase.auth.signOut();
 
-    res.json({ message: 'Logged out successfully' });
-  } catch (error) {
-    applicationInsights.trackException({ exception: error });
-    res.status(500).json({ error: 'Internal server error' });
-  }
+        if (error) {
+            applicationInsights.trackEvent({
+                name: 'LogoutFailure',
+                properties: {
+                    error: error.message,
+                    userId: req.user.id
+                }
+            });
+            return res.status(500).json({ error: error.message });
+        }
+
+        applicationInsights.trackEvent({
+            name: 'UserLoggedOut',
+            properties: {
+                userId: req.user.id
+            }
+        });
+
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error during logout' });
+    }
 });
 
-module.exports = router;
+// Get current user
+router.get('/me', authMiddleware, async (req, res) => {
+    try {
+        // User data is already attached by authMiddleware
+        res.json({ user: req.user });
+    } catch (error) {
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error fetching user data' });
+    }
+});
+
+// Update user profile
+router.put('/profile', authMiddleware, async (req, res) => {
+    try {
+        const { firstName, lastName, company } = req.body;
+
+        // Update auth user metadata
+        const { error: authError } = await supabase.auth.updateUser({
+            data: {
+                first_name: firstName,
+                last_name: lastName
+            }
+        });
+
+        if (authError) {
+            applicationInsights.trackEvent({
+                name: 'ProfileUpdateFailure',
+                properties: {
+                    error: authError.message,
+                    userId: req.user.id
+                }
+            });
+            return res.status(400).json({ error: authError.message });
+        }
+
+        // Update user profile in our database
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .update({
+                first_name: firstName,
+                last_name: lastName,
+                company,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', req.user.id)
+            .select()
+            .single();
+
+        if (userError) {
+            applicationInsights.trackEvent({
+                name: 'ProfileUpdateFailure',
+                properties: {
+                    error: userError.message,
+                    userId: req.user.id
+                }
+            });
+            return res.status(500).json({ error: 'Failed to update user profile' });
+        }
+
+        applicationInsights.trackEvent({
+            name: 'ProfileUpdated',
+            properties: {
+                userId: req.user.id
+            }
+        });
+
+        res.json({ user: userData });
+    } catch (error) {
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error updating profile' });
+    }
+});
+
+// Request password reset
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: process.env.PASSWORD_RESET_URL
+        });
+
+        if (error) {
+            applicationInsights.trackEvent({
+                name: 'PasswordResetRequestFailure',
+                properties: {
+                    error: error.message,
+                    email
+                }
+            });
+            return res.status(400).json({ error: error.message });
+        }
+
+        applicationInsights.trackEvent({
+            name: 'PasswordResetRequested',
+            properties: { email }
+        });
+
+        res.json({ message: 'Password reset instructions sent' });
+    } catch (error) {
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error requesting password reset' });
+    }
+});
+
+// Change password (requires authentication)
+router.post('/change-password', authMiddleware, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        // Verify current password
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: req.user.auth.email,
+            password: currentPassword
+        });
+
+        if (signInError) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+
+        // Update password
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+
+        if (error) {
+            applicationInsights.trackEvent({
+                name: 'PasswordChangeFailure',
+                properties: {
+                    error: error.message,
+                    userId: req.user.id
+                }
+            });
+            return res.status(400).json({ error: error.message });
+        }
+
+        applicationInsights.trackEvent({
+            name: 'PasswordChanged',
+            properties: {
+                userId: req.user.id
+            }
+        });
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error changing password' });
+    }
+});
+
+export default router;

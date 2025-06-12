@@ -3,15 +3,15 @@
  * Provides consistent error responses and logging across the application
  */
 
-const { applicationInsights } = require('../shared/logging');
-const { formatError, sanitizeForLogging } = require('./helpers');
-const dotenv = require('dotenv');
+import { applicationInsights } from '../shared/logging.js';
+import { formatError, sanitizeForLogging } from './helpers.js';
 
-dotenv.config({ path: '../.env' }); // Fallback to root .env
-const asyncHandler = fn => (req, res, next) => { Promise.resolve(fn(req, res, next)).catch(next); };
+export const asyncHandler = fn => (req, res, next) => { 
+    Promise.resolve(fn(req, res, next)).catch(next); 
+};
 
 // Error types with corresponding HTTP status codes
-const ERROR_TYPES = {
+export const ERROR_TYPES = {
   VALIDATION: 400,
   AUTHENTICATION: 401,
   AUTHORIZATION: 403,
@@ -30,7 +30,7 @@ const ERROR_TYPES = {
  * @param {Error} originalError - Original error object (optional)
  * @returns {Object} Standardized error object
  */
-function createError(type, message, details = null, originalError = null) {
+export function createError(type, message, details = null, originalError = null) {
   const statusCode = ERROR_TYPES[type] || 500;
   
   const error = {
@@ -71,7 +71,7 @@ function createError(type, message, details = null, originalError = null) {
 /**
  * Production-ready error handler middleware
  */
-function errorMiddleware(err, req, res, next) {
+export function errorMiddleware(err, req, res, next) {
     // Log the error with full context in Application Insights
     applicationInsights.trackException({
         exception: err,
@@ -136,7 +136,7 @@ function errorMiddleware(err, req, res, next) {
 /**
  * Handler for unhandled rejections and exceptions
  */
-function setupUncaughtHandlers() {
+export function setupUncaughtHandlers() {
     process.on('unhandledRejection', (reason, promise) => {
         applicationInsights.trackException({
             exception: reason,
@@ -166,10 +166,61 @@ function setupUncaughtHandlers() {
     });
 }
 
-module.exports = {
-  ERROR_TYPES,
-  createError,
-  errorMiddleware,
-  asyncHandler,
-  setupUncaughtHandlers
+/**
+ * Supabase-specific error handling utility
+ */
+
+class SupabaseError extends Error {
+    constructor(message, code, originalError) {
+        super(message);
+        this.name = 'SupabaseError';
+        this.code = code;
+        this.originalError = originalError;
+    }
+}
+
+export const handleSupabaseError = (error, operation) => {
+    let errorMessage = 'An unexpected error occurred';
+    let statusCode = 500;
+
+    // Map Supabase error codes to appropriate HTTP status codes and messages
+    if (error?.message?.includes('JWT')) {
+        statusCode = 401;
+        errorMessage = 'Authentication token is invalid or expired';
+    } else if (error?.code === '23505') {
+        statusCode = 409;
+        errorMessage = 'Resource already exists';
+    } else if (error?.code === '23503') {
+        statusCode = 404;
+        errorMessage = 'Referenced resource not found';
+    } else if (error?.code === '42P01') {
+        statusCode = 500;
+        errorMessage = 'Database table not found';
+    } else if (error?.code === '42703') {
+        statusCode = 500;
+        errorMessage = 'Database column not found';
+    } else if (error?.message?.includes('bucket')) {
+        statusCode = 500;
+        errorMessage = 'Storage bucket error';
+    }
+
+    // Log the error with additional context
+    applicationInsights.trackException({
+        exception: new SupabaseError(errorMessage, error?.code, error),
+        properties: {
+            operation,
+            originalError: error?.message,
+            errorCode: error?.code,
+            statusCode
+        }
+    });
+
+    return {
+        statusCode,
+        error: {
+            message: errorMessage,
+            code: error?.code,
+            operation
+        }
+    };
 };

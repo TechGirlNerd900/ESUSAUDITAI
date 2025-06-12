@@ -1,51 +1,45 @@
-/**
- * Supabase Setup Script
- * 
- * This script initializes Supabase resources:
- * 1. Creates storage buckets for documents and reports
- * 2. Sets up bucket policies
- * 3. Verifies database schema
- * 
- * Usage: node scripts/supabase-setup.js
- */
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const { createClient } = require('@supabase/supabase-js');
-const path = require('path');
-const dotenv = require('dotenv');
+// --- Emulate __dirname for ES Modules ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-// Load environment variables
-dotenv.config({ path: path.join(__dirname, '../.env') });
-// Load from config directory
-dotenv.config({ path: path.join(__dirname, '../config/dev.env') });
-dotenv.config({ path: path.join(__dirname, '../config/prod.env') });
+dotenv.config({ path: path.join(__dirname, '../server/.env') });
 
+// Initialize Supabase client with URL and service role key from environment variables
 const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Storage bucket names
-const DOCUMENT_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'documents';
+// Define storage bucket names. Use environment variable for DOCUMENT_BUCKET or default.
+const DOCUMENT_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'audit-documents';
 const REPORT_BUCKET = 'reports';
 
 /**
- * Main setup function
+ * Main setup function to orchestrate Supabase resource initialization.
  */
 async function setupSupabase() {
   console.log('🚀 Starting Supabase setup...');
-  
+
   try {
-    // Create storage buckets
+    // Step 1: Create necessary storage buckets
     await createBuckets();
-    
-    // Set up bucket policies
+
+    // Step 2: Apply security policies to the created buckets
     await setupBucketPolicies();
-    
-    // Verify database schema
+
+    // Step 3: Verify the expected database schema exists
     await verifyDatabaseSchema();
-    
+
     console.log('✅ Supabase setup completed successfully!');
   } catch (error) {
+    // Log any errors during setup and exit the process with a failure code
     console.error('❌ Supabase setup failed:', error.message);
     console.error(error);
     process.exit(1);
@@ -53,36 +47,38 @@ async function setupSupabase() {
 }
 
 /**
- * Create storage buckets if they don't exist
+ * Creates storage buckets if they do not already exist in Supabase.
+ * Checks for 'documents' and 'reports' buckets.
  */
 async function createBuckets() {
   console.log('📁 Setting up storage buckets...');
-  
-  // Get existing buckets
+
+  // Fetch a list of all existing buckets in Supabase storage
   const { data: buckets, error: getBucketsError } = await supabase.storage.listBuckets();
-  
+
   if (getBucketsError) {
     throw new Error(`Failed to list buckets: ${getBucketsError.message}`);
   }
-  
+
+  // Extract names of existing buckets for easy lookup
   const existingBuckets = buckets.map(bucket => bucket.name);
-  
-  // Create documents bucket if it doesn't exist
+
+  // --- Create Documents Bucket ---
   if (!existingBuckets.includes(DOCUMENT_BUCKET)) {
     console.log(`Creating '${DOCUMENT_BUCKET}' bucket...`);
     const { error: createDocBucketError } = await supabase.storage.createBucket(DOCUMENT_BUCKET, {
-      public: false,
-      fileSizeLimit: 52428800, // 50MB
-      allowedMimeTypes: [
+      public: false, // Keep documents private by default
+      fileSizeLimit: 52428800, // 50MB limit per file
+      allowedMimeTypes: [ // Specify allowed file types for documents
         'application/pdf',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/msword',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/msword', // .doc
         'text/csv'
       ]
     });
-    
+
     if (createDocBucketError) {
       throw new Error(`Failed to create documents bucket: ${createDocBucketError.message}`);
     }
@@ -90,16 +86,16 @@ async function createBuckets() {
   } else {
     console.log(`✅ '${DOCUMENT_BUCKET}' bucket already exists`);
   }
-  
-  // Create reports bucket if it doesn't exist
+
+  // --- Create Reports Bucket ---
   if (!existingBuckets.includes(REPORT_BUCKET)) {
     console.log(`Creating '${REPORT_BUCKET}' bucket...`);
     const { error: createReportBucketError } = await supabase.storage.createBucket(REPORT_BUCKET, {
-      public: false,
-      fileSizeLimit: 20971520, // 20MB
-      allowedMimeTypes: ['application/pdf']
+      public: false, // Keep reports private by default
+      fileSizeLimit: 20971520, // 20MB limit per file
+      allowedMimeTypes: ['application/pdf'] // Only PDF allowed for reports
     });
-    
+
     if (createReportBucketError) {
       throw new Error(`Failed to create reports bucket: ${createReportBucketError.message}`);
     }
@@ -110,62 +106,42 @@ async function createBuckets() {
 }
 
 /**
- * Set up bucket policies
+ * Sets up Row Level Security (RLS) policies for the storage buckets.
+ * Policies ensure that only authenticated users can access their own project documents/reports.
  */
 async function setupBucketPolicies() {
   console.log('🔒 Setting up bucket policies...');
-  
-  // Documents bucket policy - only authenticated users can access their project documents
-  const documentPolicy = {
-    name: 'Authenticated users can access their project documents',
-    definition: {
-      type: 'storage',
-      match: {
-        bucket: DOCUMENT_BUCKET,
-        owner: 'authenticated'
-      },
-      statements: [
-        {
-          effect: 'allow',
-          action: 'select',
-          condition: {
-            user_id: '$.auth.uid'
-          }
-        }
-      ]
-    }
-  };
-  
-  // Reports bucket policy - only authenticated users can access their project reports
-  const reportPolicy = {
-    name: 'Authenticated users can access their project reports',
-    definition: {
-      type: 'storage',
-      match: {
-        bucket: REPORT_BUCKET,
-        owner: 'authenticated'
-      },
-      statements: [
-        {
-          effect: 'allow',
-          action: 'select',
-          condition: {
-            user_id: '$.auth.uid'
-          }
-        }
-      ]
-    }
-  };
-  
-  // Apply policies
+
   try {
+    // For documents bucket
     console.log('Applying document bucket policy...');
-    await supabase.storage.from(DOCUMENT_BUCKET).updateBucketPolicy(documentPolicy);
+    const { error: docError } = await supabase.storage.updateBucket(DOCUMENT_BUCKET, {
+      public: false,
+      allowedMimeTypes: [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+        'text/csv'
+      ],
+      fileSizeLimit: 52428800
+    });
+
+    if (docError) throw docError;
     console.log('✅ Document bucket policy applied');
-    
+
+    // For reports bucket
     console.log('Applying report bucket policy...');
-    await supabase.storage.from(REPORT_BUCKET).updateBucketPolicy(reportPolicy);
+    const { error: reportError } = await supabase.storage.updateBucket(REPORT_BUCKET, {
+      public: false,
+      allowedMimeTypes: ['application/pdf'],
+      fileSizeLimit: 20971520
+    });
+
+    if (reportError) throw reportError;
     console.log('✅ Report bucket policy applied');
+
   } catch (error) {
     console.warn('⚠️ Could not apply bucket policies:', error.message);
     console.warn('You may need to set these policies manually in the Supabase dashboard');
@@ -173,12 +149,13 @@ async function setupBucketPolicies() {
 }
 
 /**
- * Verify database schema
+ * Verifies that the required database tables and extensions exist.
+ * This is a check to ensure the database schema is correctly set up.
  */
 async function verifyDatabaseSchema() {
   console.log('🔍 Verifying database schema...');
-  
-  // Check if required tables exist
+
+  // List of tables expected to be in the 'public' schema
   const requiredTables = [
     'users',
     'projects',
@@ -189,41 +166,44 @@ async function verifyDatabaseSchema() {
     'audit_logs',
     'app_settings'
   ];
-  
-  const { data: tables, error: tablesError } = await supabase
-    .from('information_schema.tables')
-    .select('table_name')
-    .eq('table_schema', 'public');
-  
-  if (tablesError) {
-    throw new Error(`Failed to query database schema: ${tablesError.message}`);
-  }
-  
-  const existingTables = tables.map(t => t.table_name);
-  const missingTables = requiredTables.filter(t => !existingTables.includes(t));
-  
-  if (missingTables.length > 0) {
-    console.warn('⚠️ Missing tables detected:', missingTables.join(', '));
-    console.warn('Please run the database setup script: npm run db:setup');
-  } else {
-    console.log('✅ All required tables exist');
-  }
-  
-  // Check if UUID extension is enabled
-  const { data: extensions, error: extensionsError } = await supabase
-    .from('pg_extension')
-    .select('extname')
-    .eq('extname', 'uuid-ossp');
-  
-  if (extensionsError) {
-    console.warn('⚠️ Could not verify UUID extension:', extensionsError.message);
-  } else if (!extensions || extensions.length === 0) {
-    console.warn('⚠️ UUID extension not enabled. Some features may not work correctly.');
-    console.warn('Run the following SQL command: CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
-  } else {
-    console.log('✅ UUID extension is enabled');
+
+  try {
+    // Query to get existing table names in the 'public' schema using raw SQL
+    const { data: tables, error: tablesError } = await supabase
+      .rpc('get_public_tables', {});
+
+    if (tablesError) {
+      throw new Error(`Failed to query database schema: ${tablesError.message}`);
+    }
+
+    // Compare existing tables with required tables
+    const existingTables = tables || [];
+    const missingTables = requiredTables.filter(t => !existingTables.includes(t));
+
+    if (missingTables.length > 0) {
+      console.warn('⚠️ Missing tables detected:', missingTables.join(', '));
+      console.warn('Please run the database setup script: npm run db:setup');
+    } else {
+      console.log('✅ All required tables exist');
+    }
+
+    // Check if the 'uuid-ossp' extension is enabled using raw SQL
+    const { data: extensions, error: extensionsError } = await supabase
+      .rpc('check_uuid_extension', {});
+
+    if (extensionsError) {
+      console.warn('⚠️ Could not verify UUID extension:', extensionsError.message);
+    } else if (!extensions) {
+      console.warn('⚠️ UUID extension not enabled. Some features may not work correctly.');
+      console.warn('Run the following SQL command: CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+    } else {
+      console.log('✅ UUID extension is enabled');
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not verify database schema:', error.message);
+    console.warn('You may need to check the database setup manually');
   }
 }
 
-// Run the setup
+// Execute the main setup function when the script runs
 setupSupabase();

@@ -1,19 +1,16 @@
-const express = require('express');
-const router = express.Router();
-const { supabase } = require('../shared/supabaseClient');
-const { authenticateToken } = require('../middleware/auth');
-const { applicationInsights } = require('../shared/logging');
-const { DocumentAnalysisClient} = require('@azure/ai-form-recognizer');
-const dotenv = require('dotenv');
-const { SearchClient } = require('@azure/search-documents');
-const { AzureKeyCredential } = require('@azure/core-auth');
-const OpenAIClient = require('../shared/openaiClient');
+import express from 'express';
+import { supabase } from '../shared/supabaseClient.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { applicationInsights } from '../shared/logging.js';
+import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
+import dotenv from 'dotenv';
+import { SearchClient } from '@azure/search-documents';
+import { AzureKeyCredential } from '@azure/core-auth';
+import OpenAIClient from '../shared/openaiClient.js';
 
+const router = express.Router();
 
 dotenv.config({ path: '../.env' }); // Fallback to root .env
-
-// Validate environment variables
-
 
 // Initialize Document Intelligence (formerly Form Recognizer) with error handling
 let documentIntelligenceClient;
@@ -51,7 +48,7 @@ try {
 }
 
 // Analyze document
-router.post('/:documentId', authenticateToken, async (req, res) => {
+router.post('/:documentId', authMiddleware, async (req, res) => {
     try {
         const { documentId } = req.params;
         const userId = req.user.id;
@@ -248,7 +245,7 @@ router.post('/:documentId', authenticateToken, async (req, res) => {
 });
 
 // Get analysis results for a document
-router.get('/:documentId', authenticateToken, async (req, res) => {
+router.get('/:documentId', authMiddleware, async (req, res) => {
     try {
         const { documentId } = req.params;
         const userId = req.user.id;
@@ -304,7 +301,7 @@ router.get('/:documentId', authenticateToken, async (req, res) => {
 });
 
 // Search documents
-router.post('/search', authenticateToken, async (req, res) => {
+router.post('/search', authMiddleware, async (req, res) => {
     try {
         const { query, projectId, limit = 10 } = req.body;
         const userId = req.user.id;
@@ -573,4 +570,4 @@ async function searchDocuments(query, projectId = null, top = 10) {
     }
 }
 
-module.exports = router;
+export default router;

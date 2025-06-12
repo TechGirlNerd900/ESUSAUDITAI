@@ -1,11 +1,12 @@
-const express = require('express');
+import express from 'express';
+import multer from 'multer';
+import { supabase } from '../shared/supabaseClient.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { applicationInsights } from '../shared/logging.js';
+import { v4 as uuidv4 } from 'uuid';
+import { createError, asyncHandler } from '../utils/errorHandler.js';
+
 const router = express.Router();
-const multer = require('multer');
-const { supabase } = require('../shared/supabaseClient');
-const { authenticateToken } = require('../middleware/auth');
-const { applicationInsights } = require('../shared/logging');
-const { v4: uuidv4 } = require('uuid');
-const { createError, asyncHandler } = require('../utils/errorHandler');
 
 // Configure multer for memory storage
 const upload = multer({
@@ -31,9 +32,8 @@ const upload = multer({
     }
 });
 
-
 // Upload document
-router.post('/:projectId', authenticateToken, upload.single('file'), asyncHandler(async (req, res) => {
+router.post('/:projectId', authMiddleware, upload.single('file'), asyncHandler(async (req, res) => {
     const { projectId } = req.params;
     const userId = req.user.id;
     const file = req.file;
@@ -138,8 +138,7 @@ router.post('/:projectId', authenticateToken, upload.single('file'), asyncHandle
 }));
 
 // Download document
-router.get('/:documentId/download', authenticateToken, async (req, res) => {
-    try {
+router.get('/:documentId/download', authMiddleware, asyncHandler(async (req, res) => {
         const { documentId } = req.params;
         const userId = req.user.id;
 
@@ -151,7 +150,7 @@ router.get('/:documentId/download', authenticateToken, async (req, res) => {
             .single();
 
         if (docError || !document) {
-            return res.status(404).json({ error: 'Document not found' });
+        throw createError('NOT_FOUND', 'Document not found');
         }
 
         // Check access
@@ -160,7 +159,7 @@ router.get('/:documentId/download', authenticateToken, async (req, res) => {
                          req.user.role === 'admin';
 
         if (!canAccess) {
-            return res.status(403).json({ error: 'Access denied to this document' });
+        throw createError('AUTHORIZATION', 'Access denied to this document');
         }
 
         // Generate signed URL for secure download
@@ -168,8 +167,9 @@ router.get('/:documentId/download', authenticateToken, async (req, res) => {
             .from('documents')
             .createSignedUrl(document.file_path, 60); // URL expires in 60 seconds
 
-        if (signedUrlError) throw signedUrlError;
-
+    if (signedUrlError) {
+        throw createError('INTERNAL', 'Failed to generate download URL', { originalError: signedUrlError.message }, signedUrlError);
+    }
         // Track download
         applicationInsights.trackEvent({
             name: 'DocumentDownloaded',
@@ -181,16 +181,10 @@ router.get('/:documentId/download', authenticateToken, async (req, res) => {
         });
 
         res.json({ downloadUrl: signedUrl });
-
-    } catch (error) {
-        applicationInsights.trackException({ exception: error });
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
+}));
 
 // Delete document
-router.delete('/:documentId', authenticateToken, async (req, res) => {
-    try {
+router.delete('/:documentId', authMiddleware, asyncHandler(async (req, res) => {
         const { documentId } = req.params;
         const userId = req.user.id;
 
@@ -202,7 +196,7 @@ router.delete('/:documentId', authenticateToken, async (req, res) => {
             .single();
 
         if (docError || !document) {
-            return res.status(404).json({ error: 'Document not found' });
+        throw createError('NOT_FOUND', 'Document not found');
         }
 
         // Check delete permission
@@ -210,7 +204,7 @@ router.delete('/:documentId', authenticateToken, async (req, res) => {
                          req.user.role === 'admin';
 
         if (!canDelete) {
-            return res.status(403).json({ error: 'Only project creator or admin can delete documents' });
+        throw createError('AUTHORIZATION', 'Only project creator or admin can delete documents');
         }
 
         // Delete from storage
@@ -218,16 +212,18 @@ router.delete('/:documentId', authenticateToken, async (req, res) => {
             .from('documents')
             .remove([document.file_path]);
 
-        if (storageError) throw storageError;
-
+    if (storageError) {
+        throw createError('INTERNAL', 'Failed to delete file from storage', { originalError: storageError.message }, storageError);
+    }
         // Delete from database
         const { error: deleteError } = await supabase
             .from('documents')
             .delete()
             .eq('id', documentId);
 
-        if (deleteError) throw deleteError;
-
+    if (deleteError) {
+        throw createError('INTERNAL', 'Failed to delete document record', { originalError: deleteError.message }, deleteError);
+    }
         // Track deletion
         applicationInsights.trackEvent({
             name: 'DocumentDeleted',
@@ -239,12 +235,7 @@ router.delete('/:documentId', authenticateToken, async (req, res) => {
         });
 
         res.json({ message: 'Document deleted successfully' });
-
-    } catch (error) {
-        applicationInsights.trackException({ exception: error });
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
+}));
 
 /**
  * Uploads a large file using chunked upload
@@ -332,4 +323,4 @@ async function uploadLargeFile(filePath, file) {
     }
 }
 
-module.exports = router;
+export default router;

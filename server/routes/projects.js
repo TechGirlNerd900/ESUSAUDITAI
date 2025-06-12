@@ -1,11 +1,12 @@
-const express = require('express');
+import express from 'express';
+import { supabase } from '../shared/supabaseClient.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { applicationInsights } from '../shared/logging.js';
+
 const router = express.Router();
-const { supabase } = require('../shared/supabaseClient');
-const { authenticateToken } = require('../middleware/auth');
-const { applicationInsights } = require('../shared/logging');
 
 // Get all projects for authenticated user
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
 
@@ -38,7 +39,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Create new project
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
         const { name, description, clientName, clientEmail, assignedTo, startDate, endDate } = req.body;
@@ -85,7 +86,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Get specific project with documents and analysis results
-router.get('/:projectId', authenticateToken, async (req, res) => {
+router.get('/:projectId', authMiddleware, async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user.id;
@@ -166,7 +167,7 @@ router.get('/:projectId', authenticateToken, async (req, res) => {
 });
 
 // Update project
-router.put('/:projectId', authenticateToken, async (req, res) => {
+router.put('/:projectId', authMiddleware, async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user.id;
@@ -233,4 +234,4 @@ router.put('/:projectId', authenticateToken, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

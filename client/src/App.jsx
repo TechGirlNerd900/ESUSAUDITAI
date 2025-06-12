@@ -17,9 +17,7 @@ import Settings from './pages/Settings';
 
 // Services
 import { authService } from './services/api';
-
-// Context
-import { AuthContext } from './contexts/AuthContext';
+import AuthContext, { useAuth } from './contexts/AuthContext.jsx';
 
 function App() {
   const [user, setUser] = useState(null);

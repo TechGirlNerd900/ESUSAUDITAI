@@ -3,8 +3,8 @@ import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useMutation } from 'react-query';
 import toast from 'react-hot-toast';
-import { projectsService } from '../services/api';
-import LoadingSpinner from './LoadingSpinner';
+import { projectsService } from '../services/api.js';
+import LoadingSpinner from './LoadingSpinner.jsx';
 
 const CreateProjectModal = ({ open, setOpen, onSuccess }) => {
   const [formData, setFormData] = useState({

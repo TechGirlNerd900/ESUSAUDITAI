@@ -1,15 +1,15 @@
 /**
- * Helper utilities for the application
+ * Utility helper functions for the application
  */
 
 /**
- * Wraps a promise with a timeout
- * @param {Promise} promise The promise to wrap with a timeout
- * @param {number} timeoutMs Timeout in milliseconds
- * @param {string} errorMsg Custom error message for timeout
- * @returns {Promise} Promise that will reject if the timeout is reached
+ * Executes a promise with a timeout
+ * @param {Promise} promise - The promise to execute
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @param {string} errorMsg - Custom error message if timeout occurs
+ * @returns {Promise} - The original promise with a timeout race
  */
-function promiseWithTimeout(promise, timeoutMs, errorMsg = 'Operation timed out') {
+export function promiseWithTimeout(promise, timeoutMs, errorMsg = 'Operation timed out') {
     let timeoutHandle;
     const timeoutPromise = new Promise((_, reject) => {
         timeoutHandle = setTimeout(() => {
@@ -26,12 +26,12 @@ function promiseWithTimeout(promise, timeoutMs, errorMsg = 'Operation timed out'
 }
 
 /**
- * Formats an error for consistent error handling
- * @param {Error} error The error to format
- * @param {string} context Additional context about where the error occurred
- * @returns {Object} Formatted error object
+ * Formats an error object for consistent error handling
+ * @param {Error} error - The original error
+ * @param {string} context - Additional context information
+ * @returns {Object} - Formatted error object
  */
-function formatError(error, context = '') {
+export function formatError(error, context = '') {
     return {
         message: error.message,
         code: error.code || 'UNKNOWN_ERROR',
@@ -41,11 +41,11 @@ function formatError(error, context = '') {
 }
 
 /**
- * Sanitizes an object for logging by removing sensitive fields
- * @param {Object} obj The object to sanitize
- * @returns {Object} Sanitized object safe for logging
+ * Sanitizes objects for logging by removing sensitive information
+ * @param {Object} obj - Object to sanitize
+ * @returns {Object} - Sanitized object
  */
-function sanitizeForLogging(obj) {
+export function sanitizeForLogging(obj) {
     const sensitiveFields = ['password', 'token', 'key', 'secret', 'authorization'];
     const sanitized = { ...obj };
 
@@ -61,11 +61,11 @@ function sanitizeForLogging(obj) {
 }
 
 /**
- * Validates and sanitizes a file name for security
- * @param {string} fileName Original file name
- * @returns {string} Sanitized file name
+ * Sanitizes filenames to prevent path traversal attacks
+ * @param {string} fileName - Original filename
+ * @returns {string} - Sanitized filename
  */
-function sanitizeFileName(fileName) {
+export function sanitizeFileName(fileName) {
     // Remove any directory traversal attempts
     const name = fileName.replace(/^.*[\\\/]/, '');
     
@@ -74,11 +74,11 @@ function sanitizeFileName(fileName) {
 }
 
 /**
- * Checks if a given MIME type is allowed
- * @param {string} mimeType The MIME type to check
- * @returns {boolean} Whether the MIME type is allowed
+ * Checks if a MIME type is in the allowed list
+ * @param {string} mimeType - MIME type to check
+ * @returns {boolean} - Whether the MIME type is allowed
  */
-function isAllowedMimeType(mimeType) {
+export function isAllowedMimeType(mimeType) {
     const allowedTypes = process.env.ALLOWED_FILE_TYPES?.split(',') || [
         'application/pdf',
         'application/vnd.ms-excel',
@@ -90,11 +90,3 @@ function isAllowedMimeType(mimeType) {
 
     return allowedTypes.includes(mimeType);
 }
-
-module.exports = {
-    promiseWithTimeout,
-    formatError,
-    sanitizeForLogging,
-    sanitizeFileName,
-    isAllowedMimeType
-};

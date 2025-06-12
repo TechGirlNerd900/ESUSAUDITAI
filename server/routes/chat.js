@@ -1,12 +1,15 @@
-const express = require('express');
+import express from 'express';
+import { supabase } from '../shared/supabaseClient.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { applicationInsights } from '../shared/logging.js';
+import OpenAIClient from '../shared/openaiClient.js';
+import { SearchClient } from '@azure/search-documents';
+import { AzureKeyCredential } from '@azure/core-auth';
+import dotenv from 'dotenv';
+
 const router = express.Router();
-const { supabase } = require('../shared/supabaseClient');
-const { authenticateToken } = require('../middleware/auth');
-const { applicationInsights } = require('../shared/logging');
-const OpenAIClient = require('../shared/openaiClient');
-const { SearchClient } = require('@azure/search-documents');
-const { AzureKeyCredential } = require('@azure/core-auth');
-require('dotenv').config();
+
+dotenv.config();
 
 // Initialize Cognitive Search
 const searchClient = new SearchClient(
@@ -16,7 +19,7 @@ const searchClient = new SearchClient(
 );
 
 // Ask Esus
-router.post('/ask', authenticateToken, async (req, res) => {
+router.post('/ask', authMiddleware, async (req, res) => {
     try {
         const { question, projectId } = req.body;
         const userId = req.user.id;
@@ -119,7 +122,7 @@ router.post('/ask', authenticateToken, async (req, res) => {
 });
 
 // Get chat history for a project
-router.get('/history/:projectId', authenticateToken, async (req, res) => {
+router.get('/history/:projectId', authMiddleware, async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user.id;
@@ -175,7 +178,7 @@ router.get('/history/:projectId', authenticateToken, async (req, res) => {
 });
 
 // Get suggested questions based on project analysis
-router.get('/suggested-questions/:projectId', authenticateToken, async (req, res) => {
+router.get('/suggested-questions/:projectId', authMiddleware, async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user.id;
@@ -317,4 +320,4 @@ function generateSuggestedQuestions(analysisResults, project) {
     return questions.slice(0, 8); // Return max 8 questions
 }
 
-module.exports = router;
+export default router;

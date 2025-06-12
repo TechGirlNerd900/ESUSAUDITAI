@@ -1,11 +1,13 @@
-const { DocumentAnalysisClient } = require('@azure/ai-form-recognizer');
-const { SearchClient, SearchIndexClient,SearchKeyCredential } = require('@azure/search-documents');
-const { supabase } = require('../shared/supabaseClient');
-const { applicationInsights } = require('./logging');
-const NodeCache = require('node-cache');
-const { promiseWithTimeout } = require('../utils/helpers');
-const { AzureKeyCredential } = require('@azure/core-auth');
-require('dotenv').config();
+import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
+import { SearchClient, SearchIndexClient, SearchKeyCredential } from '@azure/search-documents';
+import { supabase } from '../shared/supabaseClient.js';
+import { applicationInsights } from './logging.js';
+import NodeCache from 'node-cache';
+import { promiseWithTimeout } from '../utils/helpers.js';
+import { AzureKeyCredential } from '@azure/core-auth';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 class AzureServices {
     constructor() {
@@ -492,4 +494,4 @@ class AzureServices {
     }
 }
 
-module.exports = AzureServices;
+export default AzureServices;

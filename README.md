@@ -12,7 +12,7 @@ AI-powered audit automation platform for finance and audit firms. This comprehen
 - **File Type Support**: Support for PDF, Word, Excel, and CSV files
 
 ### AI-Powered Analysis
-- **Automated Data Extraction**: Extract key financial data from documents using Azure Document Intelligence
+- **Automated Data Extraction**: Extract key financial data from documents using Document Intelligence
 - **Financial Statement Analysis**: Analyze balance sheets, income statements, and cash flow statements
 - **Anomaly Detection**: Identify unusual patterns or discrepancies in financial data
 - **Risk Assessment**: Evaluate financial risk factors and highlight areas of concern
@@ -39,7 +39,7 @@ AI-powered audit automation platform for finance and audit firms. This comprehen
 - **Timeline Management**: Set and track project start and end dates
 - **Activity Logging**: Comprehensive audit trail of all user actions
 
-### Security & Compliance
+### Security
 - **Role-Based Access Control**: Granular permissions based on user roles (admin, auditor, reviewer)
 - **Secure Authentication**: Robust authentication via Supabase Auth
 - **Data Encryption**: End-to-end encryption for sensitive financial data
@@ -54,13 +54,13 @@ AI-powered audit automation platform for finance and audit firms. This comprehen
 - **Database**: PostgreSQL via Supabase
 - **Storage**: Supabase Storage
 - **Authentication**: Supabase Auth
-- **AI Services**: 
-  - Azure OpenAI (GPT-4 Turbo) for intelligent analysis and chat
-  - Azure Document Intelligence for document parsing
-  - Azure Cognitive Search for full-text search capabilities
-- **Monitoring**: Azure Application Insights
-- **Security**: Helmet.js, Express Rate Limit, CORS protection
 
+- **AI Services**: 
+  intelligent analysis and chat
+ Document Intelligence for document parsing
+Cognitive Search for full-text search capabilities
+- **Monitoring**: Application Insights
+- **Security**: Helmet.js, Express Rate Limit, CORS protection
 ## Prerequisites
 
 - Node.js 18+

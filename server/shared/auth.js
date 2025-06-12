@@ -1,9 +1,9 @@
-const { supabase } = require('../shared/supabaseClient');
-const { applicationInsights } = require('./logging');
+import { supabase } from '../shared/supabaseClient.js';
+import { applicationInsights } from './logging.js';
 
 class AuthService {
     constructor() {
-        // No constructor needed as we're using Supabase
+        this.client = supabase;
     }
 
     extractTokenFromHeader(authHeader) {
@@ -15,13 +15,27 @@ class AuthService {
 
     async verifyToken(token) {
         try {
-            const { data: { user }, error } = await supabase.auth.getUser(token);
+            const { data: { user }, error } = await this.client.auth.getUser(token);
             
             if (error || !user) {
                 throw new Error('Invalid token');
             }
 
-            return user;
+            // Get additional user data from our users table
+            const { data: userData, error: userError } = await this.client
+                .from('users')
+                .select('*')
+                .eq('auth_user_id', user.id)
+                .single();
+
+            if (userError) {
+                throw new Error('Failed to get user data');
+            }
+
+            return {
+                ...userData,
+                auth: user
+            };
         } catch (error) {
             applicationInsights.trackException({ exception: error });
             throw new Error('Token verification failed');
@@ -32,59 +46,68 @@ class AuthService {
         try {
             const authHeader = req.headers.authorization;
             const token = this.extractTokenFromHeader(authHeader);
-            const user = await this.verifyToken(token);
-
-            const { data: userData, error } = await supabase
-                .from('users')
-                .select('id, email, first_name, last_name, role, company')
-                .eq('id', user.id)
-                .single();
-
-            if (error) throw error;
-
-            return this.sanitizeUser(userData);
+            const userData = await this.verifyToken(token);
+            return userData;
         } catch (error) {
             applicationInsights.trackException({ exception: error });
             throw new Error('Authentication failed');
         }
     }
 
-    // Role-based authorization
-    authorizeRole(user, allowedRoles) {
-        if (!user || !user.role || !allowedRoles.includes(user.role)) {
-            throw new Error('Insufficient permissions');
+    async signUp(userData) {
+        try {
+            const { data: authData, error: authError } = await this.client.auth.signUp({
+                email: userData.email,
+                password: userData.password,
+                options: {
+                    data: {
+                        first_name: userData.firstName,
+                        last_name: userData.lastName
+                    }
+                }
+            });
+
+            if (authError) throw authError;
+
+            // User profile will be created automatically via database trigger
+            return authData;
+        } catch (error) {
+            applicationInsights.trackException({ exception: error });
+            throw error;
         }
-        return true;
+    }
+
+    async signIn(email, password) {
+        try {
+            const { data, error } = await this.client.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            applicationInsights.trackException({ exception: error });
+            throw error;
+        }
+    }
+
+    async signOut(token) {
+        try {
+            const { error } = await this.client.auth.signOut();
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            applicationInsights.trackException({ exception: error });
+            throw error;
+        }
     }
 
     canAccessProject(user, project) {
-        try {
-            // Admin can access all projects
-            if (user.role === 'admin') {
-                return true;
-            }
-
-            // Project creator can access
-            if (project.created_by === user.id) {
-                return true;
-            }
-
-            // Assigned users can access
-            if (project.assigned_to && project.assigned_to.includes(user.id)) {
-                return true;
-            }
-
-            return false;
-        } catch (error) {
-            applicationInsights.trackException({ exception: error });
-            return false;
-        }
-    }
-
-    sanitizeUser(user) {
-        const { password_hash, failed_login_attempts, locked_until, ...sanitizedUser } = user;
-        return sanitizedUser;
+        return project.created_by === user.id || 
+               project.assigned_to.includes(user.id) ||
+               user.role === 'admin';
     }
 }
 
-module.exports = AuthService;
+export default AuthService;

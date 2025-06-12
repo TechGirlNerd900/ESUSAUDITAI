@@ -10,45 +10,40 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [react()],
     server: {
-      port: 3001,
-      proxy: {
-        '/api': {
-          target: env.VITE_API_URL || 'http://localhost:3001',
-          changeOrigin: true,
-          secure: process.env.NODE_ENV === 'production'
-        }
-      }
-    },
-    build: {
-      outDir: 'dist',
-      sourcemap: mode === 'development',
-      // Production optimizations
-      minify: mode === 'production' ? 'esbuild' : false,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom', 'react-router-dom'],
-            supabase: ['@supabase/supabase-js'],
-            ui: ['@headlessui/react', '@heroicons/react']
-          }
-        }
-      },
-      // Cache busting
-      chunkSizeWarningLimit: 1000,
-      assetsDir: 'assets',
-      emptyOutDir: true
+    port: 3000,
+    proxy: {
+    '/api': {
+    target: env.VITE_API_URL || 'http://localhost:3001',
+    changeOrigin: true,
+    secure: false,
+              
+    // Remove /api prefix when proxying to backend
+    rewrite: (path) => path.replace(/^\/api/, ''),
+    }
+    }
     },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src')
       }
     },
-    // Environment variable handling
+    build: {
+      outDir: 'dist',
+      sourcemap: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            supabase: ['@supabase/supabase-js']
+          }
+        }
+      }
+    },
     define: {
-      __API_URL__: JSON.stringify(env.VITE_API_URL || 'http://localhost:3001'),
-      __SUPABASE_URL__: JSON.stringify(env.VITE_SUPABASE_URL),
-      __SUPABASE_ANON_KEY__: JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
-      'process.env.NODE_ENV': JSON.stringify(mode)
+      // Enable type checking for Supabase environment variables
+      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY)
     }
   };
 });
+

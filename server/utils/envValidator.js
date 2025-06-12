@@ -1,6 +1,6 @@
 /**
  * Environment variable validation utility
- * Validates required environment variables and provides fallbacks for non-critical ones
+ * Validates required environment variables and provides fallbacks for non-critical ones this
  */
 
 // Critical environment variables that must be present for the application to function
@@ -9,6 +9,7 @@ const CRITICAL_ENV_VARS = [
   'SUPABASE_URL',
   'SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
+  'SUPABASE_JWT_SECRET',
   
   // Azure AI Services
   'AZURE_FORM_RECOGNIZER_KEY',
@@ -19,18 +20,15 @@ const CRITICAL_ENV_VARS = [
   'AZURE_SEARCH_API_KEY',
   'AZURE_SEARCH_INDEX_NAME',
 
-
   // Production-specific (required in production only)
   ...(process.env.NODE_ENV === 'production' ? [
     'ALLOWED_ORIGINS',
-    'APPINSIGHTS_INSTRUMENTATIONKEY',
-    'RENDER_INTERNAL_TOKEN' // For Render.com deployment
   ] : [])
 ];
 
 // Non-critical environment variables with fallback values
 const NON_CRITICAL_ENV_VARS = {
-  'PORT': '3000',
+  'PORT': '3001',
   'NODE_ENV': 'development',
   'AZURE_OPENAI_API_VERSION': '2024-02-15-preview',
   'AZURE_OPENAI_DEPLOYMENT_NAME': 'gpt-4-turbo',
@@ -80,10 +78,51 @@ function validateVariableFormat(name, value) {
 }
 
 /**
+ * Validates Supabase configuration environment variables
+ * @throws Will throw an error if a required Supabase environment variable is missing or invalid
+ */
+export function validateSupabaseConfig() {
+  const requiredVars = [
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_STORAGE_BUCKET'
+  ];
+
+  // Allow JWT_SECRET as a fallback for SUPABASE_JWT_SECRET
+  if (!process.env.SUPABASE_JWT_SECRET && process.env.JWT_SECRET) {
+    process.env.SUPABASE_JWT_SECRET = process.env.JWT_SECRET;
+  }
+  
+  requiredVars.push('SUPABASE_JWT_SECRET');
+
+  const missing = requiredVars.filter(varName => !process.env[varName]);
+
+  if (missing.length > 0) {
+      throw new Error(`Missing required Supabase environment variables: ${missing.join(', ')}`);
+  }
+
+  // Validate URL format
+  try {
+      new URL(process.env.SUPABASE_URL);
+  } catch (e) {
+      throw new Error('Invalid SUPABASE_URL format');
+  }
+
+  // Validate key formats
+  const keyVars = ['SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET'];
+  keyVars.forEach(key => {
+      if (process.env[key]?.length < 30) {
+          throw new Error(`${key} appears to be invalid (too short)`);
+      }
+  });
+}
+
+/**
  * Validates all required environment variables
  * @returns {Object} Object containing validation result and any missing or invalid variables
  */
-function validateEnv() {
+export function validateEnv() {
   const missing = [];
   const invalid = [];
   
@@ -96,6 +135,9 @@ function validateEnv() {
       invalid.push(varName);
     }
   });
+  
+  // Validate Supabase configuration
+  validateSupabaseConfig();
   
   // Apply fallbacks for non-critical variables
   Object.entries(NON_CRITICAL_ENV_VARS).forEach(([varName, fallbackValue]) => {
@@ -115,7 +157,7 @@ function validateEnv() {
 /**
  * Validates environment variables and exits the process if critical variables are missing or invalid
  */
-function validateEnvOrExit() {
+export function validateEnvOrExit() {
   const { isValid, missing, invalid } = validateEnv();
   
   if (!isValid) {
@@ -147,8 +189,3 @@ function validateEnvOrExit() {
   console.log('✓ Environment validation successful');
   return true;
 }
-
-module.exports = {
-  validateEnv,
-  validateEnvOrExit
-};

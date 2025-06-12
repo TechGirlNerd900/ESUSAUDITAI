@@ -1,8 +1,9 @@
 // Security utilities and middleware for Esus Audit AI
-const { supabase } = require('../shared/supabaseClient');
-const { applicationInsights } = require('./logging');
-const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
+import { supabase } from '../shared/supabaseClient.js';
+import { applicationInsights } from './logging.js';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import crypto from 'crypto';
 
 class SecurityService {
     constructor() {
@@ -11,7 +12,7 @@ class SecurityService {
 
         this.EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
         this.NAME_REGEX = /^[A-Za-z\s'-]{2,50}$/;
-        this.PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        this.PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
     }
 
     // Rate limiting configuration
@@ -176,13 +177,11 @@ class SecurityService {
 
     // Generate secure random tokens
     generateSecureToken(length = 32) {
-        const crypto = require('crypto');
         return crypto.randomBytes(length).toString('hex');
     }
 
     // Hash sensitive data
     hashData(data) {
-        const crypto = require('crypto');
         return crypto.createHash('sha256').update(data).digest('hex');
     }
 
@@ -200,4 +199,4 @@ class SecurityService {
     }
 }
 
-module.exports = SecurityService;
+export default SecurityService;

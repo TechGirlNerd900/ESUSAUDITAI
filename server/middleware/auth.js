@@ -1,94 +1,141 @@
-const { supabase } = require('../shared/supabaseClient');
-const AuthService = require('../shared/auth');
-const SecurityService = require('../shared/security');
-const { applicationInsights } = require('../shared/logging');
+import { supabase } from '../shared/supabaseClient.js';
+import { applicationInsights } from '../shared/logging.js';
 
-const auth = new AuthService();
-const security = new SecurityService();
-
-const authenticateToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: 'Authorization header missing' });
-    }
-    
+export const authMiddleware = async (req, res, next) => {
     try {
-      const token = auth.extractTokenFromHeader(authHeader);
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-      
-      if (error || !user) {
-        throw new Error('Invalid token');
-      }
-
-      // Get additional user data from Supabase
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, email, first_name, last_name, role, company')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) throw userError;
-      
-      req.user = {
-        id: userData.id,
-        email: userData.email,
-        role: userData.role,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        company: userData.company
-      };
-      
-      applicationInsights.trackEvent({
-        name: 'UserAuthenticated',
-        properties: {
-          userId: userData.id,
-          role: userData.role
+        // Extract token from Authorization header
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'No valid authorization header found' });
         }
-      });
-      
-      next();
+
+        const token = authHeader.substring(7);
+
+        // Verify token with Supabase
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+
+        if (error || !user) {
+            applicationInsights.trackEvent({
+                name: 'AuthenticationFailure',
+                properties: {
+                    error: error?.message || 'Invalid token',
+                    path: req.path
+                }
+            });
+            return res.status(401).json({ error: 'Invalid authentication token' });
+        }
+
+        // Get additional user data from our users table
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_user_id', user.id)
+            .single();
+
+        if (userError) {
+            applicationInsights.trackEvent({
+                name: 'UserDataFetchFailure',
+                properties: {
+                    error: userError.message,
+                    userId: user.id
+                }
+            });
+            return res.status(500).json({ error: 'Failed to get user data' });
+        }
+
+        // Attach user data to request object
+        req.user = {
+            ...userData,
+            auth: user
+        };
+
+        // Track successful authentication
+        applicationInsights.trackEvent({
+            name: 'AuthenticationSuccess',
+            properties: {
+                userId: user.id,
+                path: req.path
+            }
+        });
+
+        next();
     } catch (error) {
-      applicationInsights.trackEvent({
-        name: 'AuthenticationFailed',
-        properties: { error: error.message }
-      });
-      return res.status(401).json({ error: 'Authentication failed' });
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error during authentication' });
     }
-  } catch (error) {
-    applicationInsights.trackException({ exception: error });
-    res.status(500).json({ error: 'Internal server error' });
-  }
 };
 
-const canAccessProject = async (req, res, next) => {
-  try {
-    const { projectId } = req.params;
-    
-    const { data: project, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('id', projectId)
-      .single();
-      
-    if (error) throw error;
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
-    
-    if (!auth.canAccessProject(req.user, project)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    req.project = project;
-    next();
-  } catch (error) {
-    applicationInsights.trackException({ exception: error });
-    res.status(500).json({ error: 'Internal server error' });
-  }
+// Optional middleware to check specific roles
+export const requireRole = (allowedRoles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        if (!Array.isArray(allowedRoles)) {
+            allowedRoles = [allowedRoles];
+        }
+
+        if (!allowedRoles.includes(req.user.role)) {
+            applicationInsights.trackEvent({
+                name: 'UnauthorizedAccess',
+                properties: {
+                    userId: req.user.id,
+                    requiredRoles: allowedRoles,
+                    userRole: req.user.role,
+                    path: req.path
+                }
+            });
+            return res.status(403).json({ error: 'Insufficient permissions' });
+        }
+
+        next();
+    };
 };
 
-module.exports = {
-  authenticateToken,
-  canAccessProject
+// Project access middleware
+export const requireProjectAccess = async (req, res, next) => {
+    try {
+        const projectId = req.params.projectId || req.body.projectId;
+        
+        if (!projectId) {
+            return res.status(400).json({ error: 'Project ID is required' });
+        }
+
+        const { data: project, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('id', projectId)
+            .single();
+
+        if (error || !project) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+
+        // Check if user has access to the project
+        const hasAccess = 
+            project.created_by === req.user.id || 
+            project.assigned_to.includes(req.user.id) ||
+            req.user.role === 'admin';
+
+        if (!hasAccess) {
+            applicationInsights.trackEvent({
+                name: 'UnauthorizedProjectAccess',
+                properties: {
+                    userId: req.user.id,
+                    projectId,
+                    path: req.path
+                }
+            });
+            return res.status(403).json({ error: 'Access denied to this project' });
+        }
+
+        // Attach project to request object
+        req.project = project;
+        next();
+    } catch (error) {
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error checking project access' });
+    }
 };
+

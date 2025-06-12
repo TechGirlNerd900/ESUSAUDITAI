@@ -5,8 +5,13 @@ const dotenv = require('dotenv');
 const { AzureKeyCredential } = require('@azure/core-auth');
 
 
+// Set production environment
+process.env.NODE_ENV = 'production';
+console.log('Running deployment in production mode');
+
 // Load environment variables
-dotenv.config({ path: path.join(__dirname, '../config/prod.env') });
+dotenv.config({ path: path.join(__dirname, '../server/.env') }); // First try server/.env (primary)
+dotenv.config({ path: path.join(__dirname, '../.env') }); // Then try root .env (fallback)
 
 function validateEnvironment() {
     const requiredVars = [

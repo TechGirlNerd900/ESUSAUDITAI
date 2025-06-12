@@ -1,14 +1,15 @@
-const express = require('express');
+import express from 'express';
+import { supabase } from '../shared/supabaseClient.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { applicationInsights } from '../shared/logging.js';
+import OpenAIClient from '../shared/openaiClient.js';
+import jsPDF from 'jspdf';
+import { v4 as uuidv4 } from 'uuid';
+
 const router = express.Router();
-const { supabase } = require('../shared/supabaseClient');
-const { authenticateToken } = require('../middleware/auth');
-const { applicationInsights } = require('../shared/logging');
-const OpenAIClient = require('../shared/openaiClient');
-const jsPDF = require('jspdf');
-const { v4: uuidv4 } = require('uuid');
 
 // Generate report
-router.post('/generate', authenticateToken, async (req, res) => {
+router.post('/generate', authMiddleware, async (req, res) => {
     try {
         const { projectId, reportName, includeCharts = false } = req.body;
         const userId = req.user.id;
@@ -171,7 +172,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
 });
 
 // Get all reports for a project
-router.get('/:projectId', authenticateToken, async (req, res) => {
+router.get('/:projectId', authMiddleware, async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user.id;
@@ -225,7 +226,7 @@ router.get('/:projectId', authenticateToken, async (req, res) => {
 });
 
 // Get a specific report
-router.get('/detail/:reportId', authenticateToken, async (req, res) => {
+router.get('/detail/:reportId', authMiddleware, async (req, res) => {
     try {
         const { reportId } = req.params;
         const userId = req.user.id;
@@ -419,4 +420,4 @@ async function generatePDFReport(reportData, includeCharts) {
     return Buffer.from(doc.output('arraybuffer'));
 }
 
-module.exports = router;
+export default router;

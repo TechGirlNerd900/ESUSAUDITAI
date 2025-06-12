@@ -1,10 +1,9 @@
+import appInsights from 'applicationinsights';
+import { sanitizeForLogging } from '../utils/helpers.js';
+import dotenv from 'dotenv';
+import crypto from 'crypto';
 
-const appInsights = require('applicationinsights');
-const { sanitizeForLogging } = require('../utils/helpers');
-const dotenv = require('dotenv');
-
-dotenv.config(); // Load environment variables
-
+// Environment variables are already loaded by the time this module is imported
 
 class LoggingService {
     constructor() {
@@ -12,18 +11,23 @@ class LoggingService {
         this.setupApplicationInsights();
     }
 
-    static validateConnectionString() {
-        const connectionString = process.env.APPINSIGHTS_CONNECTION_STRING; 
-        if (!connectionString) {
-            throw new Error("APPINSIGHTS_CONNECTION_STRING is not defined in environment variables.");
+    static getConnectionString() {
+        // Check for connection string first, then fall back to instrumentation key
+        let connectionString = process.env.APPINSIGHTS_CONNECTION_STRING;
+        
+        // If we have an instrumentation key but no connection string, construct one
+        if (!connectionString && process.env.APPINSIGHTS_INSTRUMENTATIONKEY) {
+            connectionString = `InstrumentationKey=${process.env.APPINSIGHTS_INSTRUMENTATIONKEY}`;
+            console.log('Using APPINSIGHTS_INSTRUMENTATIONKEY to create connection string');
         }
+        
         return connectionString;
     }
 
     setupApplicationInsights() {
-        const connectionString = process.env.APPINSIGHTS_CONNECTION_STRING;
+        const connectionString = LoggingService.getConnectionString();
         if (!connectionString) {
-            console.warn('APPINSIGHTS_CONNECTION_STRING is not defined. Using mock client');
+            console.warn('Application Insights connection string is not defined. Using mock client');
             this.client = this.createMockClient();
             return;
         }
@@ -139,7 +143,7 @@ class LoggingService {
             
             // Add correlation ID if not present
             if (!req.headers['x-correlation-id']) {
-                req.headers['x-correlation-id'] = require('crypto').randomUUID();
+                req.headers['x-correlation-id'] = crypto.randomUUID();
             }
 
             // Track request start
@@ -241,5 +245,4 @@ class LoggingService {
 }
 
 // Export singleton instance
-const applicationInsights = new LoggingService();
-module.exports = { applicationInsights };
+export const applicationInsights = new LoggingService();

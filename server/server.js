@@ -4,22 +4,25 @@
  * This is the main entry point for the Express application.
  */
 
-const { app } = require('./app');
-const { applicationInsights } = require('./shared/logging');
-const { setupUncaughtHandlers } = require('./utils/errorHandler');
-const dotenv = require('dotenv');
+// Load environment variables first, before any imports
+import dotenv from 'dotenv';
 
-// Load environment variables
-dotenv.config({ path: './.env' }); // First try server/.env
-dotenv.config({ path: '../.env' }); // Try root .env
-dotenv.config({ path: '../config/dev.env' }); // Try config/dev.env
-dotenv.config({ path: '../config/prod.env' }); // Try config/prod.env
+// Load environment variables - server/.env is primary, root .env is fallback
+dotenv.config(); // First try server/.env (primary - in current directory)
+dotenv.config({ path: '../.env' }); // Then try root .env (fallback)
+
+import app from './app.js';
+import { applicationInsights } from './shared/logging.js';
+import { setupUncaughtHandlers } from './utils/errorHandler.js';
+
+// NODE_ENV is set via package.json scripts
+console.log(`Loading application in ${process.env.NODE_ENV || 'development'} mode`);
 
 // Set up global error handlers
 setupUncaughtHandlers();
 
 // Initialize server
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 const server = app.listen(port, () => {
     applicationInsights.trackEvent({
         name: 'ServerStarted',
@@ -71,4 +74,4 @@ function gracefulShutdown(signal) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-module.exports = server;
+export default server;

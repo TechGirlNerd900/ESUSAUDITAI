@@ -1,4 +1,4 @@
-const { OpenAI } = require('openai');
+import { OpenAI } from 'openai';
 
 class OpenAIClient {
     constructor() {
@@ -177,4 +177,4 @@ Format as a professional audit report summary.
     }
 }
 
-module.exports = OpenAIClient;
+export default OpenAIClient;

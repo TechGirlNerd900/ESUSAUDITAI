@@ -54,7 +54,6 @@ const ReportsTab = ({ projectId }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-medium text-gray-900">Audit Reports</h3>
@@ -71,7 +70,6 @@ const ReportsTab = ({ projectId }) => {
         </button>
       </div>
 
-      {/* Reports List */}
       {reports.length === 0 ? (
         <div className="text-center py-12">
           <DocumentArrowDownIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -137,7 +135,6 @@ const ReportsTab = ({ projectId }) => {
         </div>
       )}
 
-      {/* Generate Report Modal */}
       <GenerateReportModal
         open={showGenerateModal}
         setOpen={setShowGenerateModal}
