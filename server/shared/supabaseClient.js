@@ -42,31 +42,33 @@ supabase.auth.onAuthStateChange((event, session) => {
     });
 });
 
-// Set up error handling for realtime subscriptions
-const channel = supabase.channel('system');
-channel
-    .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-            console.log('Connected to Supabase realtime');
-        }
-        if (status === 'CLOSED') {
-            applicationInsights.trackEvent({
-                name: 'SupabaseRealtimeDisconnected',
-                properties: {
-                    status
-                }
-            });
-        }
-        if (status === 'CHANNEL_ERROR') {
-            applicationInsights.trackException({
-                exception: new Error('Supabase realtime channel error'),
-                properties: {
-                    component: 'SupabaseRealtime',
-                    status
-                }
-            });
-        }
-    });
+// Set up error handling for realtime subscriptions (disabled in development)
+if (process.env.NODE_ENV === 'production') {
+    const channel = supabase.channel('system');
+    channel
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log('Connected to Supabase realtime');
+            }
+            if (status === 'CLOSED') {
+                applicationInsights.trackEvent({
+                    name: 'SupabaseRealtimeDisconnected',
+                    properties: {
+                        status
+                    }
+                });
+            }
+            if (status === 'CHANNEL_ERROR') {
+                applicationInsights.trackException({
+                    exception: new Error('Supabase realtime channel error'),
+                    properties: {
+                        component: 'SupabaseRealtime',
+                        status
+                    }
+                });
+            }
+        });
+}
 
 // Health check function
 export const checkSupabaseConnection = async () => {

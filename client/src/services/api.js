@@ -249,7 +249,23 @@ export const apiService = {
 export const authService = {
     login: apiService.login,
     register: apiService.register,
-    logout: apiService.logout
+    logout: apiService.logout,
+    verify: async () => {
+        const response = await api.get('/auth/verify');
+        return response;
+    },
+    requestPasswordReset: async (data) => {
+        const response = await api.post('/auth/reset-password', data);
+        return response;
+    },
+    changePassword: async (data) => {
+        const response = await api.post('/auth/change-password', data);
+        return response;
+    },
+    updateProfile: async (data) => {
+        const response = await api.put('/auth/profile', data);
+        return response;
+    }
 };
 
 export const projectsService = {

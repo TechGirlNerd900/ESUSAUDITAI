@@ -2,11 +2,18 @@ import express from 'express';
 import { supabase } from '../shared/supabaseClient.js';
 import { applicationInsights } from '../shared/logging.js';
 import { authMiddleware } from '../middleware/auth.js';
+import logger from '../shared/logger.js';
+import { 
+    validateRegister, 
+    validateLogin, 
+    validatePasswordReset, 
+    validatePasswordChange 
+} from '../middleware/validation.js';
 
 const router = express.Router();
 
 // Register new user
-router.post('/register', async (req, res) => {
+router.post('/register', validateRegister, async (req, res) => {
     try {
         const { email, password, firstName, lastName, company } = req.body;
 
@@ -53,7 +60,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', validateLogin, async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -142,7 +149,7 @@ router.post('/logout', authMiddleware, async (req, res) => {
     }
 });
 
-// Get current user
+// Get current user / verify token
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         // User data is already attached by authMiddleware
@@ -150,6 +157,19 @@ router.get('/me', authMiddleware, async (req, res) => {
     } catch (error) {
         applicationInsights.trackException({ exception: error });
         res.status(500).json({ error: 'Internal server error fetching user data' });
+    }
+});
+
+// Verify token endpoint (alias for /me)
+router.get('/verify', authMiddleware, async (req, res) => {
+    try {
+        res.json({ 
+            user: req.user,
+            valid: true
+        });
+    } catch (error) {
+        applicationInsights.trackException({ exception: error });
+        res.status(500).json({ error: 'Internal server error verifying token' });
     }
 });
 
@@ -216,7 +236,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
 });
 
 // Request password reset
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', validatePasswordReset, async (req, res) => {
     try {
         const { email } = req.body;
 
@@ -248,7 +268,7 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // Change password (requires authentication)
-router.post('/change-password', authMiddleware, async (req, res) => {
+router.post('/change-password', authMiddleware, validatePasswordChange, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
 

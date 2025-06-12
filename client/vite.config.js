@@ -12,14 +12,11 @@ export default defineConfig(({ command, mode }) => {
     server: {
     port: 3000,
     proxy: {
-    '/api': {
-    target: env.VITE_API_URL || 'http://localhost:3001',
-    changeOrigin: true,
-    secure: false,
-              
-    // Remove /api prefix when proxying to backend
-    rewrite: (path) => path.replace(/^\/api/, ''),
-    }
+      '/api': {
+        target: env.VITE_API_URL || 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      }
     }
     },
     resolve: {

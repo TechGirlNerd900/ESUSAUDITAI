@@ -14,12 +14,20 @@ dotenv.config({ path: '../.env' }); // Then try root .env (fallback)
 import app from './app.js';
 import { applicationInsights } from './shared/logging.js';
 import { setupUncaughtHandlers } from './utils/errorHandler.js';
+import logger, { replaceConsoleInProduction } from './shared/logger.js';
+import { initializeConfig } from './utils/configManager.js';
+
+// Replace console methods in production
+replaceConsoleInProduction();
 
 // NODE_ENV is set via package.json scripts
-console.log(`Loading application in ${process.env.NODE_ENV || 'development'} mode`);
+logger.info(`Loading application in ${process.env.NODE_ENV || 'development'} mode`);
 
 // Set up global error handlers
 setupUncaughtHandlers();
+
+// Initialize configuration manager
+await initializeConfig();
 
 // Initialize server
 const port = process.env.PORT || 3001;
@@ -32,12 +40,16 @@ const server = app.listen(port, () => {
             environment: process.env.NODE_ENV
         }
     });
-    console.log(`Server running on port ${port} in ${process.env.NODE_ENV} mode`);
+    logger.info(`Server running on port ${port} in ${process.env.NODE_ENV} mode`, {
+        port,
+        nodeVersion: process.version,
+        environment: process.env.NODE_ENV
+    });
 });
 
 // Handle graceful shutdown
 function gracefulShutdown(signal) {
-    console.log(`\n${signal} received. Starting graceful shutdown...`);
+    logger.warn(`${signal} received. Starting graceful shutdown...`, { signal });
     
     // Track shutdown event
     applicationInsights.trackEvent({
@@ -49,7 +61,7 @@ function gracefulShutdown(signal) {
     });
 
     server.close(async () => {
-        console.log('HTTP server closed');
+        logger.info('HTTP server closed');
         
         try {
             // Allow time for final Application Insights telemetry to be sent
@@ -58,14 +70,14 @@ function gracefulShutdown(signal) {
             // Exit process
             process.exit(0);
         } catch (error) {
-            console.error('Error during shutdown:', error);
+            logger.error('Error during shutdown', { error });
             process.exit(1);
         }
     });
 
     // Force shutdown after timeout
     setTimeout(() => {
-        console.error('Could not close connections in time, forcefully shutting down');
+        logger.error('Could not close connections in time, forcefully shutting down');
         process.exit(1);
     }, 30000); // 30 second timeout
 }

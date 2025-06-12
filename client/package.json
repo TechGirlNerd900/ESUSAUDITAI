@@ -34,8 +34,11 @@
   "scripts": {
     "dev": "NODE_ENV=development vite --host",
     "build": "NODE_ENV=production vite build",
-    "preview": "NODE_ENV=production vite preview",
-    "start": "NODE_ENV=production vite --host"
+    "preview": "NODE_ENV=production vite preview --host",
+    "start": "NODE_ENV=production vite --host",
+    "prod": "NODE_ENV=production vite build && vite preview --host",
+    "clean": "rm -rf dist/ node_modules/.vite/",
+    "analyze": "vite build --mode analyze"
   },
   "eslintConfig": {
     "extends": [

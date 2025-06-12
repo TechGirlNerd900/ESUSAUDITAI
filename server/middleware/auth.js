@@ -6,10 +6,21 @@ export const authMiddleware = async (req, res, next) => {
         // Extract token from Authorization header
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No valid authorization header found' });
+            return res.status(401).json({ 
+                error: 'No valid authorization header found',
+                code: 'MISSING_AUTH_HEADER'
+            });
         }
 
         const token = authHeader.substring(7);
+
+        // Basic token validation
+        if (!token || token.length < 10) {
+            return res.status(401).json({ 
+                error: 'Invalid token format',
+                code: 'INVALID_TOKEN_FORMAT'
+            });
+        }
 
         // Verify token with Supabase
         const { data: { user }, error } = await supabase.auth.getUser(token);
@@ -19,10 +30,23 @@ export const authMiddleware = async (req, res, next) => {
                 name: 'AuthenticationFailure',
                 properties: {
                     error: error?.message || 'Invalid token',
-                    path: req.path
+                    path: req.path,
+                    ip: req.ip,
+                    userAgent: req.get('User-Agent')
                 }
             });
-            return res.status(401).json({ error: 'Invalid authentication token' });
+            return res.status(401).json({ 
+                error: 'Invalid or expired authentication token',
+                code: 'INVALID_TOKEN'
+            });
+        }
+
+        // Check if user is confirmed/active
+        if (!user.email_confirmed_at) {
+            return res.status(401).json({ 
+                error: 'Email not confirmed',
+                code: 'EMAIL_NOT_CONFIRMED'
+            });
         }
 
         // Get additional user data from our users table
@@ -37,11 +61,32 @@ export const authMiddleware = async (req, res, next) => {
                 name: 'UserDataFetchFailure',
                 properties: {
                     error: userError.message,
-                    userId: user.id
+                    userId: user.id,
+                    path: req.path
                 }
             });
-            return res.status(500).json({ error: 'Failed to get user data' });
+            return res.status(500).json({ 
+                error: 'Failed to get user data',
+                code: 'USER_DATA_ERROR'
+            });
         }
+
+        // Check if user account is active
+        if (userData.status !== 'active') {
+            return res.status(403).json({ 
+                error: 'Account is not active',
+                code: 'ACCOUNT_INACTIVE'
+            });
+        }
+
+        // Update last activity
+        await supabase
+            .from('users')
+            .update({ 
+                last_login_at: new Date().toISOString(),
+                last_activity_at: new Date().toISOString()
+            })
+            .eq('id', userData.id);
 
         // Attach user data to request object
         req.user = {
@@ -54,14 +99,25 @@ export const authMiddleware = async (req, res, next) => {
             name: 'AuthenticationSuccess',
             properties: {
                 userId: user.id,
-                path: req.path
+                path: req.path,
+                ip: req.ip
             }
         });
 
         next();
     } catch (error) {
-        applicationInsights.trackException({ exception: error });
-        res.status(500).json({ error: 'Internal server error during authentication' });
+        applicationInsights.trackException({ 
+            exception: error,
+            properties: {
+                operation: 'authMiddleware',
+                path: req.path,
+                ip: req.ip
+            }
+        });
+        res.status(500).json({ 
+            error: 'Internal server error during authentication',
+            code: 'AUTH_INTERNAL_ERROR'
+        });
     }
 };
 
