@@ -1,7 +1,8 @@
 import express from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../shared/supabaseClient.js';
 import { applicationInsights } from '../shared/logging.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, protectRoute } from '../middleware/auth.js';
 import logger from '../shared/logger.js';
 import { 
     validateRegister, 
@@ -106,6 +107,22 @@ router.post('/login', validateLogin, async (req, res) => {
             }
         });
 
+        // Set HTTP-only cookies for access and refresh tokens
+        res.cookie('sb-access-token', authData.session.access_token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
+            maxAge: authData.session.expires_in * 1000,
+            path: '/',
+        });
+        res.cookie('sb-refresh-token', authData.session.refresh_token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            path: '/',
+        });
+
         res.json({
             user: {
                 ...userData,
@@ -122,6 +139,10 @@ router.post('/login', validateLogin, async (req, res) => {
 // Logout
 router.post('/logout', authMiddleware, async (req, res) => {
     try {
+        // Clear cookies first
+        res.clearCookie('sb-access-token', { path: '/' });
+        res.clearCookie('sb-refresh-token', { path: '/' });
+
         const { error } = await supabase.auth.signOut();
 
         if (error) {
@@ -310,6 +331,66 @@ router.post('/change-password', authMiddleware, validatePasswordChange, async (r
         applicationInsights.trackException({ exception: error });
         res.status(500).json({ error: 'Internal server error changing password' });
     }
+});
+
+// Route to handle Supabase OAuth callbacks
+router.get('/auth/callback', async (req, res) => {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+            persistSession: false, // Essential for server-side code exchange
+        },
+    });
+
+    const code = req.query.code; // The auth code from Supabase
+
+    if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (error) {
+            console.error('Error exchanging code for session:', error.message);
+            return res.status(400).json({ error: 'Authentication failed', code: 'AUTH_FAILED', message: error.message });
+        }
+
+        if (data?.session) {
+            // Set HTTP-only cookies for access and refresh tokens
+            // These will be sent by the browser on subsequent requests to your Express API
+            res.cookie('sb-access-token', data.session.access_token, {
+                httpOnly: true, // IMPORTANT: Prevent client-side JavaScript access
+                secure: process.env.NODE_ENV === 'production', // Use secure in production for HTTPS
+                sameSite: 'Lax', // Protect against CSRF
+                maxAge: data.session.expires_in * 1000, // Supabase access token expiry (in ms)
+                path: '/',
+            });
+            res.cookie('sb-refresh-token', data.session.refresh_token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'Lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // Refresh token typically lasts longer (e.g., 7 days)
+                path: '/',
+            });
+
+            // Return success response for client to handle navigation
+            return res.status(200).json({ message: 'Authentication successful', user: data.user });
+        }
+    }
+
+    // Handle cases where no code is present
+    return res.status(400).json({ error: 'No authorization code provided', code: 'NO_CODE' });
+});
+
+// Logout route with cookie clearing
+router.post('/auth/logout', async (req, res) => {
+    // Clear the cookies on the client side
+    res.clearCookie('sb-access-token', { path: '/' });
+    res.clearCookie('sb-refresh-token', { path: '/' });
+
+    // Optionally, if the server-side Supabase client was initialized with a session,
+    // you could also call `await supabase.auth.signOut()` here for server-side session invalidation.
+    // For simplicity, clearing cookies is often sufficient as the server will then fail auth checks.
+    res.status(200).json({ message: 'Logged out successfully.' });
 });
 
 export default router;

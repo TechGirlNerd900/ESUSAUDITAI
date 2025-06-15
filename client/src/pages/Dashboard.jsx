@@ -10,7 +10,6 @@ import {
   ExclamationTriangleIcon,
   ExclamationCircleIcon,
   SparklesIcon,
-  TrendingUpIcon,
   ClockIcon
 } from '@heroicons/react/24/outline';
 import { projectsService } from '../services/api';
@@ -203,9 +202,15 @@ const Dashboard = () => {
                   <div className={`flex items-center text-sm font-medium ${
                     stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    <TrendingUpIcon className={`h-4 w-4 mr-1 ${
-                      stat.trend === 'down' ? 'transform rotate-180' : ''
-                    }`} />
+                    {stat.trend === 'up' ? (
+                      <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-3 3" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4 mr-1 transform rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-3 3" />
+                      </svg>
+                    )}
                     {stat.change}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">vs last month</div>

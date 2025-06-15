@@ -29,7 +29,7 @@ const isRetryableError = (error) => {
 // Add request interceptor for auth token
 api.interceptors.request.use(async (config) => {
     try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         if (session?.access_token) {
             config.headers.Authorization = `Bearer ${session.access_token}`;
         }

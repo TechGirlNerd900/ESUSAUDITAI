@@ -1,8 +1,7 @@
+@import './styles/modern.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import './styles/modern.css';
 
 @layer base {
   html {

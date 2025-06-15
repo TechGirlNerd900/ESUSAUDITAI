@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import UserManagement from './UserManagement.jsx';
 import { 
     CogIcon, 
     PlusIcon, 
@@ -18,7 +19,8 @@ import {
     ChartBarIcon,
     ExclamationTriangleIcon,
     InformationCircleIcon,
-    SparklesIcon
+    SparklesIcon,
+    UserGroupIcon
 } from '@heroicons/react/24/outline';
 import { 
     CheckCircleIcon as CheckCircleIconSolid,
@@ -322,6 +324,19 @@ const AdminPanel = () => {
                                 </span>
                             </div>
                         </button>
+                        <button
+                            onClick={() => setActiveTab('users')}
+                            className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                                activeTab === 'users'
+                                    ? 'bg-white text-blue-600 shadow-soft'
+                                    : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                            }`}
+                        >
+                            <div className="flex items-center justify-center">
+                                <UserGroupIcon className="h-4 w-4 mr-2" />
+                                User Management
+                            </div>
+                        </button>
                     </nav>
                 </div>
 
@@ -476,6 +491,13 @@ const AdminPanel = () => {
                                 ))}
                             </ul>
                         </div>
+                    </div>
+                )}
+
+                {/* User Management Tab */}
+                {activeTab === 'users' && (
+                    <div className="mt-8 animate-fade-in-up">
+                        <UserManagement />
                     </div>
                 )}
 

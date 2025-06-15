@@ -11,7 +11,43 @@ dotenv.config({ path: '../../.env' });
 // Validate Supabase configuration
 validateSupabaseConfig();
 
-// Create Supabase client with service role key for backend operations
+// Create Supabase client factory for server-side use
+export const createServerSupabaseClient = (accessToken = null, refreshToken = null) => {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY; // Use anon key for user-scoped operations
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+        console.error('Supabase URL or Anon Key is missing. Check your .env file in the server directory.');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+            persistSession: false, // CRITICAL: Do not let the server client manage session automatically
+        },
+        db: {
+            schema: 'public'
+        },
+        global: {
+            headers: {
+                'x-application-name': 'esus-audit-ai-server'
+            }
+        }
+    });
+
+    // If tokens are provided, set the session. This is typically done in middleware.
+    if (accessToken && refreshToken) {
+        supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+        }).catch(error => {
+            console.error("Error setting session on server client:", error);
+        });
+    }
+
+    return supabase;
+};
+
+// Legacy service role client for admin operations only
 const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -25,7 +61,7 @@ const supabase = createClient(
         },
         global: {
             headers: {
-                'x-application-name': 'esus-audit-ai-server'
+                'x-application-name': 'esus-audit-ai-server-admin'
             }
         }
     }

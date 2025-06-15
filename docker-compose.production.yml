@@ -38,6 +38,9 @@ services:
     tmpfs:
       - /tmp
       - /app/temp
+      - /app/logs
+      - /app/uploads
+      - /app/reports
     cap_drop:
       - ALL
     cap_add:

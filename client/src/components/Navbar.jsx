@@ -8,7 +8,7 @@ import {
   ArrowRightOnRectangleIcon,
   SparklesIcon
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 

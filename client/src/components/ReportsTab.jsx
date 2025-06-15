@@ -27,7 +27,7 @@ const ReportsTab = ({ projectId }) => {
     ({ projectId, reportName, includeCharts }) => 
       reportsService.generateReport(projectId, reportName, includeCharts),
     {
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast.success('Report generated successfully!');
         queryClient.invalidateQueries(['reports', projectId]);
         setShowGenerateModal(false);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from 'react-query';
 import toast from 'react-hot-toast';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import { authService } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 

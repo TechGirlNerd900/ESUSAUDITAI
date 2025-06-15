@@ -10,6 +10,21 @@ const router = express.Router();
 // Admin-only middleware
 const adminOnly = requireRole(['admin', 'super_admin']);
 
+// User management validation
+const validateUserUpdate = [
+    body('role')
+        .isIn(['admin', 'auditor', 'reviewer'])
+        .withMessage('Invalid role'),
+    body('isActive')
+        .optional()
+        .isBoolean()
+        .withMessage('isActive must be a boolean'),
+    body('company')
+        .optional()
+        .isLength({ max: 255 })
+        .withMessage('Company name must not exceed 255 characters')
+];
+
 // Validation for environment variables
 const validateEnvVar = [
     body('key')
@@ -613,6 +628,457 @@ router.post('/reload-env', authMiddleware, adminOnly, async (req, res) => {
         res.status(500).json({ 
             error: 'Internal server error',
             code: 'ENV_RELOAD_ERROR'
+        });
+    }
+});
+
+// ===== USER MANAGEMENT ENDPOINTS =====
+
+// Get all users with pagination and filtering
+router.get('/users', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const { 
+            page = 1, 
+            limit = 20, 
+            role, 
+            status, 
+            company, 
+            search 
+        } = req.query;
+
+        let query = supabase
+            .from('users')
+            .select(`
+                id,
+                email,
+                first_name,
+                last_name,
+                role,
+                company,
+                is_active,
+                last_login_at,
+                created_at,
+                updated_at,
+                failed_login_attempts,
+                locked_until
+            `, { count: 'exact' });
+
+        // Apply filters
+        if (role) {
+            query = query.eq('role', role);
+        }
+        if (status === 'active') {
+            query = query.eq('is_active', true);
+        } else if (status === 'inactive') {
+            query = query.eq('is_active', false);
+        }
+        if (company) {
+            query = query.ilike('company', `%${company}%`);
+        }
+        if (search) {
+            query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`);
+        }
+
+        // Apply pagination
+        const offset = (page - 1) * limit;
+        query = query
+            .range(offset, offset + limit - 1)
+            .order('created_at', { ascending: false });
+
+        const { data: users, error, count } = await query;
+
+        if (error) {
+            logger.error('Failed to fetch users', { error, userId: req.user.id });
+            return res.status(500).json({ 
+                error: 'Failed to fetch users',
+                code: 'USER_FETCH_ERROR'
+            });
+        }
+
+        // Calculate pagination info
+        const totalPages = Math.ceil(count / limit);
+        const hasNext = page < totalPages;
+        const hasPrev = page > 1;
+
+        res.json({
+            users,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: count,
+                totalPages,
+                hasNext,
+                hasPrev
+            },
+            filters: { role, status, company, search }
+        });
+
+        // Track admin action
+        applicationInsights.trackEvent({
+            name: 'AdminUserListAccessed',
+            properties: {
+                adminId: req.user.id,
+                filters: { role, status, company, search },
+                userCount: users.length
+            }
+        });
+
+    } catch (error) {
+        logger.error('User list fetch failed', { error, userId: req.user.id });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            code: 'USER_LIST_INTERNAL_ERROR'
+        });
+    }
+});
+
+// Get user details by ID
+router.get('/users/:userId', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const { data: user, error } = await supabase
+            .from('users')
+            .select(`
+                *,
+                projects!projects_created_by_fkey(id, name, status, created_at),
+                documents!documents_uploaded_by_fkey(id, original_name, created_at)
+            `)
+            .eq('id', userId)
+            .single();
+
+        if (error) {
+            logger.error('Failed to fetch user details', { error, userId: req.user.id, targetUserId: userId });
+            return res.status(404).json({ 
+                error: 'User not found',
+                code: 'USER_NOT_FOUND'
+            });
+        }
+
+        // Get user statistics
+        const stats = {
+            projectsCreated: user.projects ? user.projects.length : 0,
+            documentsUploaded: user.documents ? user.documents.length : 0,
+            lastActive: user.last_login_at
+        };
+
+        res.json({
+            user: {
+                ...user,
+                projects: user.projects ? user.projects.slice(0, 5) : [], // Latest 5 projects
+                documents: user.documents ? user.documents.slice(0, 5) : [] // Latest 5 documents
+            },
+            stats
+        });
+
+        // Track admin action
+        applicationInsights.trackEvent({
+            name: 'AdminUserDetailsAccessed',
+            properties: {
+                adminId: req.user.id,
+                targetUserId: userId
+            }
+        });
+
+    } catch (error) {
+        logger.error('User details fetch failed', { error, userId: req.user.id });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            code: 'USER_DETAILS_INTERNAL_ERROR'
+        });
+    }
+});
+
+// Update user role and status
+router.put('/users/:userId', authMiddleware, adminOnly, validateUserUpdate, async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                details: errors.array()
+            });
+        }
+
+        const { userId } = req.params;
+        const { role, isActive, company } = req.body;
+
+        // Prevent admin from demoting themselves
+        if (userId === req.user.id && role !== 'admin') {
+            return res.status(400).json({
+                error: 'Cannot change your own admin role',
+                code: 'SELF_ROLE_CHANGE_DENIED'
+            });
+        }
+
+        // Prevent admin from deactivating themselves
+        if (userId === req.user.id && isActive === false) {
+            return res.status(400).json({
+                error: 'Cannot deactivate your own account',
+                code: 'SELF_DEACTIVATION_DENIED'
+            });
+        }
+
+        const updateData = {};
+        if (role !== undefined) updateData.role = role;
+        if (isActive !== undefined) updateData.is_active = isActive;
+        if (company !== undefined) updateData.company = company;
+        updateData.updated_at = new Date().toISOString();
+
+        const { data: updatedUser, error } = await supabase
+            .from('users')
+            .update(updateData)
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) {
+            logger.error('Failed to update user', { error, userId: req.user.id, targetUserId: userId });
+            return res.status(500).json({ 
+                error: 'Failed to update user',
+                code: 'USER_UPDATE_ERROR'
+            });
+        }
+
+        // Log the role change in audit logs
+        await supabase
+            .from('audit_logs')
+            .insert({
+                user_id: req.user.id,
+                action: 'user_role_updated',
+                resource_type: 'user',
+                resource_id: userId,
+                details: {
+                    oldRole: req.body.oldRole,
+                    newRole: role,
+                    isActive,
+                    company,
+                    adminId: req.user.id
+                },
+                success: true
+            });
+
+        res.json({
+            message: 'User updated successfully',
+            user: updatedUser
+        });
+
+        // Track admin action
+        applicationInsights.trackEvent({
+            name: 'AdminUserUpdated',
+            properties: {
+                adminId: req.user.id,
+                targetUserId: userId,
+                roleChanged: role !== undefined,
+                newRole: role,
+                statusChanged: isActive !== undefined,
+                newStatus: isActive
+            }
+        });
+
+    } catch (error) {
+        logger.error('User update failed', { error, userId: req.user.id });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            code: 'USER_UPDATE_INTERNAL_ERROR'
+        });
+    }
+});
+
+// Reset user password (admin action)
+router.post('/users/:userId/reset-password', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Get user email
+        const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('email, first_name, last_name')
+            .eq('id', userId)
+            .single();
+
+        if (userError || !user) {
+            return res.status(404).json({
+                error: 'User not found',
+                code: 'USER_NOT_FOUND'
+            });
+        }
+
+        // Send password reset email via Supabase Auth
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(user.email, {
+            redirectTo: `${process.env.CLIENT_URL}/reset-password`
+        });
+
+        if (resetError) {
+            logger.error('Password reset failed', { error: resetError, userId: req.user.id, targetUserId: userId });
+            return res.status(500).json({
+                error: 'Failed to send password reset email',
+                code: 'PASSWORD_RESET_ERROR'
+            });
+        }
+
+        // Log the admin action
+        await supabase
+            .from('audit_logs')
+            .insert({
+                user_id: req.user.id,
+                action: 'password_reset_initiated',
+                resource_type: 'user',
+                resource_id: userId,
+                details: {
+                    targetEmail: user.email,
+                    adminId: req.user.id
+                },
+                success: true
+            });
+
+        res.json({
+            message: `Password reset email sent to ${user.email}`,
+            user: {
+                id: userId,
+                email: user.email,
+                name: `${user.first_name} ${user.last_name}`
+            }
+        });
+
+        // Track admin action
+        applicationInsights.trackEvent({
+            name: 'AdminPasswordResetInitiated',
+            properties: {
+                adminId: req.user.id,
+                targetUserId: userId,
+                targetEmail: user.email
+            }
+        });
+
+    } catch (error) {
+        logger.error('Password reset initiation failed', { error, userId: req.user.id });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            code: 'PASSWORD_RESET_INTERNAL_ERROR'
+        });
+    }
+});
+
+// Get user activity summary
+router.get('/users/:userId/activity', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { days = 30 } = req.query;
+
+        const dateLimit = new Date();
+        dateLimit.setDate(dateLimit.getDate() - parseInt(days));
+
+        // Get recent audit logs for the user
+        const { data: activities, error } = await supabase
+            .from('audit_logs')
+            .select('action, resource_type, created_at, success, details')
+            .eq('user_id', userId)
+            .gte('created_at', dateLimit.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (error) {
+            logger.error('Failed to fetch user activity', { error, userId: req.user.id, targetUserId: userId });
+            return res.status(500).json({ 
+                error: 'Failed to fetch user activity',
+                code: 'ACTIVITY_FETCH_ERROR'
+            });
+        }
+
+        // Get activity statistics
+        const stats = {
+            totalActivities: activities.length,
+            successfulActions: activities.filter(a => a.success).length,
+            failedActions: activities.filter(a => !a.success).length,
+            actionTypes: activities.reduce((acc, activity) => {
+                acc[activity.action] = (acc[activity.action] || 0) + 1;
+                return acc;
+            }, {}),
+            resourceTypes: activities.reduce((acc, activity) => {
+                acc[activity.resource_type] = (acc[activity.resource_type] || 0) + 1;
+                return acc;
+            }, {})
+        };
+
+        res.json({
+            activities,
+            stats,
+            period: `${days} days`
+        });
+
+    } catch (error) {
+        logger.error('User activity fetch failed', { error, userId: req.user.id });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            code: 'ACTIVITY_INTERNAL_ERROR'
+        });
+    }
+});
+
+// Get user management statistics
+router.get('/users/stats/overview', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        // Get user counts by role
+        const { data: roleCounts, error: roleError } = await supabase
+            .from('users')
+            .select('role')
+            .then(result => {
+                if (result.error) return result;
+                const counts = result.data.reduce((acc, user) => {
+                    acc[user.role] = (acc[user.role] || 0) + 1;
+                    return acc;
+                }, {});
+                return { data: counts, error: null };
+            });
+
+        if (roleError) {
+            throw roleError;
+        }
+
+        // Get active vs inactive users
+        const { data: statusCounts, error: statusError } = await supabase
+            .from('users')
+            .select('is_active')
+            .then(result => {
+                if (result.error) return result;
+                const counts = result.data.reduce((acc, user) => {
+                    const status = user.is_active ? 'active' : 'inactive';
+                    acc[status] = (acc[status] || 0) + 1;
+                    return acc;
+                }, {});
+                return { data: counts, error: null };
+            });
+
+        if (statusError) {
+            throw statusError;
+        }
+
+        // Get recent registrations (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const { data: recentUsers, error: recentError } = await supabase
+            .from('users')
+            .select('created_at')
+            .gte('created_at', thirtyDaysAgo.toISOString());
+
+        if (recentError) {
+            throw recentError;
+        }
+
+        res.json({
+            usersByRole: roleCounts,
+            usersByStatus: statusCounts,
+            recentRegistrations: recentUsers.length,
+            totalUsers: Object.values(roleCounts).reduce((sum, count) => sum + count, 0)
+        });
+
+    } catch (error) {
+        logger.error('User stats fetch failed', { error, userId: req.user.id });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            code: 'USER_STATS_INTERNAL_ERROR'
         });
     }
 });

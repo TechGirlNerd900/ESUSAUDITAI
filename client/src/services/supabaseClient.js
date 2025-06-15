@@ -13,11 +13,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error('Supabase configuration is incomplete');
 }
 
-// Create Supabase client
+// Create Supabase client - automatically handles session persistence for browser
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         autoRefreshToken: true,
-        persistSession: true,
+        persistSession: true, // ✅ Correct for client-side
         detectSessionInUrl: true
     },
     realtime: {

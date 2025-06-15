@@ -1,6 +1,115 @@
-import { supabase } from '../shared/supabaseClient.js';
+import { createClient } from '@supabase/supabase-js';
 import { applicationInsights } from '../shared/logging.js';
 
+export const protectRoute = async (req, res, next) => {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY; // Use anon key for user-facing auth checks
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+            persistSession: false, // Ensure server client does not persist sessions
+        },
+    });
+
+    // Extract tokens from HTTP-only cookies (requires `cookie-parser` middleware)
+    const accessToken = req.cookies['sb-access-token'];
+    const refreshToken = req.cookies['sb-refresh-token'];
+
+    if (!accessToken || !refreshToken) {
+        // Return 401 and let the client handle redirection
+        return res.status(401).json({ error: 'Unauthorized', message: 'No session tokens found.' });
+    }
+
+    try {
+        // Manually set the session for the server-side Supabase client
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+        });
+
+        if (sessionError || !sessionData?.session) {
+            // If session is invalid or expired, clear cookies and return 401
+            res.clearCookie('sb-access-token', { path: '/' });
+            res.clearCookie('sb-refresh-token', { path: '/' });
+            console.error('Session error:', sessionError?.message);
+            return res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired session.' });
+        }
+
+        // Refresh the session if needed and update cookies
+        if (sessionData.session.access_token !== accessToken) {
+            res.cookie('sb-access-token', sessionData.session.access_token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'Lax',
+                maxAge: sessionData.session.expires_in * 1000,
+                path: '/',
+            });
+            res.cookie('sb-refresh-token', sessionData.session.refresh_token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'Lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // Refresh token typically has a longer lifespan
+                path: '/',
+            });
+        }
+
+        // Attach user and Supabase client to the request object for downstream use
+        const { data: { user } } = await supabase.auth.getUser(); // Get the user from the current session
+        if (!user) {
+            res.clearCookie('sb-access-token', { path: '/' });
+            res.clearCookie('sb-refresh-token', { path: '/' });
+            return res.status(401).json({ error: 'Unauthorized', message: 'User not found in session.' });
+        }
+
+        // Get additional user data from our users table
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_user_id', user.id)
+            .single();
+
+        if (userError) {
+            applicationInsights.trackEvent({
+                name: 'UserDataFetchFailure',
+                properties: {
+                    error: userError.message,
+                    userId: user.id,
+                    path: req.path,
+                },
+            });
+            return res.status(500).json({ error: 'Failed to get user data', code: 'USER_DATA_ERROR' });
+        }
+
+        // Check if user account is active
+        if (userData.status !== 'active') {
+            return res.status(403).json({ error: 'Account is not active', code: 'ACCOUNT_INACTIVE' });
+        }
+
+        // Update last activity
+        await supabase
+            .from('users')
+            .update({
+                last_login_at: new Date().toISOString(),
+                last_activity_at: new Date().toISOString(),
+            })
+            .eq('id', userData.id);
+
+        req.user = {
+            ...userData,
+            auth: user,
+        };
+        req.supabase = supabase; // Use this client for RLS-enabled operations on behalf of the user
+        next();
+
+    } catch (error) {
+        console.error('Authentication middleware error:', error);
+        res.clearCookie('sb-access-token', { path: '/' });
+        res.clearCookie('sb-refresh-token', { path: '/' });
+        return res.status(500).json({ error: 'Internal Server Error', message: 'Authentication process failed.' });
+    }
+};
+
+// Legacy middleware for backward compatibility - convert Bearer token auth to cookie auth
 export const authMiddleware = async (req, res, next) => {
     try {
         // Extract token from Authorization header
@@ -21,6 +130,17 @@ export const authMiddleware = async (req, res, next) => {
                 code: 'INVALID_TOKEN_FORMAT'
             });
         }
+
+        // Create temporary supabase client to verify token
+        const supabase = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_ANON_KEY,
+            {
+                auth: {
+                    persistSession: false
+                }
+            }
+        );
 
         // Verify token with Supabase
         const { data: { user }, error } = await supabase.auth.getUser(token);

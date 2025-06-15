@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { authMiddleware } from './middleware/auth.js';
 import { supabase } from './shared/supabaseClient.js';
@@ -25,6 +26,7 @@ import analysisRoutes from './routes/analysis.js';
 import chatRoutes from './routes/chat.js';
 import reportsRoutes from './routes/reports.js';
 import adminRoutes from './routes/admin.js';
+import storageRoutes from './routes/storage.js';
 
 const app = express();
 
@@ -101,6 +103,7 @@ app.use(performanceMonitor);
 // Request parsing with input sanitization
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser()); // Parse cookies from incoming requests
 app.use(sanitizeInput);
 
 // Health and monitoring endpoints
@@ -121,6 +124,7 @@ app.use('/api/documents', authMiddleware, documentsRoutes);
 app.use('/api/analysis', authMiddleware, analysisRoutes);
 app.use('/api/chat', authMiddleware, chatRoutes);
 app.use('/api/reports', authMiddleware, reportsRoutes);
+app.use('/api/storage', storageRoutes); // Storage routes have their own protectRoute middleware
 app.use('/api/admin', adminRoutes); // Admin routes have their own auth middleware
 
 // Error rate monitoring

@@ -18,7 +18,15 @@ export const AuthProvider = ({ children }) => {
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const navigate = useNavigate();
+    
+    let navigate;
+    try {
+        navigate = useNavigate();
+    } catch (err) {
+        console.error('Navigate hook failed:', err);
+        navigate = () => console.error('Navigation not available');
+    }
+
 
     useEffect(() => {
         // Initialize from existing supabase session
@@ -30,6 +38,10 @@ export const AuthProvider = ({ children }) => {
                 setSession(currentSession);
                 setUser(currentSession.user);
             }
+            setLoading(false);
+        }).catch((err) => {
+            console.error('Failed to initialize auth:', err);
+            setError(err);
             setLoading(false);
         });
 
@@ -76,9 +88,14 @@ export const AuthProvider = ({ children }) => {
     const signUp = async (email, password, metadata) => {
         try {
             setError(null);
+            if (!authService || !authService.register) {
+                throw new Error('Auth service not available');
+            }
             await authService.register({ email, password, ...metadata });
             // After successful registration, redirect to login
-            navigate('/login');
+            if (navigate) {
+                navigate('/login');
+            }
         } catch (err) {
             setError(err.error || err.message);
             throw err;
@@ -146,6 +163,7 @@ export const AuthProvider = ({ children }) => {
         updateProfile,
         isAuthenticated: !!user
     };
+
 
     return (
         <AuthContext.Provider value={value}>
