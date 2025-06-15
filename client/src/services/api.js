@@ -13,7 +13,7 @@ const api = axios.create({
 
 // Retry configuration
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000;
+const RETRY_DELAY = 2000;
 
 // Helper function for exponential backoff
 const getRetryDelay = (retryCount) => {

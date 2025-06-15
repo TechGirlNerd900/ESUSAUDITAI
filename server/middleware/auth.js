@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { applicationInsights } from '../shared/logging.js';
+import logger from '../shared/logger.js';
+import { getAuthTokensFromCookies, clearAuthTokens, updateRefreshedTokens } from '../utils/cookieHelpers.js';
 
 export const protectRoute = async (req, res, next) => {
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -11,11 +13,10 @@ export const protectRoute = async (req, res, next) => {
         },
     });
 
-    // Extract tokens from HTTP-only cookies (requires `cookie-parser` middleware)
-    const accessToken = req.cookies['sb-access-token'];
-    const refreshToken = req.cookies['sb-refresh-token'];
+    // Extract tokens from HTTP-only cookies using helper
+    const { access_token: accessToken, refresh_token: refreshToken, hasTokens } = getAuthTokensFromCookies(req);
 
-    if (!accessToken || !refreshToken) {
+    if (!hasTokens) {
         // Return 401 and let the client handle redirection
         return res.status(401).json({ error: 'Unauthorized', message: 'No session tokens found.' });
     }
@@ -29,35 +30,25 @@ export const protectRoute = async (req, res, next) => {
 
         if (sessionError || !sessionData?.session) {
             // If session is invalid or expired, clear cookies and return 401
-            res.clearCookie('sb-access-token', { path: '/' });
-            res.clearCookie('sb-refresh-token', { path: '/' });
-            console.error('Session error:', sessionError?.message);
+            clearAuthTokens(res);
+            logger.error('Session error in protectRoute middleware', { 
+                error: sessionError?.message,
+                userId: req.user?.id,
+                path: req.path,
+                ip: req.ip
+            });
             return res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired session.' });
         }
 
         // Refresh the session if needed and update cookies
         if (sessionData.session.access_token !== accessToken) {
-            res.cookie('sb-access-token', sessionData.session.access_token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'Lax',
-                maxAge: sessionData.session.expires_in * 1000,
-                path: '/',
-            });
-            res.cookie('sb-refresh-token', sessionData.session.refresh_token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'Lax',
-                maxAge: 7 * 24 * 60 * 60 * 1000, // Refresh token typically has a longer lifespan
-                path: '/',
-            });
+            updateRefreshedTokens(res, { access_token: accessToken }, sessionData.session);
         }
 
         // Attach user and Supabase client to the request object for downstream use
         const { data: { user } } = await supabase.auth.getUser(); // Get the user from the current session
         if (!user) {
-            res.clearCookie('sb-access-token', { path: '/' });
-            res.clearCookie('sb-refresh-token', { path: '/' });
+            clearAuthTokens(res);
             return res.status(401).json({ error: 'Unauthorized', message: 'User not found in session.' });
         }
 
@@ -102,9 +93,13 @@ export const protectRoute = async (req, res, next) => {
         next();
 
     } catch (error) {
-        console.error('Authentication middleware error:', error);
-        res.clearCookie('sb-access-token', { path: '/' });
-        res.clearCookie('sb-refresh-token', { path: '/' });
+        logger.error('Authentication middleware error in protectRoute', {
+            error: error.message,
+            stack: error.stack,
+            path: req.path,
+            ip: req.ip
+        });
+        clearAuthTokens(res);
         return res.status(500).json({ error: 'Internal Server Error', message: 'Authentication process failed.' });
     }
 };
@@ -131,19 +126,24 @@ export const authMiddleware = async (req, res, next) => {
             });
         }
 
-        // Create temporary supabase client to verify token
+        // Create authenticated supabase client with the user's token
         const supabase = createClient(
             process.env.SUPABASE_URL,
             process.env.SUPABASE_ANON_KEY,
             {
                 auth: {
                     persistSession: false
+                },
+                global: {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
                 }
             }
         );
 
-        // Verify token with Supabase
-        const { data: { user }, error } = await supabase.auth.getUser(token);
+        // Verify token by calling getUser() - this validates the JWT
+        const { data: { user }, error } = await supabase.auth.getUser();
 
         if (error || !user) {
             applicationInsights.trackEvent({
@@ -169,7 +169,7 @@ export const authMiddleware = async (req, res, next) => {
             });
         }
 
-        // Get additional user data from our users table
+        // Get additional user data from our users table using the authenticated client
         const { data: userData, error: userError } = await supabase
             .from('users')
             .select('*')
@@ -191,21 +191,35 @@ export const authMiddleware = async (req, res, next) => {
             });
         }
 
-        // Check if user account is active
-        if (userData.status !== 'active') {
+        // Check if user account is active (optional field)
+        if (userData.status && userData.status !== 'active') {
             return res.status(403).json({ 
                 error: 'Account is not active',
                 code: 'ACCOUNT_INACTIVE'
             });
         }
 
-        // Update last activity
+        // Check is_active field if it exists
+        if (userData.is_active !== undefined && !userData.is_active) {
+            return res.status(403).json({ 
+                error: 'Account is not active',
+                code: 'ACCOUNT_INACTIVE'
+            });
+        }
+
+        // Update last activity (only update fields that exist)
+        const updateData = {
+            last_login_at: new Date().toISOString()
+        };
+        
+        // Only add last_activity_at if the column exists
+        if (userData.last_activity_at !== undefined) {
+            updateData.last_activity_at = new Date().toISOString();
+        }
+        
         await supabase
             .from('users')
-            .update({ 
-                last_login_at: new Date().toISOString(),
-                last_activity_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('id', userData.id);
 
         // Attach user data to request object

@@ -73,7 +73,8 @@ class LoggingService {
             trackEvent: (data) => console.log('Mock trackEvent:', data),
             trackException: (data) => console.log('Mock trackException:', data),
             trackMetric: (data) => console.log('Mock trackMetric:', data),
-            trackDependency: (data) => console.log('Mock trackDependency:', data)
+            trackDependency: (data) => console.log('Mock trackDependency:', data),
+            trackTrace: (data) => console.log('Mock trackTrace:', data)
         };
     }
 

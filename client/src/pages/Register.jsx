@@ -72,6 +72,7 @@ const Register = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex">
             {/* Left Side - Branding */}
+            
             <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 p-12 items-center justify-center relative overflow-hidden">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-10">
@@ -346,6 +347,7 @@ const Register = () => {
                                 </div>
                             </div>
                         </div>
+                    </div>
                 </div>
             </div>
         </div>

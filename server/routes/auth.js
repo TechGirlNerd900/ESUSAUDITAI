@@ -4,6 +4,7 @@ import { supabase } from '../shared/supabaseClient.js';
 import { applicationInsights } from '../shared/logging.js';
 import { authMiddleware, protectRoute } from '../middleware/auth.js';
 import logger from '../shared/logger.js';
+import { setAuthTokens, clearAuthTokens } from '../utils/cookieHelpers.js';
 import { 
     validateRegister, 
     validateLogin, 
@@ -82,13 +83,39 @@ router.post('/login', validateLogin, async (req, res) => {
         }
 
         // Get additional user data
-        const { data: userData, error: userError } = await supabase
+        let { data: userData, error: userError } = await supabase
             .from('users')
             .select('*')
             .eq('auth_user_id', authData.user.id)
             .single();
 
-        if (userError) {
+        // If user doesn't exist in users table, create them
+        if (userError && userError.code === 'PGRST116') {
+            const { data: newUser, error: createError } = await supabase
+                .from('users')
+                .insert([{
+                    auth_user_id: authData.user.id,
+                    email: authData.user.email,
+                    first_name: authData.user.user_metadata?.first_name || authData.user.user_metadata?.firstName || 'User',
+                    last_name: authData.user.user_metadata?.last_name || authData.user.user_metadata?.lastName || 'User',
+                    role: 'auditor'
+                }])
+                .select()
+                .single();
+
+            if (createError) {
+                applicationInsights.trackEvent({
+                    name: 'UserCreationFailure',
+                    properties: {
+                        error: createError.message,
+                        userId: authData.user.id
+                    }
+                });
+                return res.status(500).json({ error: 'Failed to create user profile' });
+            }
+
+            userData = newUser;
+        } else if (userError) {
             applicationInsights.trackEvent({
                 name: 'UserDataFetchFailure',
                 properties: {
@@ -99,6 +126,12 @@ router.post('/login', validateLogin, async (req, res) => {
             return res.status(500).json({ error: 'Failed to get user data' });
         }
 
+        // Update last login timestamp
+        await supabase
+            .from('users')
+            .update({ last_login_at: new Date().toISOString() })
+            .eq('auth_user_id', authData.user.id);
+
         applicationInsights.trackEvent({
             name: 'UserLoggedIn',
             properties: {
@@ -108,20 +141,7 @@ router.post('/login', validateLogin, async (req, res) => {
         });
 
         // Set HTTP-only cookies for access and refresh tokens
-        res.cookie('sb-access-token', authData.session.access_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Lax',
-            maxAge: authData.session.expires_in * 1000,
-            path: '/',
-        });
-        res.cookie('sb-refresh-token', authData.session.refresh_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-            path: '/',
-        });
+        setAuthTokens(res, authData.session);
 
         res.json({
             user: {
@@ -140,8 +160,7 @@ router.post('/login', validateLogin, async (req, res) => {
 router.post('/logout', authMiddleware, async (req, res) => {
     try {
         // Clear cookies first
-        res.clearCookie('sb-access-token', { path: '/' });
-        res.clearCookie('sb-refresh-token', { path: '/' });
+        clearAuthTokens(res);
 
         const { error } = await supabase.auth.signOut();
 
@@ -350,27 +369,18 @@ router.get('/auth/callback', async (req, res) => {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (error) {
-            console.error('Error exchanging code for session:', error.message);
+            logger.error('Error exchanging code for session in OAuth callback', {
+                error: error.message,
+                code: code,
+                ip: req.ip,
+                userAgent: req.get('User-Agent')
+            });
             return res.status(400).json({ error: 'Authentication failed', code: 'AUTH_FAILED', message: error.message });
         }
 
         if (data?.session) {
-            // Set HTTP-only cookies for access and refresh tokens
-            // These will be sent by the browser on subsequent requests to your Express API
-            res.cookie('sb-access-token', data.session.access_token, {
-                httpOnly: true, // IMPORTANT: Prevent client-side JavaScript access
-                secure: process.env.NODE_ENV === 'production', // Use secure in production for HTTPS
-                sameSite: 'Lax', // Protect against CSRF
-                maxAge: data.session.expires_in * 1000, // Supabase access token expiry (in ms)
-                path: '/',
-            });
-            res.cookie('sb-refresh-token', data.session.refresh_token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'Lax',
-                maxAge: 7 * 24 * 60 * 60 * 1000, // Refresh token typically lasts longer (e.g., 7 days)
-                path: '/',
-            });
+            // Set HTTP-only cookies for access and refresh tokens using helper
+            setAuthTokens(res, data.session);
 
             // Return success response for client to handle navigation
             return res.status(200).json({ message: 'Authentication successful', user: data.user });
@@ -384,8 +394,7 @@ router.get('/auth/callback', async (req, res) => {
 // Logout route with cookie clearing
 router.post('/auth/logout', async (req, res) => {
     // Clear the cookies on the client side
-    res.clearCookie('sb-access-token', { path: '/' });
-    res.clearCookie('sb-refresh-token', { path: '/' });
+    clearAuthTokens(res);
 
     // Optionally, if the server-side Supabase client was initialized with a session,
     // you could also call `await supabase.auth.signOut()` here for server-side session invalidation.

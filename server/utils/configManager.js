@@ -22,8 +22,14 @@ class ConfigManager {
             }
 
             // Update process.env with database values
+            // But don't override critical environment variables that should come from .env file
+            const protectedVars = ['NODE_ENV', 'PORT', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET'];
+            
             envVars.forEach(envVar => {
-                process.env[envVar.key] = envVar.value;
+                // Only set if not already defined or not in protected list
+                if (!protectedVars.includes(envVar.key) || !process.env[envVar.key]) {
+                    process.env[envVar.key] = envVar.value;
+                }
             });
 
             logger.info('Environment variables loaded from database', {

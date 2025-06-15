@@ -1,19 +1,7 @@
 -- Esus Audit AI Database Initialization
 -- This file sets up the initial database structure and essential data
 
--- Create initial admin user (password should be changed on first login)
--- Default password: 'EsusAdmin2024!' (hashed with bcrypt)
-INSERT INTO users (email, password_hash, first_name, last_name, role, company, is_active, created_at, updated_at) VALUES
-('admin@esusaudit.ai', '$2a$12$LQv3c1yqBwEHFqHALGMJ4.VQVn5UVUFMHDsLaeEay7NCWDyDq7/1e', 'System', 'Administrator', 'admin', 'Esus Audit AI', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (email) DO NOTHING;
-
--- Create indexes for better performance (if not already created in schema)
-CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
-CREATE INDEX IF NOT EXISTS idx_projects_client ON projects(client_name);
-CREATE INDEX IF NOT EXISTS idx_documents_uploaded_by ON documents(uploaded_by);
-CREATE INDEX IF NOT EXISTS idx_analysis_confidence ON analysis_results(confidence_score);
-
--- Insert application settings/configuration
+-- Create app_settings table if it doesn't exist
 CREATE TABLE IF NOT EXISTS app_settings (
     key VARCHAR(255) PRIMARY KEY,
     value TEXT NOT NULL,
@@ -38,6 +26,19 @@ CREATE TRIGGER update_app_settings_updated_at
     BEFORE UPDATE ON app_settings
     FOR EACH ROW EXECUTE FUNCTION update_app_settings_updated_at();
 
+-- Create initial admin user (password should be changed on first login)
+-- Default password: 'EsusAdmin2024!' (hashed with bcrypt)
+INSERT INTO users (email, password_hash, first_name, last_name, role, company, is_active, created_at, updated_at) VALUES
+('admin@esusaudit.ai', '$2a$12$LQv3c1yqBwEHFqHALGMJ4.VQVn5UVUFMHDsLaeEay7NCWDyDq7/1e', 'System', 'Administrator', 'admin', 'Esus Audit AI', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (email) DO NOTHING;
+
+-- Create indexes for better performance (if not already created in schema)
+CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
+CREATE INDEX IF NOT EXISTS idx_projects_client ON projects(client_name);
+CREATE INDEX IF NOT EXISTS idx_documents_uploaded_by ON documents(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_analysis_confidence ON analysis_results(confidence_score);
+
+-- Insert application settings/configuration
 INSERT INTO app_settings (key, value, description, category, is_sensitive, last_updated_by) VALUES
 ('app_version', '1.0.0', 'Current application version', 'system', false, 'admin@esusaudit.ai'),
 ('max_file_size_mb', '50', 'Maximum file upload size in MB', 'upload', false, 'admin@esusaudit.ai'),

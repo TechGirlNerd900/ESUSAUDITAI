@@ -5,20 +5,22 @@
 
 // Critical environment variables that must be present for the application to function
 const CRITICAL_ENV_VARS = [
-  // Supabase Configuration
+  // Supabase Configuration (always required)
   'SUPABASE_URL',
   'SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'SUPABASE_JWT_SECRET',
   
-  // Azure AI Services
-  'AZURE_FORM_RECOGNIZER_KEY',
-  'AZURE_FORM_RECOGNIZER_ENDPOINT',
-  'AZURE_OPENAI_ENDPOINT',
-  'AZURE_OPENAI_API_KEY',
-  'AZURE_SEARCH_ENDPOINT',
-  'AZURE_SEARCH_API_KEY',
-  'AZURE_SEARCH_INDEX_NAME',
+  // Azure AI Services (required in production only)
+  ...(process.env.NODE_ENV === 'production' ? [
+    'AZURE_FORM_RECOGNIZER_KEY',
+    'AZURE_FORM_RECOGNIZER_ENDPOINT',
+    'AZURE_OPENAI_ENDPOINT',
+    'AZURE_OPENAI_API_KEY',
+    'AZURE_SEARCH_ENDPOINT',
+    'AZURE_SEARCH_API_KEY',
+    'AZURE_SEARCH_INDEX_NAME',
+  ] : []),
 
   // Production-specific (required in production only)
   ...(process.env.NODE_ENV === 'production' ? [
@@ -60,11 +62,19 @@ function validateVariableFormat(name, value) {
 
   // URL format validation
   if (name.includes('URL') || name.includes('ENDPOINT')) {
+    // In development mode, allow placeholder URLs
+    if (process.env.NODE_ENV !== 'production' && value.includes('your-')) {
+      return true;
+    }
     return URL_REGEX.test(value);
   }
 
   // Key format validation
   if (name.includes('KEY')) {
+    // In development mode, allow placeholder values
+    if (process.env.NODE_ENV !== 'production' && value.startsWith('your-')) {
+      return true;
+    }
     return value.length >= 32; // Most Azure/Supabase keys are at least 32 chars
   }
 

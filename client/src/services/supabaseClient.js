@@ -51,6 +51,9 @@ export const setupRealtimeSubscriptions = (userId) => {
                 console.log('Projects change received:', payload);
             }
         )
+        .on('error', (error) => {
+            console.error('Projects channel error:', error);
+        })
         .subscribe();
 
     // Documents subscription
@@ -66,6 +69,9 @@ export const setupRealtimeSubscriptions = (userId) => {
                 console.log('Documents change received:', payload);
             }
         )
+        .on('error', (error) => {
+            console.error('Documents channel error:', error);
+        })
         .subscribe();
 
     // Analysis results subscription
@@ -81,6 +87,9 @@ export const setupRealtimeSubscriptions = (userId) => {
                 console.log('Analysis change received:', payload);
             }
         )
+        .on('error', (error) => {
+            console.error('Analysis channel error:', error);
+        })
         .subscribe();
 
     return {
@@ -98,9 +107,8 @@ if (import.meta.env.DEV) {
         console.log('Supabase auth event:', event, session);
     });
 
-    supabase.realtime.onError((error) => {
-        console.error('Supabase realtime error:', error);
-    });
+    // Note: realtime error handling is now done per channel subscription
+    // Individual channels handle their own error states
 }
 
 // Test connection and log status
