@@ -1,0 +1,51 @@
+{
+  "name": "esus-audit-ai-nextjs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "validate-env": "node -e \"console.log('Environment validation placeholder')\"",
+    "clean": "rm -rf .next out"
+  },
+  "dependencies": {
+    "@azure/ai-form-recognizer": "^5.1.0",
+    "@azure/core-auth": "^1.9.0",
+    "@azure/openai": "^2.0.0",
+    "@azure/search-documents": "^12.1.0",
+    "@azure/service-bus": "^7.9.3",
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.50.0",
+    "applicationinsights": "^2.9.1",
+    "axios": "^1.9.0",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.0.0",
+    "dotenv": "^16.3.1",
+    "html-pdf": "^3.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^3.0.1",
+    "mammoth": "^1.6.0",
+    "next": "15.3.3",
+    "node-cache": "^5.1.2",
+    "openai": "^4.104.0",
+    "pdf-parse": "^1.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.0.0",
+    "uuid": "^9.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.8",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "15.3.3",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

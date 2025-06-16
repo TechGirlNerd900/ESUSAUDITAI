@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import supabase from '../services/supabaseClient';
 import { authService } from '../services/api';
 
+// Create context with default values
 const AuthContext = createContext({});
 
+// Custom hook to use the auth context
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
@@ -13,7 +15,8 @@ export const useAuth = () => {
     return context;
 };
 
-export const AuthProvider = ({ children }) => {
+// Auth provider component
+const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -172,4 +175,6 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-export default AuthContext;
+// Export the provider as the default export for Fast Refresh compatibility
+export { AuthProvider };
+export default AuthProvider;

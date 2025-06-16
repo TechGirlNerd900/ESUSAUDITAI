@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { authService } from '../services/api';
 import { 
     UserGroupIcon,
     UserIcon,
@@ -54,10 +53,37 @@ const UserManagement = () => {
     const [formData, setFormData] = useState({
         role: '',
         isActive: true,
-        company: ''
+        company: '',
+        firstName: '',
+        lastName: '',
+        email: ''
     });
     const [userActivity, setUserActivity] = useState([]);
     const [activityStats, setActivityStats] = useState({});
+
+    // API helper function
+    const apiCall = async (endpoint, options = {}) => {
+        try {
+            const response = await fetch(`/api${endpoint}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user?.token || ''}`,
+                    ...options.headers
+                },
+                ...options
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API call failed:', error);
+            throw error;
+        }
+    };
 
     // Fetch users with filters and pagination
     const fetchUsers = async (page = 1, search = '', role = '', status = '') => {
@@ -72,14 +98,17 @@ const UserManagement = () => {
             if (role && role !== 'all') params.append('role', role);
             if (status && status !== 'all') params.append('status', status);
 
-            const response = await authService.apiCall(`/admin/users?${params}`);
+            const data = await apiCall(`/admin/users?${params}`);
             
-            setUsers(response.users);
-            setPagination(response.pagination);
+            if (data && data.users) {
+                setUsers(data.users);
+                setPagination(data.pagination || pagination);
+            }
             
         } catch (error) {
             toast.error('Failed to fetch users');
             console.error('Error fetching users:', error);
+            setUsers([]);
         } finally {
             setLoading(false);
         }
@@ -88,8 +117,10 @@ const UserManagement = () => {
     // Fetch user statistics
     const fetchUserStats = async () => {
         try {
-            const response = await authService.apiCall('/admin/users/stats/overview');
-            setUserStats(response);
+            const data = await apiCall('/admin/users/stats/overview');
+            if (data) {
+                setUserStats(data);
+            }
         } catch (error) {
             console.error('Error fetching user stats:', error);
         }
@@ -98,9 +129,11 @@ const UserManagement = () => {
     // Fetch user details
     const fetchUserDetails = async (userId) => {
         try {
-            const response = await authService.apiCall(`/admin/users/${userId}`);
-            setSelectedUser(response.user);
-            return response;
+            const data = await apiCall(`/admin/users/${userId}`);
+            if (data && data.user) {
+                setSelectedUser(data.user);
+                return data;
+            }
         } catch (error) {
             toast.error('Failed to fetch user details');
             console.error('Error fetching user details:', error);
@@ -110,27 +143,56 @@ const UserManagement = () => {
     // Fetch user activity
     const fetchUserActivity = async (userId, days = 30) => {
         try {
-            const response = await authService.apiCall(`/admin/users/${userId}/activity?days=${days}`);
-            setUserActivity(response.activities);
-            setActivityStats(response.stats);
-            return response;
+            const data = await apiCall(`/admin/users/${userId}/activity?days=${days}`);
+            if (data) {
+                setUserActivity(data.activities || []);
+                setActivityStats(data.stats || {});
+                return data;
+            }
         } catch (error) {
             toast.error('Failed to fetch user activity');
             console.error('Error fetching user activity:', error);
+            setUserActivity([]);
+            setActivityStats({});
         }
     };
 
-    // Update user
+    // Create new user
+    const createUser = async (userData) => {
+        try {
+            await apiCall('/admin/users', {
+                method: 'POST',
+                body: JSON.stringify({
+                    first_name: userData.firstName,
+                    last_name: userData.lastName,
+                    email: userData.email,
+                    role: userData.role,
+                    is_active: userData.isActive,
+                    company: userData.company
+                })
+            });
+            
+            toast.success('User created successfully');
+            await fetchUsers(pagination.page, searchTerm, roleFilter, statusFilter);
+            await fetchUserStats();
+            setShowModal(false);
+            setSelectedUser(null);
+            
+        } catch (error) {
+            toast.error(error.message || 'Failed to create user');
+            console.error('Error creating user:', error);
+        }
+    };
     const updateUser = async (userId, updateData) => {
         try {
-            const response = await authService.apiCall(`/admin/users/${userId}`, {
+            await apiCall(`/admin/users/${userId}`, {
                 method: 'PUT',
                 body: JSON.stringify(updateData)
             });
             
             toast.success('User updated successfully');
-            fetchUsers(pagination.page, searchTerm, roleFilter, statusFilter);
-            fetchUserStats();
+            await fetchUsers(pagination.page, searchTerm, roleFilter, statusFilter);
+            await fetchUserStats();
             setShowModal(false);
             setSelectedUser(null);
             
@@ -140,14 +202,41 @@ const UserManagement = () => {
         }
     };
 
-    // Reset user password
-    const resetUserPassword = async (userId) => {
+    // Delete user
+    const deleteUser = async (userId) => {
+        if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+            return;
+        }
+
         try {
-            const response = await authService.apiCall(`/admin/users/${userId}/reset-password`, {
+            await apiCall(`/admin/users/${userId}`, {
+                method: 'DELETE'
+            });
+            
+            toast.success('User deleted successfully');
+            await fetchUsers(pagination.page, searchTerm, roleFilter, statusFilter);
+            await fetchUserStats();
+            
+        } catch (error) {
+            toast.error(error.message || 'Failed to delete user');
+            console.error('Error deleting user:', error);
+        }
+    };
+    const resetUserPassword = async (userId) => {
+        if (!window.confirm('Are you sure you want to reset this user\'s password?')) {
+            return;
+        }
+
+        try {
+            const data = await apiCall(`/admin/users/${userId}/reset-password`, {
                 method: 'POST'
             });
             
-            toast.success(`Password reset email sent to ${response.user.email}`);
+            if (data && data.user) {
+                toast.success(`Password reset email sent to ${data.user.email}`);
+            } else {
+                toast.success('Password reset email sent');
+            }
             
         } catch (error) {
             toast.error(error.message || 'Failed to reset password');
@@ -173,7 +262,9 @@ const UserManagement = () => {
 
     // Handle pagination
     const handlePageChange = (newPage) => {
-        fetchUsers(newPage, searchTerm, roleFilter, statusFilter);
+        if (newPage >= 1 && newPage <= pagination.totalPages) {
+            fetchUsers(newPage, searchTerm, roleFilter, statusFilter);
+        }
     };
 
     // Open modal
@@ -184,8 +275,8 @@ const UserManagement = () => {
         if (user) {
             if (type === 'edit') {
                 setFormData({
-                    role: user.role,
-                    isActive: user.is_active,
+                    role: user.role || '',
+                    isActive: user.is_active !== undefined ? user.is_active : true,
                     company: user.company || ''
                 });
             } else if (type === 'details') {
@@ -193,17 +284,49 @@ const UserManagement = () => {
             } else if (type === 'activity') {
                 await fetchUserActivity(user.id);
             }
+        } else if (type === 'create') {
+            setFormData({
+                role: '',
+                isActive: true,
+                company: '',
+                firstName: '',
+                lastName: '',
+                email: ''
+            });
         }
         
         setShowModal(true);
     };
 
+    // Close modal
+    const closeModal = () => {
+        setShowModal(false);
+        setSelectedUser(null);
+        setFormData({
+            role: '',
+            isActive: true,
+            company: '',
+            firstName: '',
+            lastName: '',
+            email: ''
+        });
+        setUserActivity([]);
+        setActivityStats({});
+    };
+
     // Handle form submit
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!selectedUser) return;
         
-        await updateUser(selectedUser.id, formData);
+        if (modalType === 'create') {
+            await createUser(formData);
+        } else if (modalType === 'edit' && selectedUser) {
+            await updateUser(selectedUser.id, {
+                role: formData.role,
+                is_active: formData.isActive,
+                company: formData.company
+            });
+        }
     };
 
     // Initial load
@@ -214,7 +337,7 @@ const UserManagement = () => {
 
     // Role color mapping
     const getRoleColor = (role) => {
-        switch (role) {
+        switch (role?.toLowerCase()) {
             case 'admin': return 'text-red-600 bg-red-100';
             case 'auditor': return 'text-blue-600 bg-blue-100';
             case 'reviewer': return 'text-green-600 bg-green-100';
@@ -225,6 +348,26 @@ const UserManagement = () => {
     // Status color mapping
     const getStatusColor = (isActive) => {
         return isActive ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
+    };
+
+    // Format date safely
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Never';
+        try {
+            return new Date(dateString).toLocaleDateString();
+        } catch (error) {
+            return 'Invalid Date';
+        }
+    };
+
+    // Format datetime safely
+    const formatDateTime = (dateString) => {
+        if (!dateString) return 'Never';
+        try {
+            return new Date(dateString).toLocaleString();
+        } catch (error) {
+            return 'Invalid Date';
+        }
     };
 
     return (
@@ -241,7 +384,7 @@ const UserManagement = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-gray-600">Total Users</p>
-                            <p className="text-2xl font-bold text-gray-900">{userStats.totalUsers}</p>
+                            <p className="text-2xl font-bold text-gray-900">{userStats.totalUsers || 0}</p>
                         </div>
                         <UserGroupIcon className="h-8 w-8 text-blue-600" />
                     </div>
@@ -271,7 +414,7 @@ const UserManagement = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-gray-600">Recent (30d)</p>
-                            <p className="text-2xl font-bold text-purple-600">{userStats.recentRegistrations}</p>
+                            <p className="text-2xl font-bold text-purple-600">{userStats.recentRegistrations || 0}</p>
                         </div>
                         <ChartBarIcon className="h-8 w-8 text-purple-600" />
                     </div>
@@ -297,35 +440,50 @@ const UserManagement = () => {
                             </div>
                             
                             {/* Role Filter */}
-                            <select
-                                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                                value={roleFilter}
-                                onChange={(e) => handleFilterChange('role', e.target.value)}
-                            >
-                                <option value="all">All Roles</option>
-                                <option value="admin">Admin</option>
-                                <option value="auditor">Auditor</option>
-                                <option value="reviewer">Reviewer</option>
-                            </select>
+                            <div className="relative">
+                                <select
+                                    className="pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                                    value={roleFilter}
+                                    onChange={(e) => handleFilterChange('role', e.target.value)}
+                                >
+                                    <option value="all">All Roles</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="auditor">Auditor</option>
+                                    <option value="reviewer">Reviewer</option>
+                                </select>
+                                <FunnelIcon className="h-5 w-5 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                            </div>
                             
                             {/* Status Filter */}
-                            <select
-                                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                                value={statusFilter}
-                                onChange={(e) => handleFilterChange('status', e.target.value)}
-                            >
-                                <option value="all">All Status</option>
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                            </select>
+                            <div className="relative">
+                                <select
+                                    className="pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                                    value={statusFilter}
+                                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                                >
+                                    <option value="all">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                                <ShieldCheckIcon className="h-5 w-5 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                            </div>
                         </div>
                         
-                        <button
-                            onClick={handleSearch}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        >
-                            Search
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleSearch}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            >
+                                Search
+                            </button>
+                            <button
+                                onClick={() => openModal('create')}
+                                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2"
+                            >
+                                <UserPlusIcon className="h-5 w-5" />
+                                Add User
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -387,7 +545,7 @@ const UserManagement = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                                                {user.role}
+                                                {user.role || 'N/A'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -399,7 +557,7 @@ const UserManagement = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
+                                            {formatDate(user.last_login_at)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div className="flex space-x-2">
@@ -431,6 +589,15 @@ const UserManagement = () => {
                                                 >
                                                     <ClockIcon className="h-4 w-4" />
                                                 </button>
+                                                {user.role !== 'admin' && (
+                                                    <button
+                                                        onClick={() => deleteUser(user.id)}
+                                                        className="text-red-600 hover:text-red-900"
+                                                        title="Delete User"
+                                                    >
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -501,12 +668,13 @@ const UserManagement = () => {
                             {/* Modal Header */}
                             <div className="flex items-center justify-between pb-4 border-b">
                                 <h3 className="text-lg font-medium text-gray-900">
+                                    {modalType === 'create' && 'Add New User'}
                                     {modalType === 'edit' && 'Edit User'}
                                     {modalType === 'details' && 'User Details'}
                                     {modalType === 'activity' && 'User Activity'}
                                 </h3>
                                 <button
-                                    onClick={() => setShowModal(false)}
+                                    onClick={closeModal}
                                     className="text-gray-400 hover:text-gray-600"
                                 >
                                     <XCircleIcon className="h-6 w-6" />
@@ -515,16 +683,58 @@ const UserManagement = () => {
 
                             {/* Modal Content */}
                             <div className="mt-4">
-                                {modalType === 'edit' && (
+                                {(modalType === 'edit' || modalType === 'create') && (
                                     <form onSubmit={handleSubmit} className="space-y-4">
+                                        {modalType === 'create' && (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">First Name *</label>
+                                                        <input
+                                                            type="text"
+                                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                            value={formData.firstName}
+                                                            onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                                                            required
+                                                            placeholder="Enter first name"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Last Name *</label>
+                                                        <input
+                                                            type="text"
+                                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                            value={formData.lastName}
+                                                            onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                                                            required
+                                                            placeholder="Enter last name"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Email *</label>
+                                                    <input
+                                                        type="email"
+                                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                        value={formData.email}
+                                                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                                        required
+                                                        placeholder="Enter email address"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                        
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700">Role</label>
+                                            <label className="block text-sm font-medium text-gray-700">Role *</label>
                                             <select
                                                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                                 value={formData.role}
                                                 onChange={(e) => setFormData({...formData, role: e.target.value})}
                                                 required
                                             >
+                                                <option value="">Select a role</option>
                                                 <option value="auditor">Auditor</option>
                                                 <option value="reviewer">Reviewer</option>
                                                 <option value="admin">Admin</option>
@@ -538,6 +748,7 @@ const UserManagement = () => {
                                                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                                 value={formData.company}
                                                 onChange={(e) => setFormData({...formData, company: e.target.value})}
+                                                placeholder="Enter company name"
                                             />
                                         </div>
                                         
@@ -551,10 +762,23 @@ const UserManagement = () => {
                                             <label className="ml-2 block text-sm text-gray-900">Active Account</label>
                                         </div>
                                         
+                                        {modalType === 'create' && (
+                                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                                                <div className="flex">
+                                                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" />
+                                                    <div className="ml-3">
+                                                        <p className="text-sm text-yellow-700">
+                                                            A temporary password will be generated and sent to the user's email address.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        
                                         <div className="flex justify-end space-x-3 pt-4">
                                             <button
                                                 type="button"
-                                                onClick={() => setShowModal(false)}
+                                                onClick={closeModal}
                                                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                                             >
                                                 Cancel
@@ -563,7 +787,7 @@ const UserManagement = () => {
                                                 type="submit"
                                                 className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
                                             >
-                                                Save Changes
+                                                {modalType === 'create' ? 'Create User' : 'Save Changes'}
                                             </button>
                                         </div>
                                     </form>
@@ -575,7 +799,9 @@ const UserManagement = () => {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">Name</label>
-                                                <p className="mt-1 text-sm text-gray-900">{selectedUser.first_name} {selectedUser.last_name}</p>
+                                                <p className="mt-1 text-sm text-gray-900">
+                                                    {selectedUser.first_name} {selectedUser.last_name}
+                                                </p>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">Email</label>
@@ -584,7 +810,7 @@ const UserManagement = () => {
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">Role</label>
                                                 <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(selectedUser.role)}`}>
-                                                    {selectedUser.role}
+                                                    {selectedUser.role || 'N/A'}
                                                 </span>
                                             </div>
                                             <div>
@@ -600,7 +826,19 @@ const UserManagement = () => {
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">Last Login</label>
                                                 <p className="mt-1 text-sm text-gray-900">
-                                                    {selectedUser.last_login_at ? new Date(selectedUser.last_login_at).toLocaleString() : 'Never'}
+                                                    {formatDateTime(selectedUser.last_login_at)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Created</label>
+                                                <p className="mt-1 text-sm text-gray-900">
+                                                    {formatDateTime(selectedUser.created_at)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Updated</label>
+                                                <p className="mt-1 text-sm text-gray-900">
+                                                    {formatDateTime(selectedUser.updated_at)}
                                                 </p>
                                             </div>
                                         </div>
@@ -612,15 +850,15 @@ const UserManagement = () => {
                                         {/* Activity Stats */}
                                         <div className="grid grid-cols-3 gap-4 mb-4">
                                             <div className="text-center">
-                                                <p className="text-lg font-semibold text-gray-900">{activityStats.totalActivities}</p>
+                                                <p className="text-lg font-semibold text-gray-900">{activityStats.totalActivities || 0}</p>
                                                 <p className="text-sm text-gray-500">Total Activities</p>
                                             </div>
                                             <div className="text-center">
-                                                <p className="text-lg font-semibold text-green-600">{activityStats.successfulActions}</p>
+                                                <p className="text-lg font-semibold text-green-600">{activityStats.successfulActions || 0}</p>
                                                 <p className="text-sm text-gray-500">Successful</p>
                                             </div>
                                             <div className="text-center">
-                                                <p className="text-lg font-semibold text-red-600">{activityStats.failedActions}</p>
+                                                <p className="text-lg font-semibold text-red-600">{activityStats.failedActions || 0}</p>
                                                 <p className="text-sm text-gray-500">Failed</p>
                                             </div>
                                         </div>
@@ -639,7 +877,7 @@ const UserManagement = () => {
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="text-xs text-gray-500">
-                                                                    {new Date(activity.created_at).toLocaleString()}
+                                                                    {formatDateTime(activity.created_at)}
                                                                 </p>
                                                                 {activity.success ? (
                                                                     <CheckCircleIcon className="h-4 w-4 text-green-500 inline" />

@@ -138,25 +138,59 @@ export const apiService = {
     },
 
     // Supabase Database Operations
-    async getProjects() {
-        const { data, error } = await supabase
+    async getProjects(page = 1, limit = 20) {
+        const offset = (page - 1) * limit;
+        
+        const { data, error, count } = await supabase
             .from('projects')
             .select(`
-                *,
+                id,
+                name,
+                description,
+                status,
+                audit_type,
+                due_date,
+                created_at,
+                updated_at,
+                created_by,
+                assigned_to,
                 documents (
                     id,
                     name,
                     status,
                     created_at
                 )
-            `)
-            .order('created_at', { ascending: false });
+            `, { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
 
         if (error) throw error;
-        return data;
+        return { 
+            projects: data || [], 
+            total: count || 0,
+            page,
+            limit,
+            hasMore: (count || 0) > offset + limit
+        };
     },
 
     async createProject(projectData) {
+        // Validate project data
+        const VALID_AUDIT_TYPES = ['financial', 'compliance', 'operational', 'security', 'internal'];
+        
+        if (!projectData.name || !projectData.audit_type) {
+            throw new Error('Name and audit type are required');
+        }
+        
+        if (!VALID_AUDIT_TYPES.includes(projectData.audit_type)) {
+            throw new Error('Invalid audit type. Must be one of: ' + VALID_AUDIT_TYPES.join(', '));
+        }
+        
+        // Validate email format if provided
+        if (projectData.client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(projectData.client_email)) {
+            throw new Error('Invalid email format');
+        }
+        
         const { data, error } = await supabase
             .from('projects')
             .insert([projectData])
@@ -217,7 +251,7 @@ export const apiService = {
 
     // Real-time subscriptions
     subscribeToAnalysisResults(documentId, callback) {
-        return supabase
+        const channel = supabase
             .channel(`analysis_results_${documentId}`)
             .on('postgres_changes', {
                 event: '*',
@@ -226,22 +260,65 @@ export const apiService = {
                 filter: `document_id=eq.${documentId}`
             }, callback)
             .subscribe();
+            
+        // Return subscription object with cleanup method
+        return {
+            unsubscribe: () => {
+                supabase.removeChannel(channel);
+            },
+            channel
+        };
     },
 
     // Error Handling
     handleError(error, operation) {
         console.error(`API Error in ${operation}:`, error);
         const errorMap = {
-            'PGRST301': 'Database error occurred',
-            'PGRST302': 'Invalid input data',
-            'PGRST204': 'No data found',
-            'UNAUTHORIZED': 'Authentication required',
-            'FORBIDDEN': 'Access denied',
-            'default': 'An unexpected error occurred'
+            'PGRST301': {
+                message: 'Database error occurred',
+                action: 'Please try again or contact support if the issue persists'
+            },
+            'PGRST302': {
+                message: 'Invalid input data',
+                action: 'Please check your input and try again'
+            },
+            'PGRST204': {
+                message: 'No data found',
+                action: 'The requested resource does not exist'
+            },
+            'PGRST116': {
+                message: 'Connection error',
+                action: 'Please check your internet connection and try again'
+            },
+            '23505': {
+                message: 'Duplicate entry',
+                action: 'A record with this information already exists'
+            },
+            '23503': {
+                message: 'Invalid reference',
+                action: 'The referenced record does not exist'
+            },
+            'UNAUTHORIZED': {
+                message: 'Authentication required',
+                action: 'Please log in and try again'
+            },
+            'FORBIDDEN': {
+                message: 'Access denied',
+                action: 'You do not have permission to perform this action'
+            },
+            'default': {
+                message: 'An unexpected error occurred',
+                action: 'Please try again later'
+            }
         };
 
-        const message = errorMap[error?.code] || errorMap.default;
-        throw new Error(`${message} (${operation})`);
+        const errorInfo = errorMap[error?.code] || errorMap.default;
+        const enhancedError = new Error(`${errorInfo.message} (${operation})`);
+        enhancedError.action = errorInfo.action;
+        enhancedError.code = error?.code;
+        enhancedError.originalError = error;
+        
+        throw enhancedError;
     }
 };
 
