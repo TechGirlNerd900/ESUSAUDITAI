@@ -18,8 +18,7 @@ class RateLimiter {
 
   private getKey(request: NextRequest): string {
     // Use IP address as the key, with fallback to a generic key
-    const ip = request.ip || 
-               request.headers.get('x-forwarded-for')?.split(',')[0] || 
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
                request.headers.get('x-real-ip') || 
                'unknown'
     return ip

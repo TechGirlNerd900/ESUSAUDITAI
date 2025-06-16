@@ -1,5 +1,5 @@
 import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
-import { SearchClient, SearchIndexClient, SearchKeyCredential } from '@azure/search-documents';
+import { SearchClient, SearchIndexClient } from '@azure/search-documents';
 import { createServerClient } from '@supabase/ssr';
 import NodeCache from 'node-cache';
 import { promiseWithTimeout } from './helpers.js';
@@ -36,7 +36,7 @@ export class AzureServices {
         this.searchClient = new SearchClient(
             process.env.AZURE_SEARCH_ENDPOINT,
             process.env.AZURE_SEARCH_INDEX_NAME,
-            new SearchKeyCredential(process.env.AZURE_SEARCH_API_KEY)
+            new AzureKeyCredential(process.env.AZURE_SEARCH_API_KEY)
         );
 
         this.bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'documents';

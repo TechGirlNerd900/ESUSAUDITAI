@@ -12,6 +12,13 @@ This file maintains a list of Context7-compatible library IDs that have been sea
   - /supabase/ui (UI Library)
   - /supabase/ssr (Server-side rendering)
 
+## Next.js
+- Library ID: /vercel/next.js
+- Description: The React Framework
+- Code Snippets: 4511
+- Trust Score: 10
+- Versions: v14.3.0-canary.87, v13.5.11, v15.1.8
+
 ## Other Libraries
 (Add other libraries as needed)
 

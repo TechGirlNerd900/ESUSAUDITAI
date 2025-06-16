@@ -1,17 +1,13 @@
 import { createClient } from '@/utils/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export async function POST() {
-  const supabase = createClient()
+export async function POST(request: NextRequest) {
+  const requestUrl = new URL(request.url)
+  const supabase = await createClient()
 
-  // Check if a user's logged in
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Sign out of Supabase
+  await supabase.auth.signOut()
 
-  if (user) {
-    await supabase.auth.signOut()
-  }
-
-  return NextResponse.json({ message: 'Logged out successfully' })
+  // Return path to redirect to after sign out
+  return NextResponse.redirect(new URL('/login', requestUrl.origin))
 }

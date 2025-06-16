@@ -1,138 +1,118 @@
-# CLAUDE.md
+# Rules for Context 7
+When using Context, make sure that you keep the range of output in the range 2k to 10k based on what you think is the best.
+Maintain a file named library.md to stpre the Library IDs that you search for and before searching make sure that you check the file and use the library ID already available. Otherwise, search for it
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+----------------------------------------------------
+# . Task: Unify Frontend by Migrating Legacy UI into Next.js Application
+Objective:
 
-## Development Commands
+// broser consoler error
+Suggested fix
+Ensure that your server-side application has a route or endpoint configured to handle GET requests at the /register path. The specific fix depends on the server-side framework or technology you are using.
+Refactor the project to resolve critical architectural conflicts by migrating the standalone React UI from the client directory into the primary nextjs application. The goal is to create a single, modern, and maintainable codebase while preserving the existing user interface design and functionality.
 
-### Primary Development
-```bash
-# Start full development environment (client + server)
-npm run dev
+Key Deliverables & Acceptance Criteria:
 
-# Start individual components  
-npm run dev:client    # Vite dev server on port 5173
-npm run dev:server    # Express server on port 3001
-```
+UI Component Migration:
 
-### Database Operations
-```bash
-# Setup database schema and seed data
-npm run db:setup
+remove currrent Next.js UI  and start to migrate again from .claude/src to next.js for a reppliacted UI 
 
-# Run database migrations
-npm run db:migrate
+All React components from .claude/src/components and .claude/src/pages must be successfully moved and integrated into the nextjs/app directory structure.
+The application's visual styling (from .claude/src/styles and .claude/src/index.css) must be consolidated into nextjs/app/globals.css and applied correctly.
+The final application must be visually identical to the legacy version.
+Modernize Authentication and Data Fetching:
+with fetch or direct server-side fetching with the Supabase client.
+Codebase Cleanup and Simplification:
 
-# Setup Supabase resources
-npm run supabase:setup
-```
+Once the migration is complete and verified, the entire client directory must be deleted.
+Obsolete root-level files (vite.config.js, test-auth.js, test-production.js) must be removed.
+The database migrations must be consolidated into a single, authoritative schema.sql file to ensure database consistency.
+Documentation Update:
 
-### Testing and Validation
-```bash
-# Run tests across client and server
-npm test
+ansure that all the routes and paths properly added
 
-# Server linting and validation
-cd server && npm run lint
-cd server && npm run validate-env
-cd server && npm run health
-```
+The README.md and all other documentation must be updated to reflect the unified Next.js architecture, including new setup instructions and API endpoint details.
 
-### Build Commands
-```bash
-# Build for production
-npm run build
+# see current terminal logs 
 
-# Production deployment
-npm run deploy
-```
+▲ Next.js 15.3.3
+   - Environments: .env.local
 
-## Architecture Overview
+   Creating an optimized production build ...
+ ⚠ Compiled with warnings in 1000ms
 
-### Dual Authentication Strategy
-The application implements two authentication patterns in `server/middleware/auth.js`:
+./node_modules/@supabase/realtime-js/dist/main/RealtimeClient.js
+Critical dependency: the request of a dependency is an expression
 
-- **`protectRoute` middleware** - Modern HTTP-only cookie authentication with Supabase session management
-- **`authMiddleware` middleware** - Legacy Bearer token authentication for backward compatibility
+Import trace for requested module:
+./node_modules/@supabase/realtime-js/dist/main/RealtimeClient.js
+./node_modules/@supabase/realtime-js/dist/main/index.js
+./node_modules/@supabase/supabase-js/dist/module/index.js
+./node_modules/@supabase/ssr/dist/module/createBrowserClient.js
+./node_modules/@supabase/ssr/dist/module/index.js
+./utils/supabase/server.ts
+./app/page.tsx
 
-Both use manual session management with `supabase.auth.setSession()` and `persistSession: false`.
+ ✓ Compiled successfully in 2000ms
+ ✓ Linting and checking validity of types    
+ ✓ Collecting page data    
+ ✓ Generating static pages (12/12)
+ ✓ Collecting build traces    
+ ✓ Finalizing page optimization    
 
-### Hybrid API Architecture
-Frontend (`client/src/services/api.js`) uses dual approach:
+Route (app)                                 Size  First Load JS    
+┌ ƒ /                                      156 B         101 kB
+├ ○ /_not-found                            977 B         102 kB
+├ ƒ /api/analysis/document/[id]            156 B         101 kB
+├ ƒ /api/auth/callback                     156 B         101 kB
+├ ƒ /api/auth/logout                       156 B         101 kB
+├ ƒ /api/chat/[projectId]                  156 B         101 kB
+├ ƒ /api/documents/upload                  156 B         101 kB
+├ ƒ /api/projects                          156 B         101 kB
+├ ƒ /api/projects/[id]                     156 B         101 kB
+├ ƒ /api/reports/generate                  156 B         101 kB
+├ ○ /dashboard                           4.29 kB         109 kB
+└ ○ /login                               1.35 kB         143 kB
++ First Load JS shared by all             101 kB
+  ├ chunks/4bd1b696-9b550796cfb749fe.js  53.2 kB
+  ├ chunks/684-2488865b2f7ba96e.js       45.8 kB
+  └ other shared chunks (total)          1.92 kB
 
-- **Express Backend APIs** - Complex operations (auth, document analysis, AI chat) via axios with retry logic
-- **Direct Supabase Calls** - Simple CRUD operations with real-time subscriptions
 
-### Security Middleware Stack
-```
-helmet() → cors() → rate limiting → performance monitoring → 
-authentication → input sanitization → route handlers → error monitoring
-```
+ƒ Middleware                             65.9 kB
 
-### File Processing Pipeline
-```
-Upload → Multer → Supabase Storage → Azure Document Intelligence → 
-OpenAI Analysis → Database Storage → Real-time Notifications
-```
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
 
-## Key Implementation Patterns
+techgirlnerd@TechGirlNerds-MacBook-Air esusauditai % npm run dev
 
-### Authentication Flow
-```
-User Login → Backend API → HTTP-only Cookies → Supabase Client Sync → Frontend State
-```
+> esus-audit-ai@1.0.0 dev
+> cd nextjs && npm run dev
 
-Client-side authentication in `AuthContext.jsx` coordinates between backend API and Supabase client for session synchronization.
 
-### Error Handling Strategy
-- **API Layer**: Exponential backoff retry for 5xx/408/429 errors
-- **Validation Layer**: Express-validator with structured error responses
-- **Monitoring**: Azure Application Insights for all errors and performance metrics
+> esus-audit-ai-nextjs@1.0.0 dev
+> next dev --turbopack
 
-### Database Access Patterns
-- **Server**: Service role for administrative operations
-- **Client**: RLS-enforced direct calls for user operations  
-- **Real-time**: Supabase subscriptions for live analysis updates
+   ▲ Next.js 15.3.3 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.18.3:3000
+   - Environments: .env.local
 
-### Input Validation Architecture
-Comprehensive validation in `server/middleware/validation.js`:
-- Email normalization and format validation
-- Password complexity requirements (8+ chars, mixed case, numbers, special chars)
-- File upload validation (MIME types, size limits, filename sanitization)
-- Recursive input sanitization removing control characters and script tags
-
-### Monitoring and Health Checks
-Health endpoints for container orchestration:
-- `/health` - Comprehensive system health
-- `/health/ready` - Database connectivity validation
-- `/health/live` - Basic process health
-- `/metrics` - System resource metrics
-
-### Azure AI Services Integration
-- **Document Intelligence**: OCR and structure extraction
-- **OpenAI**: Text generation and analysis with confidence scoring
-- **Cognitive Search**: Full-text search across documents
-- **Application Insights**: Comprehensive telemetry and monitoring
-
-## Critical Security Features
-
-### Rate Limiting Configuration
-- Authentication endpoints: 5 requests per 15 minutes
-- General API endpoints: 100 requests per 15 minutes
-- Configurable via environment variables
-
-### Role-Based Access Control
-Three-tier system (admin/auditor/reviewer) with:
-- `requireRole()` middleware for endpoint authorization
-- `requireProjectAccess()` middleware for project-specific permissions
-- Account status validation (active/inactive)
-
-### File Security
-- Configurable allowed MIME types via `ALLOWED_FILE_TYPES` env var
-- File size limits with `MAX_FILE_SIZE` configuration
-- Filename sanitization preventing path traversal attacks
-
-### Audit Logging
-Complete activity trail in `audit_logs` table tracking:
-- User actions with IP addresses and user agents
-- Security events and unauthorized access attempts
-- Business operations for compliance requirements
+ ✓ Starting...
+ ✓ Compiled middleware in 205ms
+ ✓ Ready in 1214ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 4.8s
+ GET /login 200 in 5098ms
+ ✓ Compiled /favicon.ico in 367ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 631ms
+ GET /favicon.ico 200 in 235ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 227ms
+ ✓ Compiled /_not-found/page in 410ms
+ GET /apple-touch-icon-precomposed.png 404 in 451ms
+ GET /apple-touch-icon.png 404 in 464ms
+ GET /login 200 in 75ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 250ms
+ GET /login 200 in 73ms
+ GET /register 404 in 66ms
+ GET /login 200 in 111ms

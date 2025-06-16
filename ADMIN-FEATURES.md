@@ -208,13 +208,11 @@ await configManager.reloadAll();
 ## 🔧 Technical Details
 
 ### **Frontend Components**
-- `AdminPanel.jsx` - Main admin interface
 - Role-based access control
 - Real-time form validation
 - Responsive design
 
 ### **Backend Routes**
-- `routes/admin.js` - Admin API endpoints
 - Input validation middleware
 - Audit logging
 - Security middleware
@@ -226,7 +224,6 @@ await configManager.reloadAll();
 - Performance optimized queries
 
 ### **Configuration Management**
-- `utils/configManager.js` - Central configuration manager
 - Intelligent caching with TTL
 - Fallback mechanisms
 - Integration testing capabilities

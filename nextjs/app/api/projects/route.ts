@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     return rateLimitResponse
   }
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Check if user is authenticated
   const {
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     return rateLimitResponse
   }
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Check if user is authenticated
   const {

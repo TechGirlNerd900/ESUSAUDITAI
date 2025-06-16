@@ -346,3 +346,54 @@ export interface Database {
     }
   }
 }
+
+export interface Project {
+  id: string
+  name: string
+  description: string | null
+  user_id: string
+  created_at: string
+  updated_at: string
+  status: string
+  client_name?: string
+  client_email?: string
+  audit_type: string
+  due_date?: string
+  assigned_to: string[]
+}
+
+export interface Document {
+  id: string
+  name: string
+  file_path: string
+  project_id: string
+  status: string
+  created_by: string
+  created_at: string
+  analyzed_at?: string
+  file_type: string
+  file_size: number
+  public_url: string
+  analysis_results?: any
+}
+
+export interface ChatMessage {
+  id: string
+  project_id: string
+  user_id?: string
+  content: string
+  role: 'user' | 'assistant'
+  created_at: string
+}
+
+export interface Profile {
+  id: string
+  email: string
+  full_name?: string
+  organization?: string
+  role: string
+  status: string
+  created_at: string
+  updated_at: string
+  last_sign_in_at?: string
+}

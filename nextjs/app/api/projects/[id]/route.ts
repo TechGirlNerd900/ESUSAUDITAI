@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createClient()
+  const { id } = await params;
+  const supabase = await createClient()
 
   // Check if user is authenticated
   const {
@@ -32,7 +33,7 @@ export async function GET(
         analysis_results (*)
       )
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error) {
@@ -53,9 +54,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createClient()
+  const { id } = await params;
+  const supabase = await createClient()
 
   // Check if user is authenticated
   const {
@@ -79,7 +81,7 @@ export async function PUT(
       due_date,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', params.id)
+    .eq('id', id)
     .select()
     .single()
 
@@ -92,9 +94,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createClient()
+  const { id } = await params;
+  const supabase = await createClient()
 
   // Check if user is authenticated
   const {
@@ -109,7 +112,7 @@ export async function DELETE(
   const { error } = await supabase
     .from('projects')
     .update({ status: 'archived' })
-    .eq('id', params.id)
+    .eq('id', id)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
