@@ -5,17 +5,21 @@ import { generateChatResponse } from '@/lib/openaiClient'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    // Await params since they're now a Promise in newer Next.js versions
+    const { projectId } = await params
+    
     const supabase = await createClient()
 
     // Check authentication
     const {
       data: { user },
+      error: authError
     } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -23,11 +27,19 @@ export async function POST(
     }
 
     // Verify project access
-    const { data: project } = await supabase
+    const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('*')
-      .eq('id', params.projectId)
+      .eq('id', projectId)
       .single()
+
+    if (projectError) {
+      console.error('Project fetch error:', projectError)
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      )
+    }
 
     if (!project || project.user_id !== user.id) {
       return NextResponse.json(
@@ -37,11 +49,21 @@ export async function POST(
     }
 
     // Get message from request
-    const { message } = await request.json()
-
-    if (!message) {
+    let requestBody
+    try {
+      requestBody = await request.json()
+    } catch (parseError) {
       return NextResponse.json(
-        { error: 'Message is required' },
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      )
+    }
+
+    const { message } = requestBody
+
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Message is required and must be a non-empty string' },
         { status: 400 }
       )
     }
@@ -50,44 +72,64 @@ export async function POST(
     const { error: chatError } = await supabase
       .from('chat_messages')
       .insert({
-        project_id: params.projectId,
+        project_id: projectId,
         user_id: user.id,
-        content: message,
+        content: message.trim(),
         role: 'user'
       })
 
-    if (chatError) throw chatError
+    if (chatError) {
+      console.error('Chat message insert error:', chatError)
+      throw new Error('Failed to store user message: ' + chatError.message)
+    }
 
     // Get chat history
-    const { data: chatHistory } = await supabase
+    const { data: chatHistory, error: historyError } = await supabase
       .from('chat_messages')
       .select('*')
-      .eq('project_id', params.projectId)
+      .eq('project_id', projectId)
       .order('created_at', { ascending: true })
       .limit(50)
 
+    if (historyError) {
+      console.error('Chat history fetch error:', historyError)
+      throw new Error('Failed to fetch chat history: ' + historyError.message)
+    }
+
     // Generate AI response
-    const aiResponse = await generateChatResponse(chatHistory as ChatMessage[], project)
+    let aiResponse: string
+    try {
+      aiResponse = await generateChatResponse(chatHistory as ChatMessage[], project)
+    } catch (aiError) {
+      console.error('AI response generation error:', aiError)
+      aiResponse = "I'm sorry, I'm having trouble generating a response right now. Please try again."
+    }
 
     // Store AI response
     const { data: aiMessage, error: aiError } = await supabase
       .from('chat_messages')
       .insert({
-        project_id: params.projectId,
+        project_id: projectId,
         content: aiResponse,
         role: 'assistant'
       })
       .select()
       .single()
 
-    if (aiError) throw aiError
+    if (aiError) {
+      console.error('AI message insert error:', aiError)
+      throw new Error('Failed to store AI response: ' + aiError.message)
+    }
 
     return NextResponse.json({ message: aiMessage })
 
   } catch (error) {
     console.error('Chat error:', error)
     return NextResponse.json(
-      { error: 'Failed to process chat message' },
+      { 
+        error: 'Failed to process chat message',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
@@ -95,17 +137,21 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    // Await params since they're now a Promise in newer Next.js versions
+    const { projectId } = await params
+    
     const supabase = await createClient()
 
     // Check authentication
     const {
       data: { user },
+      error: authError
     } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -113,11 +159,19 @@ export async function GET(
     }
 
     // Verify project access
-    const { data: project } = await supabase
+    const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('*')
-      .eq('id', params.projectId)
+      .eq('id', projectId)
       .single()
+
+    if (projectError) {
+      console.error('Project fetch error:', projectError)
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      )
+    }
 
     if (!project || project.user_id !== user.id) {
       return NextResponse.json(
@@ -127,20 +181,26 @@ export async function GET(
     }
 
     // Get chat history
-    const { data: messages, error } = await supabase
+    const { data: messages, error: messagesError } = await supabase
       .from('chat_messages')
       .select('*')
-      .eq('project_id', params.projectId)
+      .eq('project_id', projectId)
       .order('created_at', { ascending: true })
 
-    if (error) throw error
+    if (messagesError) {
+      console.error('Messages fetch error:', messagesError)
+      throw new Error('Failed to fetch messages: ' + messagesError.message)
+    }
 
-    return NextResponse.json({ messages })
+    return NextResponse.json({ messages: messages || [] })
 
   } catch (error) {
     console.error('Error fetching chat history:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch chat history' },
+      { 
+        error: 'Failed to fetch chat history',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
