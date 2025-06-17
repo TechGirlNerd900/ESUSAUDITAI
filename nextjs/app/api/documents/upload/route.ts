@@ -37,30 +37,31 @@ export async function POST(request: NextRequest) {
 
     // Upload file to Supabase Storage
     const { error: uploadError } = await supabase.storage
-      .from('documents')
+      .from('audit-documents')
       .upload(filePath, file)
 
     if (uploadError) {
+      console.error('Storage upload error:', uploadError);
       throw uploadError
     }
 
     // Get the public URL of the uploaded file
     const { data: { publicUrl } } = supabase.storage
-      .from('documents')
+      .from('audit-documents')
       .getPublicUrl(filePath)
 
     // Create document record in the database
     const { data: document, error: dbError } = await supabase
       .from('documents')
       .insert({
-        name: file.name,
+        original_name: file.name,
         file_path: filePath,
         project_id: projectId,
-        status: 'pending',
-        created_by: user.id,
+        status: 'uploaded',
+        uploaded_by: user.id,
         file_type: file.type,
         file_size: file.size,
-        public_url: publicUrl
+        blob_url: publicUrl
       })
       .select()
       .single()

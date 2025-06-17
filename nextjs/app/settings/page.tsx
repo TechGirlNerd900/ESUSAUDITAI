@@ -40,15 +40,32 @@ export default function Settings() {
 
     try {
       const formData = new FormData(event.target as HTMLFormElement)
+      const firstName = formData.get('firstName') as string
+      const lastName = formData.get('lastName') as string
+      const company = formData.get('company') as string
+
+      // Find the user in our users table by email
+      const { data: existingUser, error: fetchError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', user?.email)
+        .single()
+
+      if (fetchError) {
+        throw new Error('User not found in database')
+      }
+
       const updates = {
-        full_name: formData.get('fullName'),
-        organization: formData.get('organization'),
+        first_name: firstName || '',
+        last_name: lastName || '',
+        company: company || '',
         updated_at: new Date().toISOString(),
       }
 
       const { error } = await supabase
-        .from('profiles')
-        .upsert({ id: user?.id, ...updates })
+        .from('users')
+        .update(updates)
+        .eq('id', existingUser.id)
 
       if (error) throw error
 
@@ -105,25 +122,37 @@ export default function Settings() {
           </div>
 
           <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-              Full Name
+            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+              First Name
             </label>
             <input
               type="text"
-              id="fullName"
-              name="fullName"
+              id="firstName"
+              name="firstName"
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label htmlFor="organization" className="block text-sm font-medium text-gray-700">
-              Organization
+            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+              Last Name
             </label>
             <input
               type="text"
-              id="organization"
-              name="organization"
+              id="lastName"
+              name="lastName"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="company" className="block text-sm font-medium text-gray-700">
+              Company
+            </label>
+            <input
+              type="text"
+              id="company"
+              name="company"
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
