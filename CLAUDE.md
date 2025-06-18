@@ -168,3 +168,20 @@ To enhance the value for different organizations, SaaS platforms often include t
 Organization Profile & Branding: The ability for an Organization Admin to upload their company logo, which might appear on reports or within the UI.
 Organization-Specific Settings: Configuration options that apply to an entire organization, such as default notification settings or custom report disclaimers.
 In summary, while the Canvas describes a technically robust application, it needs the entire business and administrative layer built on top of it to function as a scalable, secure, and commercially viable multi-tenant SaaS platform.
+
+//
+
+
+
+# Production builds
+/client/dist/
+/client/build/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+config/dev.env
+config/prod.env

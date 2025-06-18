@@ -1,3 +1,0 @@
-import { createClient } from '@supabase/supabase-js';
-// ...existing code from supabaseClient.js...
-// (see previous tool output for full content)

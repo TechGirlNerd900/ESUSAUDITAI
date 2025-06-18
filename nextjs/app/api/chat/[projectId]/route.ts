@@ -26,26 +26,34 @@ export async function POST(
       )
     }
 
-    // Verify project access
+    // Fetch user's organization_id and role from users table
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select('organization_id, role')
+      .eq('id', user.id)
+      .single()
+    if (userError || !userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
+    }
+    // Fetch project and check org
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('*')
+      .select('organization_id, assigned_to, created_by')
       .eq('id', projectId)
       .single()
-
-    if (projectError) {
-      console.error('Project fetch error:', projectError)
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      )
+    if (projectError || !project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
-
-    if (!project || project.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      )
+    if (project.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: 'Cross-organization access denied' }, { status: 403 })
+    }
+    // Only allow if user is admin, project creator, or assigned
+    if (
+      userProfile.role !== 'admin' &&
+      project.created_by !== user.id &&
+      !(project.assigned_to && project.assigned_to.includes(user.id))
+    ) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
     // Get message from request
@@ -126,10 +134,7 @@ export async function POST(
   } catch (error) {
     console.error('Chat error:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to process chat message',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to process chat message' },
       { status: 500 }
     )
   }
@@ -158,26 +163,34 @@ export async function GET(
       )
     }
 
-    // Verify project access
+    // Fetch user's organization_id and role from users table
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select('organization_id, role')
+      .eq('id', user.id)
+      .single()
+    if (userError || !userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
+    }
+    // Fetch project and check org
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('*')
+      .select('organization_id, assigned_to, created_by')
       .eq('id', projectId)
       .single()
-
-    if (projectError) {
-      console.error('Project fetch error:', projectError)
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      )
+    if (projectError || !project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
-
-    if (!project || project.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      )
+    if (project.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: 'Cross-organization access denied' }, { status: 403 })
+    }
+    // Only allow if user is admin, project creator, or assigned
+    if (
+      userProfile.role !== 'admin' &&
+      project.created_by !== user.id &&
+      !(project.assigned_to && project.assigned_to.includes(user.id))
+    ) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
     // Get chat history
@@ -197,10 +210,7 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching chat history:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch chat history',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to fetch chat history' },
       { status: 500 }
     )
   }

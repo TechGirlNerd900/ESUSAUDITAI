@@ -17,6 +17,8 @@ const Dashboard = () => {
   const [initialLoad, setInitialLoad] = useState(true);
   const [news, setNews] = useState([]);
   const [newsLoading, setNewsLoading] = useState(false);
+  const [tagFilter, setTagFilter] = useState('')
+  const [customFieldFilter, setCustomFieldFilter] = useState('')
 
   useEffect(() => {
     // Show UI elements with staggered animations
@@ -192,6 +194,16 @@ const Dashboard = () => {
     }
   ];
 
+  const filteredProjects = projects.filter(project => {
+    const tagMatch = tagFilter ? (project.tags || []).includes(tagFilter) : true
+    const customFieldMatch = customFieldFilter
+      ? Object.values(project.custom_fields || {}).some(val =>
+          String(val).toLowerCase().includes(customFieldFilter.toLowerCase())
+        )
+      : true
+    return tagMatch && customFieldMatch
+  })
+
   // Error state
   if (error) {
     return (
@@ -331,8 +343,25 @@ const Dashboard = () => {
             </div>
           </div>
 
+          <div className="flex gap-4 mb-4">
+            <input
+              type="text"
+              placeholder="Filter by tag"
+              value={tagFilter}
+              onChange={e => setTagFilter(e.target.value)}
+              className="input input-modern"
+            />
+            <input
+              type="text"
+              placeholder="Filter by custom field value"
+              value={customFieldFilter}
+              onChange={e => setCustomFieldFilter(e.target.value)}
+              className="input input-modern"
+            />
+          </div>
+
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.slice(0, 6).map((project, index) => (
+            {filteredProjects.slice(0, 6).map((project, index) => (
               <Link
                 key={project.id}
                 href={`/projects/${project.id}`}
@@ -447,9 +476,9 @@ const Dashboard = () => {
                 {/* Projects grid or empty state */}
                 {!showLoadingOverlay && (
                   <>
-                    {projects.length > 0 ? (
+                    {filteredProjects.length > 0 ? (
                       <div className="grid grid-cols-1 gap-6">
-                        {projects.slice(0, 4).map((project, index) => (
+                        {filteredProjects.slice(0, 4).map((project, index) => (
                           <Link
                             key={project.id}
                             href={`/projects/${project.id}`}

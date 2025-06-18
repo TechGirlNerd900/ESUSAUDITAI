@@ -2,10 +2,15 @@ import { createClient } from '@/utils/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { projectRateLimiter } from '@/lib/rateLimiter'
 
+// Helper to check if user can create a project
+function canCreateProject(user) {
+  return user.role === 'admin' || user.role === 'auditor'
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Apply rate limiting
-    const rateLimitResponse = projectRateLimiter.middleware()(request)
+    const rateLimitResponse = await projectRateLimiter(request)
     if (rateLimitResponse) {
       return rateLimitResponse
     }
@@ -21,47 +26,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get projects for the user with pagination
-    const page = parseInt(request.nextUrl.searchParams.get('page') || '1')
-    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '20')
-    const offset = (page - 1) * limit
+    // Fetch user's organization_id from users table
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select('organization_id, role')
+      .eq('id', user.id)
+      .single()
 
+    if (userError || !userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
+    }
+
+    // Only return projects in user's organization
     const { data: projects, error } = await supabase
       .from('projects')
-      .select(`
-        id,
-        name,
-        description,
-        status,
-        client_name,
-        client_email,
-        start_date,
-        end_date,
-        created_at,
-        updated_at,
-        created_by,
-        assigned_to,
-        documents (
-          id,
-          original_name,
-          status,
-          created_at
-        )
-      `)
-      .or(`created_by.eq.${user.id},assigned_to.cs.{${user.id}}`)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+      .select('*')
+      .eq('organization_id', userProfile.organization_id)
 
     if (error) {
       console.error('Database error fetching projects:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch projects', details: error.message }, 
+        { error: 'Failed to fetch projects' }, 
         { status: 500 }
       )
     }
 
+    // If reviewer, filter to only assigned projects
+    let filteredProjects = projects
+    if (userProfile.role === 'reviewer') {
+      filteredProjects = projects.filter(p => p.assigned_to && p.assigned_to.includes(user.id))
+    }
+
     // Transform data to include document count and ensure compatibility
-    const transformedProjects = (projects || []).map(project => ({
+    const transformedProjects = (filteredProjects || []).map(project => ({
       ...project,
       document_count: project.documents?.length || 0,
       // Ensure backward compatibility
@@ -72,8 +69,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ 
       projects: transformedProjects,
       total: transformedProjects.length,
-      page,
-      limit 
+      page: 1,
+      limit: transformedProjects.length 
     })
 
   } catch (error) {
@@ -88,7 +85,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Apply rate limiting
-    const rateLimitResponse = projectRateLimiter.middleware()(request)
+    const rateLimitResponse = await projectRateLimiter(request)
     if (rateLimitResponse) {
       return rateLimitResponse
     }
@@ -104,8 +101,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Fetch user's organization_id and role from users table
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select('organization_id, role')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
+    }
+
+    if (!canCreateProject(userProfile)) {
+      return NextResponse.json({ error: 'Forbidden: insufficient role' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { name, description, client_name, client_email, start_date, end_date, assigned_to } = body
+
+    // Always set organization_id from user profile
+    const projectData = { ...body, organization_id: userProfile.organization_id, created_by: user.id }
 
     // Enhanced validation
     if (!name || !client_name) {
@@ -143,26 +158,14 @@ export async function POST(request: NextRequest) {
     // Create project
     const { data: project, error } = await supabase
       .from('projects')
-      .insert([
-        {
-          name: name.trim(),
-          description: description?.trim() || null,
-          client_name: client_name.trim(),
-          client_email: client_email?.trim() || null,
-          start_date: start_date || null,
-          end_date: end_date || null,
-          created_by: user.id,
-          assigned_to: assignedToArray,
-          status: 'active',
-        },
-      ])
+      .insert(projectData)
       .select()
       .single()
 
     if (error) {
       console.error('Database error creating project:', error);
       return NextResponse.json(
-        { error: 'Failed to create project', details: error.message }, 
+        { error: 'Failed to create project' }, 
         { status: 500 }
       )
     }

@@ -9,7 +9,9 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }) => {
     client_name: '',
     client_email: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    custom_fields: '{}',
+    tags: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -25,12 +27,18 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }) => {
     setError('');
 
     try {
+      const body = {
+        ...formData,
+        custom_fields: formData.custom_fields ? JSON.parse(formData.custom_fields) : {},
+        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+      };
+
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -47,7 +55,9 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }) => {
         client_name: '',
         client_email: '',
         start_date: '',
-        end_date: ''
+        end_date: '',
+        custom_fields: '{}',
+        tags: ''
       });
     } catch (error) {
       setError(error.message);
@@ -178,6 +188,36 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }) => {
                           className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="custom_fields" className="block text-sm font-medium text-gray-700">
+                        Custom Fields (JSON)
+                      </label>
+                      <textarea
+                        name="custom_fields"
+                        id="custom_fields"
+                        rows={2}
+                        value={formData.custom_fields}
+                        onChange={handleChange}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder='{"field1": "value1"}'
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="tags" className="block text-sm font-medium text-gray-700">
+                        Tags (comma separated)
+                      </label>
+                      <input
+                        type="text"
+                        name="tags"
+                        id="tags"
+                        value={formData.tags}
+                        onChange={handleChange}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="tag1,tag2,tag3"
+                      />
                     </div>
                   </div>
                 </div>
