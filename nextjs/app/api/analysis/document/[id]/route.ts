@@ -28,9 +28,10 @@ export async function POST(
       .from('documents')
       .select(`
         *,
-        projects!inner(id, created_by, assigned_to)
+        projects!inner(id, created_by, assigned_to, deleted_at)
       `)
       .eq('id', documentId)
+      .eq('deleted_at', null)
       .single()
 
     if (docError) {
@@ -38,8 +39,8 @@ export async function POST(
       return NextResponse.json({ error: 'Document not found' }, { status: 404 })
     }
 
-    if (!document) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    if (!document || document.projects.deleted_at) {
+      return NextResponse.json({ error: 'Document or project not found or archived' }, { status: 404 })
     }
 
     // Check access to project

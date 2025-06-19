@@ -29,20 +29,22 @@ export async function POST(
     // Fetch user's organization_id and role from users table
     const { data: userProfile, error: userError } = await supabase
       .from('users')
-      .select('organization_id, role')
+      .select('organization_id, role, deleted_at')
       .eq('id', user.id)
+      .eq('deleted_at', null)
       .single()
     if (userError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
+      return NextResponse.json({ error: 'User profile not found or archived' }, { status: 403 })
     }
     // Fetch project and check org
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('organization_id, assigned_to, created_by')
+      .select('organization_id, assigned_to, created_by, deleted_at')
       .eq('id', projectId)
+      .eq('deleted_at', null)
       .single()
     if (projectError || !project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Project not found or archived' }, { status: 404 })
     }
     if (project.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: 'Cross-organization access denied' }, { status: 403 })
@@ -67,7 +69,7 @@ export async function POST(
       )
     }
 
-    const { message } = requestBody
+    const { message, query } = requestBody
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json(
@@ -105,12 +107,12 @@ export async function POST(
     }
 
     // Generate AI response
-    let aiResponse: string
+    let aiResponse: any
     try {
-      aiResponse = await generateChatResponse(chatHistory as ChatMessage[], project)
+      aiResponse = await generateChatResponse(chatHistory as ChatMessage[], project, query || message, projectId)
     } catch (aiError) {
       console.error('AI response generation error:', aiError)
-      aiResponse = "I'm sorry, I'm having trouble generating a response right now. Please try again."
+      aiResponse = { answer: "I'm sorry, I'm having trouble generating a response right now. Please try again.", citations: [] }
     }
 
     // Store AI response
@@ -118,7 +120,7 @@ export async function POST(
       .from('chat_messages')
       .insert({
         project_id: projectId,
-        content: aiResponse,
+        content: aiResponse.answer,
         role: 'assistant'
       })
       .select()
@@ -129,7 +131,7 @@ export async function POST(
       throw new Error('Failed to store AI response: ' + aiError.message)
     }
 
-    return NextResponse.json({ message: aiMessage })
+    return NextResponse.json({ message: aiMessage, citations: aiResponse.citations })
 
   } catch (error) {
     console.error('Chat error:', error)
@@ -166,20 +168,22 @@ export async function GET(
     // Fetch user's organization_id and role from users table
     const { data: userProfile, error: userError } = await supabase
       .from('users')
-      .select('organization_id, role')
+      .select('organization_id, role, deleted_at')
       .eq('id', user.id)
+      .eq('deleted_at', null)
       .single()
     if (userError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
+      return NextResponse.json({ error: 'User profile not found or archived' }, { status: 403 })
     }
     // Fetch project and check org
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('organization_id, assigned_to, created_by')
+      .select('organization_id, assigned_to, created_by, deleted_at')
       .eq('id', projectId)
+      .eq('deleted_at', null)
       .single()
     if (projectError || !project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Project not found or archived' }, { status: 404 })
     }
     if (project.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: 'Cross-organization access denied' }, { status: 403 })

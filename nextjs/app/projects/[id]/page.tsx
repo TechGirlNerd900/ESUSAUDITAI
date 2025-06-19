@@ -1,5 +1,6 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import AuditReportsList from '../../components/AuditReportsList'
 
 export default function ProjectDetailsPage({ params }) {
   const router = useRouter()
@@ -27,6 +28,9 @@ export default function ProjectDetailsPage({ params }) {
       >
         {archiving ? 'Archiving...' : 'Archive Project'}
       </button>
+      <div className="mt-8">
+        <AuditReportsList projectId={params.id} />
+      </div>
     </div>
   )
 } 

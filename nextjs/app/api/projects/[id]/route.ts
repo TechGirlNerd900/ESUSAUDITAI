@@ -92,7 +92,7 @@ export async function PUT(
   }
 
   const body = await request.json()
-  const { name, description, status, due_date } = body
+  const { name, description, status, due_date, custom_fields, tags } = body
 
   // Update project
   const { data: project, error } = await supabase
@@ -102,9 +102,12 @@ export async function PUT(
       description,
       status,
       due_date,
+      custom_fields: custom_fields || {},
+      tags: tags || [],
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
+    .eq('deleted_at', null)
     .select()
     .single()
 
@@ -131,16 +134,24 @@ export async function DELETE(
     return NextResponse.json({ error: authz.error }, { status: 403 })
   }
 
-  // Archive project instead of deleting
-  const { error } = await supabase
-    .from('projects')
-    .update({ status: 'archived' })
-    .eq('id', id)
-
-  if (error) {
-    console.error('Project archive error:', error)
-    return NextResponse.json({ error: 'Failed to archive project' }, { status: 500 })
+  // Soft delete project using the utility function
+  // Fetch user's organization_id
+  const { data: userProfile, error: userError } = await supabase
+    .from('users')
+    .select('organization_id')
+    .eq('id', user.id)
+    .single()
+  if (userError || !userProfile) {
+    return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
   }
-
-  return NextResponse.json({ message: 'Project archived successfully' })
+  const { error: softDeleteError } = await supabase.rpc('soft_delete', {
+    table_name: 'projects',
+    row_id: id,
+    org_id: userProfile.organization_id,
+    user_id: user.id
+  })
+  if (softDeleteError) {
+    return NextResponse.json({ error: softDeleteError.message }, { status: 500 })
+  }
+  return NextResponse.json({ message: 'Project archived (soft deleted)' })
 }

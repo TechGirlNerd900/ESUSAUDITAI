@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
     // Get JSON data from the request body
     const body = await request.json()
-    const { email, firstName, lastName, company, role, authUserId } = body
+    const { email, firstName, lastName, company, role, authUserId, custom_fields } = body
 
     // Validate required fields
     if (!email || !firstName || !lastName || !company || !role) {
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         company: company.trim(),
         role: role,
         password_hash: 'handled_by_supabase_auth', // Placeholder since Supabase handles auth
+        custom_fields: custom_fields || {},
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })

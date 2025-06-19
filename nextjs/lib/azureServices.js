@@ -221,4 +221,23 @@ export class AzureServices {
     async clearCache() {
         this.cache.flushAll();
     }
+
+    async searchCognitive(query, projectId) {
+        // Query Azure Cognitive Search for relevant document chunks for the project
+        // Returns array of { textContent, sourceDocument }
+        return await this.withRetry(async () => {
+            const results = []
+            const searchResults = await this.searchClient.search(query, {
+                filter: `project_id eq '${projectId}'`,
+                top: 5
+            })
+            for await (const result of searchResults.results) {
+                results.push({
+                    textContent: result.document.content,
+                    sourceDocument: result.document.file_path || result.document.id
+                })
+            }
+            return results
+        }, { operation: 'searchCognitive', query, projectId })
+    }
 }

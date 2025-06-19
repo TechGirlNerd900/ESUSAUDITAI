@@ -149,39 +149,3 @@ Multi-Factor Authentication (MFA): Add a task in Phase 3: "Enable and configure 
 AI Output Explainability: In addition to RAG, add a task in Phase 3: "Build an 'explainability UI' that shows which specific snippets or data points in a source document triggered an AI-generated red flag or summary point."
 Formalized Testing Plan: The current "Required Testing Scope" is good. We can formalize it by making it a required section in the final Pull Request description, where the developer must check off each test case they performed manually or via automation.
 
-#### not addded but should be in the scope
-
-2. True Multi-Tenant Administration & Onboarding
-The current "Admin" role appears to be a system-level superuser. A SaaS model requires a clear distinction between a system admin and a customer's admin.
-
-Organization-Level Admin Role: A crucial missing role is the Organization Admin. This user belongs to the customer's organization and should only be able to manage users, projects, and billing for their own organization, not the entire platform.
-Self-Service Onboarding: The current description implies projects and clients are set up manually. A scalable SaaS needs a self-service workflow where a new organization can sign up, choose a plan, enter payment details, and have their isolated workspace provisioned automatically.
-Invitation System: Organization Admins need the ability to invite new Auditors and Reviewers to join their organization via email.
-3. Explicit Data & User Isolation Architecture
-While RLS is mentioned, a SaaS architecture must make this multi-tenant isolation explicit.
-
-Universal organization_id: Every relevant table in the database (e.g., projects, documents, users, audit_logs) must have a non-nullable organization_id column.
-Enforced Tenant-Scoped Queries: All RLS policies and API queries must be fundamentally built to filter by the current user's organization_id. This guarantees that no action or query can ever cross the boundary between two organizations. The current description focuses on project-level access, but organization-level access is the primary security boundary.
-4. Platform Customization & Configuration
-To enhance the value for different organizations, SaaS platforms often include tenant-specific settings.
-
-Organization Profile & Branding: The ability for an Organization Admin to upload their company logo, which might appear on reports or within the UI.
-Organization-Specific Settings: Configuration options that apply to an entire organization, such as default notification settings or custom report disclaimers.
-In summary, while the Canvas describes a technically robust application, it needs the entire business and administrative layer built on top of it to function as a scalable, secure, and commercially viable multi-tenant SaaS platform.
-
-//
-
-
-
-# Production builds
-/client/dist/
-/client/build/
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-config/dev.env
-config/prod.env

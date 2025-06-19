@@ -1,345 +1,319 @@
-# Esus Audit AI
+# Esus Audit AI - Production Deployment Guide
 
-AI-powered audit automation platform for finance and audit firms. This comprehensive solution leverages artificial intelligence to streamline the audit process, extract insights from financial documents, and provide intelligent analysis for auditors and financial professionals.
+## 🚀 Production Readiness Checklist
 
-## Key Features
+Your application has been optimized for production with the following enhancements:
 
-### Document Management
-- **Document Upload & Storage**: Securely upload and store financial documents in Supabase Storage
-- **Document Organization**: Organize documents by projects and clients
-- **Document Preview**: View documents directly in the application
-- **Document Download**: Download original documents when needed
-- **File Type Support**: Support for PDF, Word, Excel, and CSV files
+### ✅ Security Hardening
+- **Environment Variables**: All secrets moved to environment variables
+- **Input Validation**: Comprehensive validation middleware added
+- **CORS Protection**: Strict CORS policies for production
+- **Rate Limiting**: Enhanced rate limiting with separate auth limits
+- **Security Headers**: Helmet configuration with CSP
+- **Input Sanitization**: XSS and injection protection
+- **Authentication**: Enhanced token validation and user status checks
 
-### AI-Powered Analysis
-- **Automated Data Extraction**: Extract key financial data from documents using Document Intelligence
-- **Financial Statement Analysis**: Analyze balance sheets, income statements, and cash flow statements
-- **Anomaly Detection**: Identify unusual patterns or discrepancies in financial data
-- **Risk Assessment**: Evaluate financial risk factors and highlight areas of concern
-- **Confidence Scoring**: Provide confidence levels for extracted data and analysis results
+### ✅ Performance Optimization
+- **Logging**: Production-ready logging system with Application Insights
+- **Monitoring**: Health checks, metrics, and performance monitoring
+- **Error Handling**: Structured error handling with proper logging
+- **Build Process**: Optimized builds for both frontend and backend
+- **Docker**: Multi-stage Docker builds for minimal image size
 
-### Interactive Chat Assistant
-- **Context-Aware Queries**: Ask questions about specific documents or projects
-- **Financial Insights**: Get AI-generated insights about financial data
-- **Audit Guidance**: Receive suggestions for audit procedures based on document content
-- **Chat History**: Maintain a record of all questions and answers for reference
-- **Suggested Questions**: Get AI-generated question suggestions based on document content
+### ✅ Operational Excellence
+- **Health Checks**: `/health`, `/health/ready`, `/health/live`, `/metrics`
+- **Graceful Shutdown**: Proper signal handling and cleanup
+- **Process Management**: Docker with non-root user and security constraints
+- **Monitoring**: Application Insights integration for telemetry
 
-### Report Generation
-- **Automated Reporting**: Generate comprehensive audit reports with a single click
-- **Customizable Templates**: Choose from different report templates based on audit type
-- **Executive Summaries**: Create concise summaries of audit findings
-- **PDF Export**: Export reports in PDF format for sharing and archiving
-- **Audit Trail**: Maintain a complete record of report generation and modifications
+## 🧪 Testing Production Mode
 
-### Project Management
-- **Client Management**: Organize work by client and project
-- **Team Collaboration**: Assign team members to projects with role-based access
-- **Status Tracking**: Monitor project progress from active to completed
-- **Timeline Management**: Set and track project start and end dates
-- **Activity Logging**: Comprehensive audit trail of all user actions
-
-### Security
-- **Role-Based Access Control**: Granular permissions based on user roles (admin, auditor, reviewer)
-- **Secure Authentication**: Robust authentication via Supabase Auth
-- **Data Encryption**: End-to-end encryption for sensitive financial data
-- **Audit Logging**: Detailed logs of all system activities for compliance
-- **Rate Limiting**: Protection against brute force and DoS attacks
-- **Session Management**: Secure session handling with automatic timeouts
-
-## Tech Stack
-
-- **Frontend**: React 18, Tailwind CSS, Vite, React Query, React Router
-- **Backend**: Node.js, Express.js
-- **Database**: PostgreSQL via Supabase
-- **Storage**: Supabase Storage
-- **Authentication**: Supabase Auth
-
-- **AI Services**: 
-  intelligent analysis and chat
- Document Intelligence for document parsing
-Cognitive Search for full-text search capabilities
-- **Monitoring**: Application Insights
-- **Security**: Helmet.js, Express Rate Limit, CORS protection
-## Prerequisites
-
-- Node.js 18+
-- PostgreSQL 14+
-- Supabase account
-- Azure account (for AI services)
-
-## Environment Setup
-
-1. Copy the example environment files:
-   ```bash
-   # For the root directory
-   cp .env.example .env
-   
-   # For the server directory
-   cp server/.env.example server/.env
-   ```
-
-2. Fill in the required environment variables in both .env files:
-   - Supabase URL and API keys
-   - Azure service endpoints and keys
-   - JWT secret for token signing
-   
-   Note: The environment variables in both files should be identical to ensure consistent behavior.
-
-## Installation
-
-1. Install dependencies:
-   ```
-   npm install
-   cd client && npm install
-   cd server && npm install
-   ```
-
-2. Set up the database:
-   ```
-   npm run db:setup
-   ```
-
-3. Set up Supabase resources:
-   ```
-   npm run supabase:setup
-   ```
-
-## Development
-
-Start the development server:
-```
-npm run dev
+### Quick Test
+```bash
+# Test the production configuration
+node test-production.js
 ```
 
-This will start both the client (Vite) and server (Express) in development mode with hot reloading.
+### Manual Testing
+```bash
+# 1. Start backend in production mode
+cd server
+NODE_ENV=production npm run prod
 
-### Project Structure
-
-#### Server Structure
-- `/server/server.js` - Main entry point
-- `/server/app.js` - Express application configuration
-- `/server/routes/` - API route definitions
-- `/server/middleware/` - Express middleware
-- `/server/shared/` - Shared services (auth, database, AI clients)
-- `/server/utils/` - Utility functions and helpers
-
-#### Client Structure
-- `/client/src/App.jsx` - Main React component
-- `/client/src/components/` - Reusable UI components
-- `/client/src/pages/` - Page components
-- `/client/src/services/` - API service clients
-- `/client/src/contexts/` - React context providers
-- `/client/src/utils/` - Utility functions
-
-#### Database Structure
-- `/database/schema.sql` - Database schema definition
-- `/database/seed.sql` - Initial seed data
-- `/database/migrations/` - Database migration scripts
-
-## Production Build
-
-Build the client for production:
-```
+# 2. In another terminal, build and serve frontend
+cd client
 npm run build
+npm run preview
+
+# 3. Test endpoints
+curl http://localhost:3001/health
+curl http://localhost:3001/metrics
 ```
 
-Start the production server:
+## 🔧 Environment Configuration
+
+### Required Environment Variables
+
+Create a `.env.production` file with:
+
+```bash
+# Critical - Must be set
+NODE_ENV=production
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+JWT_SECRET=your-256-bit-secret
+
+# Security
+ALLOWED_ORIGINS=https://yourdomain.com
+TRUST_PROXY=true
+
+# Azure Services
+AZURE_OPENAI_ENDPOINT=https://your-service.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-key
+AZURE_FORM_RECOGNIZER_ENDPOINT=https://your-service.cognitiveservices.azure.com/
+AZURE_FORM_RECOGNIZER_KEY=your-key
+
+# Monitoring
+APPLICATIONINSIGHTS_CONNECTION_STRING=your-connection-string
+
+# Database
+DATABASE_URL=postgresql://user:pass@host:port/db
+
+# Rate Limiting (stricter for production)
+RATE_LIMIT_MAX_REQUESTS=50
+AUTH_RATE_LIMIT_MAX_REQUESTS=3
 ```
-npm start
+
+## 🐳 Docker Deployment
+
+### Build and Run with Docker
+```bash
+# Build the image
+docker build -t esus-audit-ai .
+
+# Run in production mode
+docker run -d \
+  --name esus-audit-ai \
+  --env-file .env.production \
+  -p 3001:3001 \
+  --restart unless-stopped \
+  esus-audit-ai
 ```
 
-## API Endpoints
+### Docker Compose (Recommended)
+```bash
+# Copy production environment
+cp .env.example .env.production
+# Edit .env.production with your values
 
-### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login with email and password
-- `GET /api/auth/verify` - Verify authentication token
-- `PUT /api/auth/profile` - Update user profile information
-- `PUT /api/auth/password` - Change user password
-- `POST /api/auth/logout` - Logout and invalidate session
+# Start with docker-compose
+docker-compose -f docker-compose.production.yml up -d
+```
 
-### Projects
-- `GET /api/projects` - Get all projects for authenticated user
-- `POST /api/projects` - Create a new project
-- `GET /api/projects/:projectId` - Get detailed project information
-- `PUT /api/projects/:projectId` - Update project details
-- `DELETE /api/projects/:projectId` - Archive or delete a project
+## 🌐 Reverse Proxy Setup (Nginx)
 
-### Documents
-- `POST /api/documents/:projectId` - Upload document to a project
-- `GET /api/documents/project/:projectId` - Get all documents for a project
-- `GET /api/documents/detail/:documentId` - Get document details
-- `GET /api/documents/:documentId/download` - Download original document
-- `DELETE /api/documents/:documentId` - Delete document
+Create `/etc/nginx/sites-available/esus-audit-ai`:
 
-### Analysis
-- `POST /api/analysis/document/:documentId` - Analyze document with AI
-- `GET /api/analysis/:documentId` - Get analysis results for a document
-- `POST /api/analysis/search` - Search across document content and analysis
-- `GET /api/analysis/summary/:projectId` - Get project-level analysis summary
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+    
+    # Redirect HTTP to HTTPS
+    return 301 https://$server_name$request_uri;
+}
 
-### Chat (Ask Esus)
-- `POST /api/chat/:projectId` - Send a message to the AI assistant
-- `GET /api/chat/history/:projectId` - Get chat history for a project
-- `GET /api/chat/suggested-questions/:projectId` - Get AI-suggested questions
-- `DELETE /api/chat/:messageId` - Delete a chat message
+server {
+    listen 443 ssl http2;
+    server_name yourdomain.com;
+    
+    # SSL Configuration
+    ssl_certificate /path/to/ssl/cert.pem;
+    ssl_certificate_key /path/to/ssl/private.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    
+    # Security Headers
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+    
+    # Frontend (Static Files)
+    location / {
+        root /path/to/client/dist;
+        try_files $uri $uri/ /index.html;
+        
+        # Cache static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+    
+    # Backend API
+    location /api/ {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+    
+    # Health checks
+    location /health {
+        proxy_pass http://localhost:3001;
+        access_log off;
+    }
+}
+```
 
-### Reports
-- `POST /api/reports/generate/:projectId` - Generate a new report
-- `GET /api/reports/project/:projectId` - Get all reports for a project
-- `GET /api/reports/detail/:reportId` - Get detailed report information
-- `GET /api/reports/:reportId/download` - Download report as PDF
-- `DELETE /api/reports/:reportId` - Delete a report
+## 📊 Monitoring and Alerting
 
-### Health Check
-- `GET /health` - System health check endpoint for monitoring
+### Health Check Endpoints
+- `GET /health` - Comprehensive system health
+- `GET /health/ready` - Readiness probe (Kubernetes)
+- `GET /health/live` - Liveness probe (Kubernetes)
+- `GET /metrics` - System metrics
 
-## Database Schema
+### Application Insights Dashboards
+Monitor these key metrics:
+- Request count and response times
+- Error rates and exceptions
+- Authentication success/failure rates
+- Security events
+- Database connection health
+- Memory and CPU usage
 
-The database schema is defined in `database/schema.sql` and includes the following tables:
+### Log Analysis
+```bash
+# View production logs
+docker logs esus-audit-ai
 
-### Users
-Stores user account information with role-based access control.
-- `id` - UUID primary key
-- `email` - Unique email address
-- `password_hash` - Securely hashed password
-- `first_name`, `last_name` - User's name
-- `role` - User role (admin, auditor, reviewer)
-- `company` - User's company or organization
-- Security fields: `is_active`, `last_login_at`, `password_changed_at`, `failed_login_attempts`, `locked_until`
+# Follow logs in real-time
+docker logs -f esus-audit-ai
 
-### Projects
-Organizes work by client and project.
-- `id` - UUID primary key
-- `name` - Project name
-- `description` - Project description
-- `client_name` - Client company name
-- `client_email` - Client contact email
-- `status` - Project status (active, completed, archived)
-- `created_by` - User who created the project
-- `assigned_to` - Array of user IDs assigned to the project
-- `start_date`, `end_date` - Project timeline
+# Filter error logs
+docker logs esus-audit-ai 2>&1 | grep ERROR
+```
 
-### Documents
-Tracks uploaded documents and their processing status.
-- `id` - UUID primary key
-- `project_id` - Associated project
-- `uploaded_by` - User who uploaded the document
-- `original_name` - Original filename
-- `file_path` - Storage path
-- `file_size` - Document size in bytes
-- `file_type` - MIME type
-- `blob_url` - URL for document access
-- `status` - Processing status (uploaded, processing, analyzed, error)
+## 🔒 Security Considerations
 
-### Analysis Results
-Stores AI-generated analysis of documents.
-- `id` - UUID primary key
-- `document_id` - Associated document
-- `extracted_data` - Structured data extracted from document (JSONB)
-- `ai_summary` - AI-generated summary
-- `red_flags` - Array of potential issues identified
-- `highlights` - Array of important points
-- `confidence_score` - AI confidence in analysis
-- `processing_time_ms` - Processing duration
+### SSL/TLS Configuration
+- Use TLS 1.2 or higher
+- Strong cipher suites only
+- HSTS headers enabled
+- Certificate auto-renewal setup
 
-### Chat History
-Records interactions with the AI assistant.
-- `id` - UUID primary key
-- `project_id` - Associated project
-- `user_id` - User who asked the question
-- `question` - User's question
-- `answer` - AI's response
-- `context_documents` - Array of document IDs used for context
+### Database Security
+- Use connection pooling with limits
+- Enable SSL connections
+- Regular security updates
+- Monitor for unusual activity
 
-### Audit Reports
-Tracks generated audit reports.
-- `id` - UUID primary key
-- `project_id` - Associated project
-- `generated_by` - User who generated the report
-- `report_name` - Report name
-- `report_data` - Report content (JSONB)
-- `pdf_url` - URL to PDF version
-- `status` - Report status (draft, final, archived)
+### Application Security
+- Regular dependency updates
+- Security scanning in CI/CD
+- Environment variable validation
+- Input sanitization and validation
 
-### Audit Logs
-Comprehensive activity tracking for security and compliance.
-- `id` - UUID primary key
-- `user_id` - User who performed the action
-- `action` - Action performed
-- `resource_type` - Type of resource affected
-- `resource_id` - ID of affected resource
-- `details` - Additional details (JSONB)
-- `ip_address` - User's IP address
-- `user_agent` - User's browser/client
-- `success` - Whether action succeeded
-- `error_message` - Error details if failed
+## 🚨 Troubleshooting
 
-### Application Settings
-System-wide configuration settings.
-- `key` - Setting name (primary key)
-- `value` - Setting value
-- `description` - Setting description
-- `category` - Setting category
-- `is_sensitive` - Whether setting contains sensitive data
+### Common Issues
 
-## Storage Buckets
+1. **Environment Variables Not Set**
+   ```bash
+   # Validate environment
+   cd server && npm run validate-env
+   ```
 
-Supabase Storage is used for file storage with two buckets:
+2. **Database Connection Issues**
+   ```bash
+   # Test database connectivity
+   curl http://localhost:3001/health
+   ```
 
-- `documents` - For storing uploaded documents (PDFs, Excel files, Word documents)
-- `reports` - For storing generated PDF reports
+3. **High Memory Usage**
+   ```bash
+   # Check memory metrics
+   curl http://localhost:3001/metrics
+   ```
 
-## Azure Services Integration
+4. **SSL Certificate Issues**
+   ```bash
+   # Test SSL configuration
+   openssl s_client -connect yourdomain.com:443 -servername yourdomain.com
+   ```
 
-### Document Intelligence (Form Recognizer)
-- **Document Parsing**: Extract structured data from unstructured documents
-- **Layout Analysis**: Understand document structure and organization
-- **Table Extraction**: Extract tabular data from financial statements
-- **Form Recognition**: Process standard financial forms and templates
-- **Custom Models**: Support for custom-trained models for specific document types
+### Performance Optimization
+- Enable gzip compression in Nginx
+- Use CDN for static assets
+- Implement Redis caching
+- Monitor and optimize database queries
+- Set up horizontal scaling if needed
 
-### Cognitive Search
-- **Full-Text Search**: Search across all document content
-- **Semantic Search**: Understand the meaning behind search queries
-- **Faceted Search**: Filter search results by metadata
-- **Relevance Ranking**: Sort results by relevance to query
-- **Search Suggestions**: Provide query suggestions based on partial input
+## 📈 Scaling Recommendations
 
-### OpenAI
-- **Text Generation**: Generate natural language summaries and reports
-- **Question Answering**: Answer specific questions about document content
-- **Anomaly Detection**: Identify unusual patterns in financial data
-- **Risk Assessment**: Evaluate potential risk factors in financial documents
-- **Insight Generation**: Provide actionable insights based on document analysis
+### Horizontal Scaling
+- Use load balancer (Nginx/HAProxy)
+- Multiple application instances
+- Shared Redis for sessions/cache
+- Database read replicas
 
-### Application Insights
-- **Performance Monitoring**: Track application performance metrics
-- **Error Tracking**: Capture and analyze application errors
-- **Usage Analytics**: Understand user behavior and feature usage
-- **Availability Monitoring**: Monitor system uptime and responsiveness
-- **Custom Event Tracking**: Track business-specific events and metrics
+### Vertical Scaling
+- Monitor CPU/Memory usage
+- Optimize database queries
+- Implement caching strategies
+- Use connection pooling
 
-## Security Features
+## 🔧 Maintenance
 
-- **HTTPS Enforcement**: All communications are encrypted via HTTPS
-- **Content Security Policy**: Strict CSP to prevent XSS attacks
-- **Rate Limiting**: Protection against brute force and DoS attacks
-- **Input Validation**: Comprehensive validation of all user inputs
-- **Password Security**: Strong password requirements and secure storage
-- **Account Lockout**: Temporary lockout after multiple failed login attempts
-- **Session Management**: Secure session handling with automatic timeouts
-- **Audit Logging**: Detailed logs of all security-relevant events
-- **CORS Protection**: Strict cross-origin resource sharing policies
-- **Helmet Security**: HTTP header security with Helmet.js
+### Regular Tasks
+- Monitor error rates and performance
+- Update dependencies monthly
+- Rotate secrets quarterly
+- Review and update security policies
+- Backup database regularly
+- Test disaster recovery procedures
 
-## Contributing
+### CI/CD Pipeline
+```yaml
+# Example GitHub Actions workflow
+name: Deploy to Production
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run production tests
+        run: node test-production.js
+      - name: Deploy to production
+        run: docker-compose -f docker-compose.production.yml up -d --build
+```
 
-1. Create a feature branch
-2. Make your changes
-3. Submit a pull request
+## 📞 Support
 
-## License
+For production issues:
+1. Check health endpoints first
+2. Review Application Insights dashboards
+3. Analyze server logs
+4. Monitor system resources
+5. Check database connectivity
 
-MIT
+---
+
+🎉 **Your Esus Audit AI application is now production-ready!**
+
+Run `node test-production.js` to verify all systems are working correctly.

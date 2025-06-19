@@ -323,3 +323,12 @@ This plan details the steps required to bring EsusAuditAI to a robust, secure, a
 * **Enforce org_id scoping in all queries and RLS**
 * **Org profile & branding** (logo upload, custom settings)
 
+# -------------  ensure the below is checked --------------------- #
+
+# Automated Report Generation: The application includes dependencies for PDF generation (jspdf) and has an audit_reports table in the database. However, the API routes and UI components for automatically generating comprehensive, AI-drafted audit reports and exporting them to PDF are not fully built out. This feature appears to be in the early stages of implementation.
+
+# Zero-Hallucination RAG Pipeline: The "Ask Esus" chat feature is functional. However, the advanced, citation-backed Retrieval-Augmented Generation (RAG) pipeline, which would use Azure Cognitive Search to find specific document chunks and force the AI to cite its sources, is a goal rather than a current reality. The current implementation sends the general chat history for context but lacks the specific vector search and "guarded prompt" mechanism described in the implementation plan.
+
+# Explainability UI: The goal of allowing a user to click on a finding in a report and see the exact source snippet that triggered it is a highly complex feature. There is no evidence in the current UI components or API structure that this "explainability" layer has been built.
+
+# Self-Service Onboarding: The architecture supports multi-tenancy, but the user-facing functionality for a new organization to sign up, select a plan, and provision its own workspace is not present. The current implementation focuses on user registration within an existing organizational structure.

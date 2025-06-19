@@ -47,6 +47,17 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File
     const projectId = formData.get('projectId') as string
+    const customFieldsRaw = formData.get('custom_fields') as string | null
+    const tagsRaw = formData.get('tags') as string | null
+
+    let custom_fields = {}
+    let tags: string[] = []
+    try {
+      if (customFieldsRaw) custom_fields = JSON.parse(customFieldsRaw)
+      if (tagsRaw) tags = JSON.parse(tagsRaw)
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid custom_fields or tags format (must be JSON)' }, { status: 400 })
+    }
 
     if (!file || !projectId) {
       return NextResponse.json(
@@ -72,11 +83,14 @@ export async function POST(request: NextRequest) {
     // Fetch project and check org
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('organization_id, assigned_to, created_by')
+      .select('organization_id, assigned_to, created_by, deleted_at')
       .eq('id', projectId)
       .single()
     if (projectError || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+    if (project.deleted_at) {
+      return NextResponse.json({ error: 'Cannot upload to archived project' }, { status: 400 })
     }
     if (project.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: 'Cross-organization upload denied' }, { status: 403 })
@@ -122,7 +136,9 @@ export async function POST(request: NextRequest) {
         uploaded_by: user.id,
         file_type: file.type,
         file_size: file.size,
-        blob_url: publicUrl
+        blob_url: publicUrl,
+        custom_fields,
+        tags
       })
       .select()
       .single()
