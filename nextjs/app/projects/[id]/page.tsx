@@ -1,3 +1,5 @@
+'use client'
+
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import AuditReportsList from '../../components/AuditReportsList'
@@ -33,4 +35,4 @@ export default function ProjectDetailsPage({ params }) {
       </div>
     </div>
   )
-} 
+}

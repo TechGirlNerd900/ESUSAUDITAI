@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+'use client'
+
+import { useState } from 'react'
 import ChatRAG from './ChatRAG'
 
 export default function ChatWidget({ projectId }: { projectId?: string }) {
@@ -31,4 +33,4 @@ export default function ChatWidget({ projectId }: { projectId?: string }) {
       )}
     </>
   )
-} 
+}

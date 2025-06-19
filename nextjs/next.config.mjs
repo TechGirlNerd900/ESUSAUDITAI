@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['@azure/ai-form-recognizer', '@azure/openai'],
+  // Add '@supabase/realtime-js' to your existing array
+  serverExternalPackages: [
+    '@azure/ai-form-recognizer', 
+    '@azure/openai', 
+    '@supabase/realtime-js'
+  ],
   images: {
     domains: ['supabase.co', 'localhost'],
   },

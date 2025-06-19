@@ -10,17 +10,6 @@ Production-Grade Refactoring & Optimization Plan for EsusAuditAI
 
 Objective: Your task is to perform a comprehensive analysis and refactoring of the EsusAuditAI application. The goal is to elevate it to a production-grade standard by resolving all identified security vulnerabilities, architectural flaws, and performance bottlenecks. The final application will be deployed on Vercel, using Supabase as its database and backend service layer, and Azure/GCP for AI services.
 
-Guiding Principle: Leave no stone unturned. Every aspect of the application, from frontend code to database schema and deployment pipelines, must be scrutinized and optimized for security, scalability, and maintainability.
-
-Phase 1: Critical Security & Stability Remediation (Immediate Priority)
-This phase addresses all HIGH severity issues that make the application unsafe for production use.
-
-Authentication & Authorization
-[ ] Standardize Supabase Auth Client:
-
-Action: Remove the deprecated @supabase/auth-helpers-nextjs package.
-
-Action: Refactor all authentication logic (client-side, server-side, and middleware) to exclusively use the modern @supabase/ssr package. This ensures consistent and secure cookie/session handling.
 
 Files to check: package.json, middleware.ts, utils/supabase/server.ts, all API routes.
 

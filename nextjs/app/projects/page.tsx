@@ -1,16 +1,55 @@
+'use client'
+
 import React, { useState, useEffect } from 'react'
 import AuditLogViewer from '../components/AuditLogViewer'
 
-export default function ProjectsPage({ projects: initialProjects }) {
-  const [projects, setProjects] = useState(initialProjects || [])
+
+
+// Define Project type based on the API response
+interface Project {
+  id: string
+  name: string
+  client_name: string
+  organization_id: string
+  deleted_at: string | null
+  tags?: string[]
+  custom_fields?: Record<string, any>
+  document_count?: number
+  due_date?: string
+  audit_type?: string
+  // Add other fields as needed
+}
+
+export default function ProjectsPage() {
+  const [projects, setProjects] = useState<Project[]>([])
   const [tagFilter, setTagFilter] = useState('')
   const [customFieldFilter, setCustomFieldFilter] = useState('')
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [auditProject, setAuditProject] = useState(null)
+  const [auditProject, setAuditProject] = useState<Project | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // If projects are fetched client-side, add useEffect here
-  // useEffect(() => { ...fetch projects... }, [])
+  // Fetch projects client-side
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await fetch('/api/projects')
+        if (!response.ok) {
+          throw new Error('Failed to fetch projects')
+        }
+        const data = await response.json()
+        // The API returns { projects: [...] }, so we need to extract the projects array
+        setProjects(data.projects || [])
+      } catch (err) {
+        setError('Failed to load projects. Please refresh the page.')
+        console.error('Error fetching projects:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchProjects()
+  }, [])
 
   const filteredProjects = projects.filter(project => {
     const tagMatch = tagFilter ? (project.tags || []).includes(tagFilter) : true
@@ -22,7 +61,7 @@ export default function ProjectsPage({ projects: initialProjects }) {
     return tagMatch && customFieldMatch
   })
 
-  const handleArchiveRestore = async (project) => {
+  const handleArchiveRestore = async (project: Project) => {
     setLoadingId(project.id)
     setError(null)
     try {
@@ -65,8 +104,14 @@ export default function ProjectsPage({ projects: initialProjects }) {
         />
       </div>
       {error && <div className="text-red-500 mb-2 text-sm">{error}</div>}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredProjects.map((project, index) => (
+      
+      {loading ? (
+        <div className="flex justify-center items-center h-40">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredProjects.map((project, index) => (
           <div key={project.id} className={`card-gradient p-4 rounded-lg shadow relative ${project.deleted_at ? 'opacity-60' : ''}`}>
             <h3 className="text-lg font-semibold flex items-center gap-2">
               {project.name}
@@ -111,7 +156,8 @@ export default function ProjectsPage({ projects: initialProjects }) {
             </button>
           </div>
         ))}
-      </div>
+        </div>
+      )}
       {auditProject && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-full max-w-2xl p-4 shadow-lg relative">
@@ -131,4 +177,4 @@ export default function ProjectsPage({ projects: initialProjects }) {
       )}
     </div>
   )
-} 
+}
