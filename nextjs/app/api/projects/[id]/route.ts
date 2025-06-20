@@ -7,7 +7,7 @@ async function authorizeProjectAccess(supabase, userId, projectId) {
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .select('organization_id, role')
-    .eq('id', userId)
+    .eq('auth_user_id', userId)
     .single()
   if (userError || !userProfile) {
     return { allowed: false, error: 'User profile not found' }
@@ -139,7 +139,7 @@ export async function DELETE(
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .select('organization_id')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .single()
   if (userError || !userProfile) {
     return NextResponse.json({ error: 'User profile not found' }, { status: 403 })

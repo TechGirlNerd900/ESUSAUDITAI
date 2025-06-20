@@ -1,366 +1,310 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import Link from 'next/link'
 import LoadingSpinner from './LoadingSpinner'
-import AuditLogViewer from './AuditLogViewer'
 
-interface User {
+interface DashboardStats {
+  totalUsers: number
+  activeUsers: number
+  totalProjects: number
+  activeProjects: number
+  totalDocuments: number
+  pendingInvitations: number
+}
+
+interface Organization {
   id: string
-  email: string
-  role: string
-  status: string
+  name: string
+  logo_url?: string
   created_at: string
-  last_sign_in_at: string | null
-  deleted_at?: string
-  custom_fields?: any
-  tags?: string[]
-  organization_id: string
 }
 
 export default function AdminPanel() {
-  const [users, setUsers] = useState<User[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [organization, setOrganization] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [loadingId, setLoadingId] = useState<string | null>(null)
-  const [metaUser, setMetaUser] = useState<User | null>(null)
-  const [metaEditMode, setMetaEditMode] = useState(false)
-  const [metaCustomFields, setMetaCustomFields] = useState<any>({})
-  const [metaTags, setMetaTags] = useState<string[]>([])
-  const [metaLoading, setMetaLoading] = useState(false)
-  const [metaError, setMetaError] = useState<string | null>(null)
-  const [auditUser, setAuditUser] = useState<User | null>(null)
-  const supabase = createClient()
 
   useEffect(() => {
-    fetchUsers()
+    loadDashboardData()
   }, [])
 
-  async function fetchUsers() {
+  async function loadDashboardData() {
     try {
-      const { data: users, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
+      setLoading(true)
+      
+      // Load organization details
+      const orgResponse = await fetch('/api/organizations')
+      if (orgResponse.ok) {
+        const orgData = await orgResponse.json()
+        setOrganization(orgData.organization)
+      }
 
-      if (error) throw error
-      setUsers(users)
-    } catch (error) {
-      console.error('Error fetching users:', error)
-      setError('Failed to load users')
+      // Load dashboard stats
+      const statsResponse = await fetch('/api/admin/stats')
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        setStats(statsData)
+      }
+
+    } catch (error: any) {
+      console.error('Error loading dashboard:', error)
+      setError('Failed to load dashboard data')
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function updateUserRole(userId: string, newRole: string) {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId)
-
-      if (error) throw error
-
-      // Update local state
-      setUsers(users.map(user => 
-        user.id === userId ? { ...user, role: newRole } : user
-      ))
-    } catch (error) {
-      console.error('Error updating user role:', error)
-      setError('Failed to update user role')
-    }
-  }
-
-  async function updateUserStatus(userId: string, newStatus: string) {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: newStatus })
-        .eq('id', userId)
-
-      if (error) throw error
-
-      // Update local state
-      setUsers(users.map(user => 
-        user.id === userId ? { ...user, status: newStatus } : user
-      ))
-    } catch (error) {
-      console.error('Error updating user status:', error)
-      setError('Failed to update user status')
-    }
-  }
-
-  async function handleArchiveRestore(user: User) {
-    setLoadingId(user.id)
-    setError(null)
-    try {
-      const endpoint = user.deleted_at
-        ? `/api/users/${user.id}/restore`
-        : `/api/users/${user.id}/archive`
-      const res = await fetch(endpoint, { method: 'POST' })
-      if (!res.ok) throw new Error('Failed to update user')
-      // Optimistically update UI
-      setUsers(users =>
-        users.map(u =>
-          u.id === user.id
-            ? { ...u, deleted_at: user.deleted_at ? null : new Date().toISOString() }
-            : u
-        )
-      )
-    } catch (e) {
-      setError('Failed to update user. Please try again.')
-    } finally {
-      setLoadingId(null)
-    }
-  }
-
-  function openMetaModal(user: User) {
-    setMetaUser(user)
-    setMetaCustomFields(user.custom_fields || {})
-    setMetaTags(user.tags || [])
-    setMetaEditMode(false)
-    setMetaError(null)
-  }
-
-  async function handleMetaSave() {
-    if (!metaUser) return
-    setMetaLoading(true)
-    setMetaError(null)
-    try {
-      const res = await fetch(`/api/users/${metaUser.id}/meta`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custom_fields: metaCustomFields, tags: metaTags })
-      })
-      if (!res.ok) throw new Error('Failed to update meta')
-      setMetaEditMode(false)
-      // Optionally, refetch users or update local state
-    } catch (e) {
-      setMetaError('Failed to update. Please try again.')
-    } finally {
-      setMetaLoading(false)
     }
   }
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <LoadingSpinner />
+        <LoadingSpinner size="lg" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="text-red-600 p-4 text-center">
-        {error}
+      <div className="text-red-600 p-4 text-center bg-red-50 rounded-lg">
+        <h3 className="font-semibold">Error Loading Dashboard</h3>
+        <p className="text-sm mt-1">{error}</p>
+        <button 
+          onClick={loadDashboardData}
+          className="btn-primary mt-3 text-sm"
+        >
+          Try Again
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Email
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Role
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Status
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Created At
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Last Sign In
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Meta
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {users.map((user) => (
-            <tr key={user.id} className={user.deleted_at ? 'opacity-60' : ''}>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {user.email}
-                {user.deleted_at && (
-                  <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">Archived</span>
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <select
-                  value={user.role}
-                  onChange={(e) => updateUserRole(user.id, e.target.value)}
-                  className="block w-full pl-3 pr-10 py-1 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-                  disabled={!!user.deleted_at}
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <select
-                  value={user.status}
-                  onChange={(e) => updateUserStatus(user.id, e.target.value)}
-                  className="block w-full pl-3 pr-10 py-1 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-                  disabled={!!user.deleted_at}
-                >
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {new Date(user.created_at).toLocaleDateString()}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'Never'}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <button
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium shadow transition-colors
-                    ${user.deleted_at
-                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                      : 'bg-red-100 text-red-700 hover:bg-red-200'}
-                    ${loadingId === user.id ? 'opacity-50 cursor-wait' : ''}`}
-                  onClick={() => handleArchiveRestore(user)}
-                  disabled={loadingId === user.id}
-                  title={user.deleted_at ? 'Restore User' : 'Archive User'}
-                >
-                  {loadingId === user.id ? (
-                    <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
-                  ) : user.deleted_at ? (
-                    <>
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-6 0h6" /></svg>
-                      Restore
-                    </>
-                  ) : (
-                    <>
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      Archive
-                    </>
-                  )}
-                </button>
-                <button
-                  className="btn btn-secondary text-xs px-2 py-1 ml-2"
-                  onClick={() => setAuditUser(user)}
-                  disabled={!!user.deleted_at}
-                  title="View Audit Trail"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-6 0h6" /></svg>
-                  Audit Trail
-                </button>
-                {error && loadingId === user.id && <div className="text-xs text-red-500 mt-1">{error}</div>}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <button
-                  className="btn btn-secondary text-xs px-2 py-1"
-                  onClick={() => openMetaModal(user)}
-                  disabled={!!user.deleted_at}
-                >Meta</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {metaUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-lg relative">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
-              onClick={() => setMetaUser(null)}
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <h3 className="text-lg font-semibold mb-2">User Meta</h3>
-            {!metaEditMode ? (
-              <>
-                <div className="mb-3">
-                  <h4 className="font-semibold mb-1 text-xs">Custom Fields</h4>
-                  <pre className="bg-gray-50 p-2 rounded text-xs text-gray-700">{JSON.stringify(metaCustomFields, null, 2)}</pre>
-                </div>
-                <div className="mb-3">
-                  <h4 className="font-semibold mb-1 text-xs">Tags</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {metaTags.length ? metaTags.map(tag => (
-                      <span key={tag} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{tag}</span>
-                    )) : <span className="text-gray-400 text-xs">No tags</span>}
-                  </div>
-                </div>
-                <button
-                  className="btn btn-primary text-xs px-3 py-1"
-                  onClick={() => setMetaEditMode(true)}
-                >Edit</button>
-              </>
-            ) : (
-              <form onSubmit={e => { e.preventDefault(); handleMetaSave() }} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1">Custom Fields (JSON)</label>
-                  <textarea
-                    className="w-full p-2 border rounded text-xs"
-                    rows={4}
-                    value={JSON.stringify(metaCustomFields, null, 2)}
-                    onChange={e => {
-                      try {
-                        setMetaCustomFields(JSON.parse(e.target.value))
-                        setMetaError(null)
-                      } catch {
-                        setMetaError('Invalid JSON')
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Tags (comma separated)</label>
-                  <input
-                    className="w-full p-2 border rounded text-xs"
-                    value={metaTags.join(', ')}
-                    onChange={e => setMetaTags(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                  />
-                </div>
-                {metaError && <div className="text-red-500 text-xs">{metaError}</div>}
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="btn btn-primary text-xs px-3 py-1"
-                    disabled={metaLoading || !!metaError}
-                  >{metaLoading ? 'Saving...' : 'Save'}</button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary text-xs px-3 py-1"
-                    onClick={() => { setMetaEditMode(false); setMetaError(null); }}
-                  >Cancel</button>
-                </div>
-              </form>
-            )}
+    <div className="space-y-8">
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="text-gray-600 mt-1">
+              Welcome to {organization?.name || 'your organization'} management center
+            </p>
           </div>
-        </div>
-      )}
-      {auditUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-2xl p-4 shadow-lg relative">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
-              onClick={() => setAuditUser(null)}
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <AuditLogViewer
-              organizationId={auditUser.organization_id}
-              resourceType="users"
-              resourceId={auditUser.id}
+          {organization?.logo_url && (
+            <img 
+              src={organization.logo_url} 
+              alt="Organization Logo" 
+              className="h-16 w-auto rounded-lg shadow-sm"
             />
+          )}
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Team Members</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.activeUsers}/{stats.totalUsers}
+                </p>
+                <p className="text-xs text-gray-500">Active/Total</p>
+              </div>
+            </div>
           </div>
+
+          <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-green-100 text-green-600">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Projects</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.activeProjects}/{stats.totalProjects}
+                </p>
+                <p className="text-xs text-gray-500">Active/Total</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Documents</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.totalDocuments}</p>
+                <p className="text-xs text-gray-500">Total uploaded</p>
+              </div>
+            </div>
+          </div>
+
+          {stats.pendingInvitations > 0 && (
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Pending Invites</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.pendingInvitations}</p>
+                  <p className="text-xs text-gray-500">Awaiting response</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Management Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Organization Management */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+          <div className="flex items-center mb-4">
+            <div className="p-2 rounded-lg bg-blue-100 text-blue-600 mr-3">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Organization Management</h3>
+          </div>
+          <p className="text-gray-600 text-sm mb-4">
+            Manage your organization settings, branding, and team members
+          </p>
+          <Link 
+            href="/admin/organization"
+            className="btn-primary inline-block text-center"
+          >
+            Manage Organization
+          </Link>
+        </div>
+
+        {/* System Analytics */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+          <div className="flex items-center mb-4">
+            <div className="p-2 rounded-lg bg-green-100 text-green-600 mr-3">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">System Analytics</h3>
+          </div>
+          <p className="text-gray-600 text-sm mb-4">
+            View usage statistics, audit logs, and system performance metrics
+          </p>
+          <Link 
+            href="/admin/analytics"
+            className="btn-secondary inline-block text-center"
+          >
+            View Analytics
+          </Link>
+        </div>
+
+        {/* Project Management */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+          <div className="flex items-center mb-4">
+            <div className="p-2 rounded-lg bg-purple-100 text-purple-600 mr-3">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Project Oversight</h3>
+          </div>
+          <p className="text-gray-600 text-sm mb-4">
+            Monitor all organization projects, assignments, and progress
+          </p>
+          <Link 
+            href="/projects"
+            className="btn-secondary inline-block text-center"
+          >
+            View All Projects
+          </Link>
+        </div>
+
+        {/* System Settings */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+          <div className="flex items-center mb-4">
+            <div className="p-2 rounded-lg bg-gray-100 text-gray-600 mr-3">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">System Settings</h3>
+          </div>
+          <p className="text-gray-600 text-sm mb-4">
+            Configure AI models, integrations, and system-wide preferences
+          </p>
+          <Link 
+            href="/admin/settings"
+            className="btn-secondary inline-block text-center"
+          >
+            System Settings
+          </Link>
+        </div>
+      </div>
+
+      {/* Recent Activity or Quick Actions */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link 
+            href="/admin/organization"
+            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg className="h-5 w-5 text-blue-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            <span className="text-sm font-medium">Invite User</span>
+          </Link>
+
+          <Link 
+            href="/projects/new"
+            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg className="h-5 w-5 text-green-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            <span className="text-sm font-medium">New Project</span>
+          </Link>
+
+          <Link 
+            href="/admin/analytics"
+            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg className="h-5 w-5 text-purple-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span className="text-sm font-medium">View Reports</span>
+          </Link>
+
+          <Link 
+            href="/admin/settings"
+            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg className="h-5 w-5 text-gray-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span className="text-sm font-medium">Settings</span>
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }

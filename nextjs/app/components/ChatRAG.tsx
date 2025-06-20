@@ -1,10 +1,7 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-
-function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(' ')
-}
+import clsx from 'clsx'
 
 export default function ChatRAG({ projectId, user }) {
   const [messages, setMessages] = useState<any[]>([
@@ -67,13 +64,13 @@ export default function ChatRAG({ projectId, user }) {
       {/* Chat Messages */}
       <main ref={chatRef} className="flex-1 p-6 overflow-y-auto space-y-6 bg-blue-50/30">
         {messages.map((msg, i) => (
-          <div key={i} className={classNames('flex items-start gap-3', msg.role === 'user' ? 'justify-end' : '')}>
+          <div key={i} className={clsx('flex items-start gap-3', msg.role === 'user' ? 'justify-end' : '')}>
             {msg.role !== 'user' && (
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="m12 14 4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></svg>
               </div>
             )}
-            <div className={classNames('relative p-4 rounded-xl max-w-md', msg.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-50 text-gray-900 rounded-tl-none')}>
+            <div className={clsx('relative p-4 rounded-xl max-w-md', msg.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-50 text-gray-900 rounded-tl-none')}>
               <div className="message-content text-sm whitespace-pre-wrap">{msg.content}</div>
               {/* Citations for AI answers */}
               {msg.role === 'assistant' && msg.citations && msg.citations.length > 0 && (

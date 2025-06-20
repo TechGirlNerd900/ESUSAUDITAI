@@ -1,10 +1,29 @@
 
-##
-- When using Context, make sure that you keep the range of output in the range 2k to 4k based on what you think is the best.
+#### PROJECT RULES
+
+- When using Context7, make sure that you keep the range of output in the range 2k to 4k based on what you think is the best.
 - Maintain a file named library.md to stpre the Library IDs that you search for and before searching make sure that you check the file and use the library
 ID already available. Otherwise, search for it.
 
-## recommended fixes
+- NO GUESSING: Use high reasoning skills
+If any uncertainty arises:
+
+First consult MPC Context 7 for up-to-date documentation, schemas, rules, and specifications.
+
+Respect and apply all rules configured for Context7 above
+
+Only escalate questions to the user if, after fully exhausting MPC Context 7, the ambiguity is fully blocking and proceeding would risk code safety or system stability.
+
+- ZERO HALLUCINATION POLICY:
+
+You are not permitted to invent functionality, fields, parameters, APIs, or behaviors that cannot explicitly exist in the real world converning the app's scope or logic.
+
+For any AI-generated logic (RAG, report generation, summarization, etc.), implement strict guardrail prompts to prevent hallucination. If input context is insufficient, the AI logic must return:
+
+"I cannot answer this question based on the provided documents."
+
+###### recommended fixes
+
 
 Production-Grade Refactoring & Optimization Plan for EsusAuditAI
 
@@ -137,4 +156,5 @@ Multi-Factor Authentication (MFA): Add a task in Phase 3: "Enable and configure 
 
 AI Output Explainability: In addition to RAG, add a task in Phase 3: "Build an 'explainability UI' that shows which specific snippets or data points in a source document triggered an AI-generated red flag or summary point."
 Formalized Testing Plan: The current "Required Testing Scope" is good. We can formalize it by making it a required section in the final Pull Request description, where the developer must check off each test case they performed manually or via automation.
+
 

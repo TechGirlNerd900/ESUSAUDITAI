@@ -2,11 +2,43 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Define public paths that don't require auth check
-const publicPaths = ['/api', '/_next', '/static', '/login', '/register', '/reset-password', '/auth']
+const publicPaths = [
+  '/_next', 
+  '/static', 
+  '/login', 
+  '/register', 
+  '/reset-password', 
+  '/auth'
+]
+
+// Define public API routes that don't need authentication in middleware
+const publicApiPaths = [
+  '/api/auth/callback',
+  '/api/auth/logout', 
+  '/api/auth/register'
+]
 
 export async function middleware(request: NextRequest) {
-  // Skip middleware for public paths and static files
-  if (publicPaths.some(path => request.nextUrl.pathname.startsWith(path)) || request.nextUrl.pathname.includes('.')) {
+  const pathname = request.nextUrl.pathname
+
+  // Skip middleware for static files
+  if (pathname.includes('.') && !pathname.startsWith('/api')) {
+    return NextResponse.next()
+  }
+
+  // Skip middleware for public paths
+  if (publicPaths.some(path => pathname.startsWith(path))) {
+    return NextResponse.next()
+  }
+
+  // Skip middleware for specific public API routes
+  if (publicApiPaths.some(path => pathname.startsWith(path))) {
+    return NextResponse.next()
+  }
+
+  // For protected API routes, let them handle their own authentication
+  // This allows API routes to return proper JSON error responses
+  if (pathname.startsWith('/api')) {
     return NextResponse.next()
   }
 

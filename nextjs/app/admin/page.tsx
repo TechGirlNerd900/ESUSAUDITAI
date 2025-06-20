@@ -14,11 +14,11 @@ export default async function AdminDashboard() {
     redirect('/login')
   }
 
-  // Fetch user's role
+  // Fetch user's role from correct table
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
+    .from('users')
+    .select('role, organization_id')
+    .eq('auth_user_id', user.id)
     .single()
 
   // Redirect non-admin users

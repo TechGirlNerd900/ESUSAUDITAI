@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, { params }) {
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .select('organization_id, role')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .single()
   if (userError || !userProfile) {
     return NextResponse.json({ error: 'User profile not found' }, { status: 403 })

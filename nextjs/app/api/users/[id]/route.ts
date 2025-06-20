@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, { params }) {
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .select('organization_id, role')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .single()
   if (userError || !userProfile) {
     return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
@@ -43,7 +43,7 @@ export async function PUT(request: NextRequest, { params }) {
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .select('organization_id, role')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .single()
   if (userError || !userProfile) {
     return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
@@ -83,7 +83,7 @@ export async function DELETE(request: NextRequest, { params }) {
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .select('organization_id, role')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .single()
   if (userError || !userProfile || userProfile.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

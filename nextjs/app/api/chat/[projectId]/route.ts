@@ -30,7 +30,7 @@ export async function POST(
     const { data: userProfile, error: userError } = await supabase
       .from('users')
       .select('organization_id, role, deleted_at')
-      .eq('id', user.id)
+      .eq('auth_user_id', user.id)
       .eq('deleted_at', null)
       .single()
     if (userError || !userProfile) {
@@ -169,7 +169,7 @@ export async function GET(
     const { data: userProfile, error: userError } = await supabase
       .from('users')
       .select('organization_id, role, deleted_at')
-      .eq('id', user.id)
+      .eq('auth_user_id', user.id)
       .eq('deleted_at', null)
       .single()
     if (userError || !userProfile) {
