@@ -19,6 +19,7 @@ const Dashboard = () => {
   const [projectsVisible, setProjectsVisible] = useState(false);
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [news, setNews] = useState([]);
@@ -78,6 +79,7 @@ const Dashboard = () => {
       setError(error);
     } finally {
       setIsLoading(false);
+      setInitialLoad(false);
     }
   };
 

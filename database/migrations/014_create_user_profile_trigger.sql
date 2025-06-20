@@ -35,7 +35,6 @@ BEGIN
         role,
         status,
         is_active,
-        custom_fields,
         created_at,
         updated_at
     ) VALUES (
@@ -47,7 +46,6 @@ BEGIN
         'auditor', -- Default role
         'active',
         true,
-        '{}'::jsonb,
         NOW(),
         NOW()
     );
@@ -59,25 +57,19 @@ BEGIN
             action,
             resource_type,
             resource_id,
-            event_data,
-            event_type,
-            severity,
-            tags,
+            details,
             created_at
         ) VALUES (
             default_org_id,
-            'CREATE',
+            'user_profile_created',
             'user',
-            NEW.id::text,
+            NEW.id,
             jsonb_build_object(
                 'auth_user_id', NEW.id,
                 'email', NEW.email,
                 'auto_created', true,
                 'trigger', 'on_auth_user_created'
             ),
-            'user.profile_created',
-            'info',
-            ARRAY['auth', 'auto-created']::TEXT[],
             NOW()
         );
     EXCEPTION 

@@ -83,6 +83,7 @@ export async function POST(
       .from('chat_messages')
       .insert({
         project_id: projectId,
+        organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
         user_id: user.id,
         content: message.trim(),
         role: 'user'
@@ -93,11 +94,12 @@ export async function POST(
       throw new Error('Failed to store user message: ' + chatError.message)
     }
 
-    // Get chat history
+    // Get chat history with organization filtering
     const { data: chatHistory, error: historyError } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('project_id', projectId)
+      .eq('organization_id', userProfile.organization_id) // CRITICAL: Filter by organization for multi-tenant security
       .order('created_at', { ascending: true })
       .limit(50)
 
@@ -120,6 +122,7 @@ export async function POST(
       .from('chat_messages')
       .insert({
         project_id: projectId,
+        organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
         content: aiResponse.answer,
         role: 'assistant'
       })
@@ -197,19 +200,46 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Get chat history
+    // Get pagination parameters from query string
+    const url = new URL(request.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const pageSize = parseInt(url.searchParams.get('pageSize') || '50')
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    // Get total count for pagination metadata
+    const { count, error: countError } = await supabase
+      .from('chat_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('project_id', projectId)
+
+    if (countError) {
+      console.error('Count error:', countError)
+      throw new Error('Failed to count messages: ' + countError.message)
+    }
+
+    // Get paginated chat history
     const { data: messages, error: messagesError } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('project_id', projectId)
       .order('created_at', { ascending: true })
+      .range(from, to)
 
     if (messagesError) {
       console.error('Messages fetch error:', messagesError)
       throw new Error('Failed to fetch messages: ' + messagesError.message)
     }
 
-    return NextResponse.json({ messages: messages || [] })
+    return NextResponse.json({
+      messages: messages || [],
+      pagination: {
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize)
+      }
+    })
 
   } catch (error) {
     console.error('Error fetching chat history:', error)

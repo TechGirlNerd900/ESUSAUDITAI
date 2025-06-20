@@ -279,19 +279,8 @@ CREATE TABLE audit_programs (
     updated_by INTEGER
 );
 
--- Create projects table (referenced by other tables)
-CREATE TABLE IF NOT EXISTS projects (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    client_name VARCHAR(255),
-    project_type VARCHAR(50),
-    start_date DATE,
-    end_date DATE,
-    status VARCHAR(20) CHECK (status IN ('planning', 'execution', 'completion', 'archived')) DEFAULT 'planning',
-    budget DECIMAL(15,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Note: Main projects table is already defined above (lines 85-98)
+-- This is a reference to that table for the audit management system
 
 -- Create workpapers table
 CREATE TABLE workpapers (
@@ -329,8 +318,8 @@ CREATE TABLE risk_assessments (
 
 -- Create audit_samples table
 CREATE TABLE audit_samples (
-    id SERIAL PRIMARY KEY,
-    workpaper_id INTEGER REFERENCES workpapers(id),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workpaper_id UUID REFERENCES workpapers(id),
     project_id UUID REFERENCES projects(id),
     population_size INTEGER,
     sample_size INTEGER,
@@ -339,23 +328,24 @@ CREATE TABLE audit_samples (
     sampling_method VARCHAR(50),
     selected_items JSONB,
     selection_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create audit_logs table
 CREATE TABLE IF NOT EXISTS audit_logs (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     action VARCHAR(100) NOT NULL,
     resource_type VARCHAR(50),
-    resource_id INTEGER,
-    user_id INTEGER,
+    resource_id UUID,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
     details JSONB,
     success BOOLEAN DEFAULT true,
     error_message TEXT,
     ip_address INET,
     user_agent TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 

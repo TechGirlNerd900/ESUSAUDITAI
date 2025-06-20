@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
         original_name: file.name,
         file_path: filePath,
         project_id: projectId,
+        organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
         status: 'uploaded',
         uploaded_by: user.id,
         file_type: file.type,

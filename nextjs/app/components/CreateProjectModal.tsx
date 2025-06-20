@@ -2,7 +2,13 @@
 
 import React, { useState } from 'react';
 
-const CreateProjectModal = ({ isOpen, onClose, onSuccess }) => {
+interface CreateProjectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: (project?: any) => void;
+}
+
+const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',

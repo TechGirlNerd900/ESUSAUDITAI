@@ -8,7 +8,7 @@ import { authenticateApiRequest } from '@/lib/apiAuth'
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Check if user already exists
     const { data: existingUser } = await supabase
@@ -117,11 +117,11 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Get all pending invitations
     const { data: invitations, error } = await supabase

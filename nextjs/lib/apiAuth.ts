@@ -47,9 +47,23 @@ export async function authenticateApiRequest(
     requireRole?: 'admin' | 'auditor' | 'reviewer'
     allowSelf?: boolean // For user-specific endpoints like /api/users/[id]
     targetUserId?: string // For self-access validation
+    rateLimit?: number // Requests per minute, if not provided, no rate limiting is applied
   } = {}
 ): Promise<AuthResult> {
   try {
+    // Apply rate limiting if configured
+    if (options.rateLimit) {
+      const rateLimiter = createRateLimitCheck(options.rateLimit)
+      const rateLimitResponse = await rateLimiter(request)
+      
+      if (rateLimitResponse) {
+        return {
+          success: false,
+          response: rateLimitResponse
+        }
+      }
+    }
+    
     const supabase = await createClient()
 
     // Check if user is authenticated
@@ -144,6 +158,7 @@ export async function authenticateApiRequest(
 
 /**
  * Utility for organization-based access control
+ * Supports organization hierarchies where parent organizations can access child organizations
  */
 export async function checkOrganizationAccess(
   supabase: any,
@@ -155,39 +170,97 @@ export async function checkOrganizationAccess(
     return true
   }
 
-  // Users can only access resources in their organization
-  return userProfile.organization_id === resourceOrganizationId
+  // Direct organization match
+  if (userProfile.organization_id === resourceOrganizationId) {
+    return true
+  }
+
+  // Check if user's organization is a parent of the resource organization
+  try {
+    // Get the resource organization's hierarchy path
+    const { data: orgData, error: orgError } = await supabase
+      .from('organizations')
+      .select('parent_organization_id, hierarchy_path')
+      .eq('id', resourceOrganizationId)
+      .single()
+
+    if (orgError || !orgData) {
+      console.error('Error checking organization hierarchy:', orgError)
+      return false
+    }
+
+    // If organization has a hierarchy path, check if user's org is in the path
+    if (orgData.hierarchy_path && Array.isArray(orgData.hierarchy_path)) {
+      return orgData.hierarchy_path.includes(userProfile.organization_id)
+    }
+
+    // Check direct parent relationship
+    return orgData.parent_organization_id === userProfile.organization_id
+  } catch (error) {
+    console.error('Error in organization access check:', error)
+    // Fail closed - deny access on error
+    return false
+  }
 }
 
 /**
- * Rate limiting helper - can be extended with Redis later
+ * Rate limiting helper using Redis
+ * Uses the Upstash Redis client for serverless-friendly rate limiting
  */
-export function createRateLimitCheck(requestsPerMinute: number = 60) {
-  const requests = new Map<string, { count: number; resetTime: number }>()
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
-  return (request: NextRequest): NextResponse | null => {
-    const clientIP = request.headers.get('x-forwarded-for') || 
+// Initialize Redis client
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
+
+export function createRateLimitCheck(requestsPerMinute: number = 60) {
+  // Create a sliding window rate limiter
+  const ratelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(requestsPerMinute, '1 m'),
+    analytics: true,
+    prefix: 'api_ratelimit',
+  })
+
+  return async (request: NextRequest): Promise<NextResponse | null> => {
+    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 
                     request.headers.get('x-real-ip') || 
                     'unknown'
     
-    const now = Date.now()
-    const windowMs = 60 * 1000 // 1 minute
+    // Add some entropy to prevent IP spoofing
+    const identifier = `${clientIP}:${request.nextUrl.pathname}`
     
-    const userRequests = requests.get(clientIP)
-    
-    if (!userRequests || now > userRequests.resetTime) {
-      requests.set(clientIP, { count: 1, resetTime: now + windowMs })
+    try {
+      const { success, limit, remaining, reset } = await ratelimit.limit(identifier)
+      
+      if (!success) {
+        const resetTime = Math.ceil((reset - Date.now()) / 1000)
+        
+        return NextResponse.json(
+          { 
+            error: 'Too many requests. Please try again later.',
+            retryAfter: resetTime
+          },
+          { 
+            status: 429,
+            headers: {
+              'Retry-After': String(resetTime),
+              'X-RateLimit-Limit': String(limit),
+              'X-RateLimit-Remaining': String(remaining),
+              'X-RateLimit-Reset': String(reset)
+            }
+          }
+        )
+      }
+      
+      return null
+    } catch (error) {
+      console.error('Rate limiting error:', error)
+      // Fail open - don't block requests if rate limiting fails
       return null
     }
-    
-    if (userRequests.count >= requestsPerMinute) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
-        { status: 429 }
-      )
-    }
-    
-    userRequests.count++
-    return null
   }
 }

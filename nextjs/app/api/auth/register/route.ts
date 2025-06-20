@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
     // Get JSON data from the request body
     const body = await request.json()
-    const { email, firstName, lastName, company, role, authUserId, custom_fields } = body
+    const { email, firstName, lastName, company, role, authUserId } = body
 
     // Validate required fields
     if (!email || !firstName || !lastName || !company || !role) {
@@ -26,17 +26,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get or create default organization
+    let { data: organization, error: orgError } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('name', 'Default Organization')
+      .single()
+
+    if (orgError || !organization) {
+      // Create default organization if it doesn't exist
+      const { data: newOrg, error: createOrgError } = await supabase
+        .from('organizations')
+        .insert({
+          name: 'Default Organization',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select('id')
+        .single()
+
+      if (createOrgError) {
+        console.error('Error creating default organization:', createOrgError)
+        return NextResponse.json(
+          { error: 'Failed to create organization' },
+          { status: 500 }
+        )
+      }
+      organization = newOrg
+    }
+
     // Create user profile in our database
     const { data: user, error: dbError } = await supabase
       .from('users')
       .insert({
+        auth_user_id: authUserId,
+        organization_id: organization.id,
         email: email.toLowerCase(),
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         company: company.trim(),
         role: role,
+        status: 'active',
+        is_active: true,
         password_hash: 'handled_by_supabase_auth', // Placeholder since Supabase handles auth
-        custom_fields: custom_fields || {},
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })

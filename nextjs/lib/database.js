@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 
 export class Database {

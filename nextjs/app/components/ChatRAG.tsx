@@ -3,7 +3,15 @@
 import React, { useState, useRef } from 'react'
 import clsx from 'clsx'
 
-export default function ChatRAG({ projectId, user }) {
+interface ChatRAGProps {
+  projectId: string;
+  user: {
+    id: string;
+    email: string;
+  };
+}
+
+export default function ChatRAG({ projectId, user }: ChatRAGProps) {
   const [messages, setMessages] = useState<any[]>([
     { role: 'assistant', content: "Hello! I'm Esus, your AI audit assistant. How can I help you with your documents today?" }
   ])

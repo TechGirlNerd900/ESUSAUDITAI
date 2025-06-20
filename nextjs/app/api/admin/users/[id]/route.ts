@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
 }
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  // No changes needed here, revisit the types
+  const { id } = await params;
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -24,7 +24,7 @@ export async function PUT(
 
   try {
     const { is_active, role } = await request.json()
-    const userId = context.params.id
+    const userId = id
 
     if (is_active === undefined && !role) {
       return NextResponse.json(
@@ -68,15 +68,16 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const userId = context.params.id
+    const userId = id
 
     // Prevent admin from deleting themselves
     if (userId === auth.profile.id) {

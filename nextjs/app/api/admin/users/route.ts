@@ -8,11 +8,11 @@ import { createClient } from '@/utils/supabase/server'
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Get all users in the same organization
     const { data: users, error } = await supabase
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Create user in Supabase Auth
     const { data: authUser, error: authError } = await supabase.auth.signUp({

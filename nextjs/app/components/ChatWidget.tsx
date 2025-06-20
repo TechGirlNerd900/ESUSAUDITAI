@@ -4,9 +4,16 @@ import { useState, useRef, useEffect } from 'react'
 import clsx from 'clsx'
 import LoadingSpinner from './LoadingSpinner'
 
+interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+  isError?: boolean
+}
+
 export default function ChatWidget({ projectId }: { projectId?: string }) {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     { 
       role: 'assistant', 
       content: "Hello! I'm Esus, your AI audit assistant. I can help you with audit procedures, compliance questions, risk assessment, and more. How can I assist you today?",
@@ -15,7 +22,7 @@ export default function ChatWidget({ projectId }: { projectId?: string }) {
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [needsApiKey, setNeedsApiKey] = useState(false)
   const chatRef = useRef(null)
 
@@ -32,7 +39,7 @@ export default function ChatWidget({ projectId }: { projectId?: string }) {
     setLoading(true)
     setError(null)
     
-    const userMsg = { 
+    const userMsg: ChatMessage = { 
       role: 'user', 
       content: input.trim(),
       timestamp: new Date().toISOString()
@@ -65,7 +72,7 @@ export default function ChatWidget({ projectId }: { projectId?: string }) {
       }
 
       const data = await response.json()
-      const assistantMsg = {
+      const assistantMsg: ChatMessage = {
         role: 'assistant',
         content: data.message.content,
         timestamp: data.message.timestamp
@@ -88,7 +95,7 @@ export default function ChatWidget({ projectId }: { projectId?: string }) {
     }
   }
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()

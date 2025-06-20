@@ -1,182 +1,130 @@
-import { createClient } from '@/utils/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
-import { projectRateLimiter } from '@/lib/rateLimiter'
+import { NextRequest } from 'next/server';
+import { Database } from '@/lib/database';
+import { cookies } from 'next/headers';
+import { authenticateApiRequest } from '@/lib/apiAuth';
+import { withErrorHandling } from '@/lib/errorHandler';
+import { successResponse, errorResponse, createdResponse } from '@/lib/apiResponse';
 
-// Helper to check if user can create a project
-function canCreateProject(user) {
-  return user.role === 'admin' || user.role === 'auditor'
-}
+/**
+ * GET handler for projects
+ * Retrieves projects with pagination and filtering
+ */
+export const GET = withErrorHandling(async (request: NextRequest) => {
+  // Get query parameters
+  const searchParams = request.nextUrl.searchParams;
+  const page = parseInt(searchParams.get('page') || '1');
+  const pageSize = parseInt(searchParams.get('pageSize') || '10');
+  const status = searchParams.get('status') || undefined;
+  const search = searchParams.get('search') || undefined;
+  const sortBy = searchParams.get('sortBy') || 'created_at';
+  const sortOrder = searchParams.get('sortOrder') || 'desc';
 
-export async function GET(request: NextRequest) {
-  try {
-    // Apply rate limiting
-    const rateLimitResponse = await projectRateLimiter(request)
-    if (rateLimitResponse) {
-      return rateLimitResponse
-    }
-
-    const supabase = await createClient()
-
-    // Check if user is authenticated
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
+  // Authenticate request with rate limiting
+  const auth = await authenticateApiRequest(request)
+    if (!auth.success) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch user's organization_id from users table
-    const { data: userProfile, error: userError } = await supabase
-      .from('users')
-      .select('organization_id, role')
-      .eq('auth_user_id', user.id)
-      .single()
+  // Initialize database
+  const db = new Database(cookies());
+  
+  // Get projects with pagination and filters
+  const result = await db.getProjects(auth.user.id, {
+    page,
+    pageSize,
+    status,
+    search,
+    sortBy,
+    sortOrder
+  });
 
-    if (userError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
-    }
+  // Transform data to include document count and ensure compatibility
+  const transformedProjects = result.data.map(project => ({
+    ...project,
+    document_count: project.documents?.length || 0,
+    // Ensure backward compatibility
+    due_date: project.end_date,
+    audit_type: project.project_type || 'general'
+  }));
 
-    // Only return projects in user's organization
-    const { data: projects, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('organization_id', userProfile.organization_id)
+  return successResponse({
+    projects: transformedProjects,
+    total: result.pagination.total,
+    page: result.pagination.page,
+    pageSize: result.pagination.pageSize,
+    totalPages: result.pagination.totalPages
+  });
+});
 
-    if (error) {
-      console.error('Database error fetching projects:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch projects' }, 
-        { status: 500 }
-      )
-    }
-
-    // If reviewer, filter to only assigned projects
-    let filteredProjects = projects
-    if (userProfile.role === 'reviewer') {
-      filteredProjects = projects.filter(p => p.assigned_to && p.assigned_to.includes(user.id))
-    }
-
-    // Transform data to include document count and ensure compatibility
-    const transformedProjects = (filteredProjects || []).map(project => ({
-      ...project,
-      document_count: project.documents?.length || 0,
-      // Ensure backward compatibility
-      due_date: project.end_date,
-      audit_type: 'general' // Default value since we don't have this field yet
-    }))
-
-    return NextResponse.json({ 
-      projects: transformedProjects,
-      total: transformedProjects.length,
-      page: 1,
-      limit: transformedProjects.length 
-    })
-
-  } catch (error) {
-    console.error('Unexpected error in projects API:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' }, 
-      { status: 500 }
-    )
+/**
+ * POST handler for projects
+ * Creates a new project
+ */
+export const POST = withErrorHandling(async (request: NextRequest) => {
+  // Authenticate request with rate limiting
+  const auth = await authenticateApiRequest(request, { 
+    rateLimit: 20,
+    requireRole: 'auditor' // Only auditors and admins can create projects
+  });
+  
+  if (!auth.success) {
+    return auth.response;
   }
-}
 
-export async function POST(request: NextRequest) {
-  try {
-    // Apply rate limiting
-    const rateLimitResponse = await projectRateLimiter(request)
-    if (rateLimitResponse) {
-      return rateLimitResponse
-    }
-
-    const supabase = await createClient()
-
-    // Check if user is authenticated
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Fetch user's organization_id and role from users table
-    const { data: userProfile, error: userError } = await supabase
-      .from('users')
-      .select('organization_id, role')
-      .eq('auth_user_id', user.id)
-      .single()
-
-    if (userError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
-    }
-
-    if (!canCreateProject(userProfile)) {
-      return NextResponse.json({ error: 'Forbidden: insufficient role' }, { status: 403 })
-    }
-
-    const body = await request.json()
-    const { name, description, client_name, client_email, start_date, end_date, assigned_to } = body
-
-    // Always set organization_id from user profile
-    const projectData = { ...body, organization_id: userProfile.organization_id, created_by: user.id }
-
-    // Enhanced validation
-    if (!name || !client_name) {
-      return NextResponse.json(
-        { error: 'Project name and client name are required' },
-        { status: 400 }
-      )
-    }
-
-    // Validate assigned_to array
-    const assignedToArray = assigned_to || [user.id]
-    if (!Array.isArray(assignedToArray) || assignedToArray.length === 0) {
-      return NextResponse.json(
-        { error: 'Project must have at least one assignee' },
-        { status: 400 }
-      )
-    }
-
-    // Validate email format if provided
-    if (client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client_email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      )
-    }
-
-    // Validate dates if provided
-    if (start_date && end_date && new Date(start_date) > new Date(end_date)) {
-      return NextResponse.json(
-        { error: 'Start date cannot be after end date' },
-        { status: 400 }
-      )
-    }
-
-    // Create project
-    const { data: project, error } = await supabase
-      .from('projects')
-      .insert(projectData)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Database error creating project:', error);
-      return NextResponse.json(
-        { error: 'Failed to create project' }, 
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ project }, { status: 201 })
-
-  } catch (error) {
-    console.error('Unexpected error in project creation:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' }, 
-      { status: 500 }
-    )
+  // Parse request body
+  const body = await request.json();
+  
+  // Extract fields
+  const { 
+    name, 
+    description, 
+    client_name, 
+    client_email, 
+    start_date, 
+    end_date, 
+    assigned_to,
+    status,
+    project_type
+  } = body;
+  
+  // Validate required fields
+  if (!name || !client_name) {
+    return errorResponse('Project name and client name are required', 400);
   }
-}
+  
+  // Validate assigned_to array
+  const assignedToArray = assigned_to || [auth.user.id];
+  if (!Array.isArray(assignedToArray) || assignedToArray.length === 0) {
+    return errorResponse('Project must have at least one assignee', 400);
+  }
+  
+  // Validate email format if provided
+  if (client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client_email)) {
+    return errorResponse('Invalid email format', 400);
+  }
+  
+  // Validate dates if provided
+  if (start_date && end_date && new Date(start_date) > new Date(end_date)) {
+    return errorResponse('Start date cannot be after end date', 400);
+  }
+  
+  // Initialize database
+  const db = new Database(cookies());
+  
+  // Create project
+  const project = await db.createProject({
+    name,
+    description,
+    clientName: client_name,
+    clientEmail: client_email,
+    startDate: start_date,
+    endDate: end_date,
+    status: status || 'active',
+    projectType: project_type || 'general',
+    userId: auth.user.id,
+    assignedTo: assignedToArray,
+    organizationId: auth.profile.organization_id
+  });
+
+  return createdResponse(project, 'Project created successfully');
+});

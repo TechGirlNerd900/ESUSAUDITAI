@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client'; // Correct import
 import LoadingSpinner from '@/app/components/LoadingSpinner'; // Ensure this path is correct
 
@@ -19,8 +19,23 @@ import {
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Check for success message from URL params
+    const urlMessage = searchParams.get('message');
+    const urlError = searchParams.get('error');
+    
+    if (urlMessage) {
+      setMessage(urlMessage);
+    }
+    if (urlError) {
+      setError(urlError);
+    }
+  }, [searchParams]);
 
   // The handleSubmit function is adapted for the Supabase SSR client
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -144,6 +159,21 @@ export default function Login() {
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {message && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-green-700">{message}</p>
                   </div>
                 </div>
               </div>

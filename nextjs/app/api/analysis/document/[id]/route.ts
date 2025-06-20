@@ -23,6 +23,17 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Fetch user profile with organization_id for multi-tenant security
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('organization_id, role')
+      .eq('auth_user_id', user.id)
+      .single()
+
+    if (profileError || !userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
+    }
+
     // Get document details
     const { data: document, error: docError } = await supabase
       .from('documents')
@@ -43,9 +54,15 @@ export async function POST(
       return NextResponse.json({ error: 'Document or project not found or archived' }, { status: 404 })
     }
 
+    // Validate organization access - CRITICAL for multi-tenant security
+    if (document.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: 'Cross-organization access denied' }, { status: 403 })
+    }
+
     // Check access to project
     const project = document.projects
     const hasAccess = 
+      userProfile.role === 'admin' ||
       project.created_by === user.id || 
       (project.assigned_to && project.assigned_to.includes(user.id))
 
@@ -53,11 +70,12 @@ export async function POST(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Check if analysis already exists and is recent
+    // Check if analysis already exists and is recent - with organization filtering
     const { data: existingAnalysis, error: analysisCheckError } = await supabase
       .from('analysis_results')
       .select('*')
       .eq('document_id', documentId)
+      .eq('organization_id', userProfile.organization_id) // CRITICAL: Filter by organization
       .order('created_at', { ascending: false })
       .limit(1)
 
@@ -176,6 +194,7 @@ export async function POST(
         .insert([
           {
             document_id: documentId,
+            organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
             extracted_data: documentAnalysis,
             ai_summary: aiSummary,
             red_flags: extractRedFlags(aiSummary),

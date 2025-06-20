@@ -8,10 +8,10 @@ import { authenticateApiRequest } from '@/lib/apiAuth'
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request)
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   try {
     // Get user's organization
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Create organization
     const { data: organization, error: orgError } = await supabase
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
@@ -105,7 +105,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Organization name is required' }, { status: 400 })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const { data: organization, error } = await supabase
       .from('organizations')

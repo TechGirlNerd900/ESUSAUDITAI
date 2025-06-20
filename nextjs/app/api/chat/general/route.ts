@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   // Authenticate the user
   const auth = await authenticateApiRequest(request)
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
@@ -128,7 +128,7 @@ Current user: ${auth.profile.first_name} ${auth.profile.last_name} (${auth.profi
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request)
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   return NextResponse.json({

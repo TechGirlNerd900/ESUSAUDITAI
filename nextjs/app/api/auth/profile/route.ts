@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   // Authenticate the user
   const auth = await authenticateApiRequest(request)
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // Return user profile data

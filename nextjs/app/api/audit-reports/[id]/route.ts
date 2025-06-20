@@ -1,8 +1,11 @@
 import { createClient } from '@/utils/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(request: NextRequest, { params }) {
-  const { id } = params
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -33,8 +36,11 @@ export async function GET(request: NextRequest, { params }) {
   return NextResponse.json({ report })
 }
 
-export async function PUT(request: NextRequest, { params }) {
-  const { id } = params
+export async function PUT(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -83,8 +89,11 @@ export async function PUT(request: NextRequest, { params }) {
   return NextResponse.json({ report: updatedReport })
 }
 
-export async function DELETE(request: NextRequest, { params }) {
-  const { id } = params
+export async function DELETE(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
