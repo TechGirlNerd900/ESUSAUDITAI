@@ -24,18 +24,22 @@ export interface UserProfile {
   deleted_at?: string | null
 }
 
-export interface AuthResult {
-  success: true
-  user: AuthUser
-  profile: UserProfile
-} | {
-  success: false
-  response: NextResponse
+export interface AuthSuccess {
+  success: true;
+  user: AuthUser;
+  profile: UserProfile;
 }
+
+export interface AuthFailure {
+  success: false;
+  response: NextResponse;
+}
+
+export type AuthResult = AuthSuccess | AuthFailure
 
 /**
  * Centralized API authentication middleware
- * Handles user auth check and profile validation
+ * Handles user auth check, profile validation, and rate limiting
  */
 export async function authenticateApiRequest(
   request: NextRequest,

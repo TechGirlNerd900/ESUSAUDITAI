@@ -198,23 +198,23 @@ export default function OrganizationAdminPage() {
 
   if (loading) {
     return (
-      <div className=\"flex items-center justify-center min-h-screen\">
-        <LoadingSpinner size=\"lg\" />
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
       </div>
     )
   }
 
   return (
-    <div className=\"max-w-6xl mx-auto p-6 space-y-8\">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       {/* Header */}
-      <div className=\"flex items-center justify-between\">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className=\"text-3xl font-bold text-gray-900\">Organization Management</h1>
-          <p className=\"text-gray-600 mt-1\">Manage your organization settings and team members</p>
+          <h1 className="text-3xl font-bold text-gray-900">Organization Management</h1>
+          <p className="text-gray-600 mt-1">Manage your organization settings and team members</p>
         </div>
         <button
           onClick={() => router.push('/admin')}
-          className=\"btn-secondary\"
+          className="btn-secondary"
         >
           ← Back to Admin
         </button>
@@ -222,88 +222,88 @@ export default function OrganizationAdminPage() {
 
       {/* Error/Success Messages */}
       {error && (
-        <div className=\"bg-red-50 border border-red-200 rounded-lg p-4\">
-          <p className=\"text-sm text-red-800\">{error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className=\"bg-green-50 border border-green-200 rounded-lg p-4\">
-          <p className=\"text-sm text-green-800\">{success}</p>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-green-800">{success}</p>
         </div>
       )}
 
       {/* Organization Details */}
-      <div className=\"bg-white rounded-lg shadow border border-gray-200\">
-        <div className=\"px-6 py-4 border-b border-gray-200\">
-          <div className=\"flex items-center justify-between\">
-            <h2 className=\"text-lg font-semibold text-gray-900\">Organization Details</h2>
+      <div className="bg-white rounded-lg shadow border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Organization Details</h2>
             <button
               onClick={() => setEditingOrg(!editingOrg)}
-              className=\"btn-secondary\"
+              className="btn-secondary"
             >
               {editingOrg ? 'Cancel' : 'Edit'}
             </button>
           </div>
         </div>
 
-        <div className=\"p-6\">
+        <div className="p-6">
           {editingOrg ? (
-            <form onSubmit={handleUpdateOrganization} className=\"space-y-4\">
+            <form onSubmit={handleUpdateOrganization} className="space-y-4">
               <div>
-                <label className=\"block text-sm font-medium text-gray-700 mb-1\">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Organization Name
                 </label>
                 <input
-                  type=\"text\"
+                  type="text"
                   value={orgForm.name}
                   onChange={(e) => setOrgForm(prev => ({ ...prev, name: e.target.value }))}
-                  className=\"input-field\"
+                  className="input-field"
                   required
                 />
               </div>
               <div>
-                <label className=\"block text-sm font-medium text-gray-700 mb-1\">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Logo URL (Optional)
                 </label>
                 <input
-                  type=\"url\"
+                  type="url"
                   value={orgForm.logo_url}
                   onChange={(e) => setOrgForm(prev => ({ ...prev, logo_url: e.target.value }))}
-                  className=\"input-field\"
-                  placeholder=\"https://example.com/logo.png\"
+                  className="input-field"
+                  placeholder="https://example.com/logo.png"
                 />
               </div>
-              <div className=\"flex space-x-3\">
-                <button type=\"submit\" className=\"btn-primary\">
+              <div className="flex space-x-3">
+                <button type="submit" className="btn-primary">
                   Save Changes
                 </button>
                 <button
-                  type=\"button\"
+                  type="button"
                   onClick={() => setEditingOrg(false)}
-                  className=\"btn-secondary\"
+                  className="btn-secondary"
                 >
                   Cancel
                 </button>
               </div>
             </form>
           ) : (
-            <div className=\"space-y-4\">
+            <div className="space-y-4">
               <div>
-                <label className=\"block text-sm font-medium text-gray-700\">Organization Name</label>
-                <p className=\"text-lg text-gray-900 mt-1\">{organization?.name}</p>
+                <label className="block text-sm font-medium text-gray-700">Organization Name</label>
+                <p className="text-lg text-gray-900 mt-1">{organization?.name}</p>
               </div>
               {organization?.logo_url && (
                 <div>
-                  <label className=\"block text-sm font-medium text-gray-700\">Logo</label>
+                  <label className="block text-sm font-medium text-gray-700">Logo</label>
                   <img 
                     src={organization.logo_url} 
-                    alt=\"Organization Logo\" 
-                    className=\"h-16 w-auto mt-1 rounded\"
+                    alt="Organization Logo" 
+                    className="h-16 w-auto mt-1 rounded"
                   />
                 </div>
               )}
-              <div className=\"grid grid-cols-2 gap-4 text-sm text-gray-600\">
+              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                 <div>
                   <strong>Created:</strong> {new Date(organization?.created_at || '').toLocaleDateString()}
                 </div>
@@ -317,52 +317,52 @@ export default function OrganizationAdminPage() {
       </div>
 
       {/* Team Members */}
-      <div className=\"bg-white rounded-lg shadow border border-gray-200\">
-        <div className=\"px-6 py-4 border-b border-gray-200\">
-          <div className=\"flex items-center justify-between\">
-            <h2 className=\"text-lg font-semibold text-gray-900\">Team Members ({users.length})</h2>
+      <div className="bg-white rounded-lg shadow border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Team Members ({users.length})</h2>
             <button
               onClick={() => setShowInviteModal(true)}
-              className=\"btn-primary\"
+              className="btn-primary"
             >
               + Invite User
             </button>
           </div>
         </div>
 
-        <div className=\"overflow-x-auto\">
-          <table className=\"min-w-full divide-y divide-gray-200\">
-            <thead className=\"bg-gray-50\">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   User
                 </th>
-                <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Role
                 </th>
-                <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Login
                 </th>
-                <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className=\"bg-white divide-y divide-gray-200\">
+            <tbody className="bg-white divide-y divide-gray-200">
               {users.map((user) => (
                 <tr key={user.id}>
-                  <td className=\"px-6 py-4 whitespace-nowrap\">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className=\"text-sm font-medium text-gray-900\">
+                      <div className="text-sm font-medium text-gray-900">
                         {user.first_name} {user.last_name}
                       </div>
-                      <div className=\"text-sm text-gray-500\">{user.email}</div>
+                      <div className="text-sm text-gray-500">{user.email}</div>
                     </div>
                   </td>
-                  <td className=\"px-6 py-4 whitespace-nowrap\">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
                       user.role === 'auditor' ? 'bg-blue-100 text-blue-800' :
@@ -371,17 +371,17 @@ export default function OrganizationAdminPage() {
                       {user.role}
                     </span>
                   </td>
-                  <td className=\"px-6 py-4 whitespace-nowrap\">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                     }`}>
                       {user.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className=\"px-6 py-4 whitespace-nowrap text-sm text-gray-500\">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
                   </td>
-                  <td className=\"px-6 py-4 whitespace-nowrap text-sm font-medium\">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => handleUserStatusToggle(user.id, !user.is_active)}
                       className={`text-${user.is_active ? 'red' : 'green'}-600 hover:text-${user.is_active ? 'red' : 'green'}-900`}
@@ -398,49 +398,49 @@ export default function OrganizationAdminPage() {
 
       {/* Pending Invitations */}
       {invitations.length > 0 && (
-        <div className=\"bg-white rounded-lg shadow border border-gray-200\">
-          <div className=\"px-6 py-4 border-b border-gray-200\">
-            <h2 className=\"text-lg font-semibold text-gray-900\">Pending Invitations ({invitations.length})</h2>
+        <div className="bg-white rounded-lg shadow border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Pending Invitations ({invitations.length})</h2>
           </div>
 
-          <div className=\"overflow-x-auto\">
-            <table className=\"min-w-full divide-y divide-gray-200\">
-              <thead className=\"bg-gray-50\">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Invited User
                   </th>
-                  <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Role
                   </th>
-                  <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Sent
                   </th>
-                  <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Expires
                   </th>
                 </tr>
               </thead>
-              <tbody className=\"bg-white divide-y divide-gray-200\">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {invitations.map((invitation) => (
                   <tr key={invitation.token}>
-                    <td className=\"px-6 py-4 whitespace-nowrap\">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className=\"text-sm font-medium text-gray-900\">
+                        <div className="text-sm font-medium text-gray-900">
                           {invitation.firstName} {invitation.lastName}
                         </div>
-                        <div className=\"text-sm text-gray-500\">{invitation.email}</div>
+                        <div className="text-sm text-gray-500">{invitation.email}</div>
                       </div>
                     </td>
-                    <td className=\"px-6 py-4 whitespace-nowrap\">
-                      <span className=\"inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800\">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
                         {invitation.role}
                       </span>
                     </td>
-                    <td className=\"px-6 py-4 whitespace-nowrap text-sm text-gray-500\">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(invitation.createdAt).toLocaleDateString()}
                     </td>
-                    <td className=\"px-6 py-4 whitespace-nowrap text-sm text-gray-500\">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(invitation.expiresAt).toLocaleDateString()}
                     </td>
                   </tr>
@@ -453,80 +453,80 @@ export default function OrganizationAdminPage() {
 
       {/* Invite User Modal */}
       {showInviteModal && (
-        <div className=\"fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4\">
-          <div className=\"bg-white rounded-lg shadow-xl w-full max-w-md\">
-            <div className=\"px-6 py-4 border-b border-gray-200\">
-              <h3 className=\"text-lg font-semibold text-gray-900\">Invite Team Member</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Invite Team Member</h3>
             </div>
 
-            <form onSubmit={handleInviteUser} className=\"p-6 space-y-4\">
-              <div className=\"grid grid-cols-2 gap-4\">
+            <form onSubmit={handleInviteUser} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className=\"block text-sm font-medium text-gray-700 mb-1\">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     First Name
                   </label>
                   <input
-                    type=\"text\"
+                    type="text"
                     value={inviteForm.firstName}
                     onChange={(e) => setInviteForm(prev => ({ ...prev, firstName: e.target.value }))}
-                    className=\"input-field\"
+                    className="input-field"
                     required
                   />
                 </div>
                 <div>
-                  <label className=\"block text-sm font-medium text-gray-700 mb-1\">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Last Name
                   </label>
                   <input
-                    type=\"text\"
+                    type="text"
                     value={inviteForm.lastName}
                     onChange={(e) => setInviteForm(prev => ({ ...prev, lastName: e.target.value }))}
-                    className=\"input-field\"
+                    className="input-field"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className=\"block text-sm font-medium text-gray-700 mb-1\">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email Address
                 </label>
                 <input
-                  type=\"email\"
+                  type="email"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
-                  className=\"input-field\"
+                  className="input-field"
                   required
                 />
               </div>
 
               <div>
-                <label className=\"block text-sm font-medium text-gray-700 mb-1\">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Role
                 </label>
                 <select
                   value={inviteForm.role}
                   onChange={(e) => setInviteForm(prev => ({ ...prev, role: e.target.value }))}
-                  className=\"input-field\"
+                  className="input-field"
                   required
                 >
-                  <option value=\"auditor\">Auditor</option>
-                  <option value=\"reviewer\">Reviewer</option>
+                  <option value="auditor">Auditor</option>
+                  <option value="reviewer">Reviewer</option>
                 </select>
               </div>
 
-              <div className=\"flex space-x-3 pt-4\">
+              <div className="flex space-x-3 pt-4">
                 <button
-                  type=\"submit\"
+                  type="submit"
                   disabled={inviteLoading}
-                  className=\"btn-primary flex-1 disabled:opacity-50\"
+                  className="btn-primary flex-1 disabled:opacity-50"
                 >
                   {inviteLoading ? 'Sending...' : 'Send Invitation'}
                 </button>
                 <button
-                  type=\"button\"
+                  type="button"
                   onClick={() => setShowInviteModal(false)}
-                  className=\"btn-secondary flex-1\"
+                  className="btn-secondary flex-1"
                 >
                   Cancel
                 </button>

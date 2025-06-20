@@ -5,18 +5,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateApiRequest } from '@/lib/apiAuth'
 import { createClient } from '@/utils/supabase/server'
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+}
+export async function PUT(
+  request: NextRequest,
+  context: { params: { id: string } }
+): Promise<NextResponse> {
+  // No changes needed here, revisit the types
+  const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
+  if (!auth.success) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
     const { is_active, role } = await request.json()
-    const userId = params.id
+    const userId = context.params.id
 
     if (is_active === undefined && !role) {
       return NextResponse.json(
@@ -25,7 +33,7 @@ export async function PUT(
       )
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Build update object
     const updateData: any = {}
@@ -60,15 +68,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' })
   if (!auth.success) {
-    return auth.response
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const userId = params.id
+    const userId = context.params.id
 
     // Prevent admin from deleting themselves
     if (userId === auth.profile.id) {
@@ -78,7 +86,7 @@ export async function DELETE(
       )
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Get user to verify organization and get auth_user_id
     const { data: user, error: getUserError } = await supabase
@@ -119,3 +127,6 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+
+
