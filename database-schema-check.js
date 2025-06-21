@@ -3,17 +3,17 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
-// Load environment variables
-dotenv.config({ path: '.env.production' });
+// Load environment variables from root directory
+dotenv.config({ path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env' });
 
 // Initialize Supabase client
 const supabase = createClient(
-    process.env.SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 console.log('🔍 Starting Supabase Database Schema Verification...');
-console.log(`📍 Connecting to: ${process.env.SUPABASE_URL}`);
+console.log(`📍 Connecting to: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
 
 async function checkDatabaseSchema() {
     const report = {

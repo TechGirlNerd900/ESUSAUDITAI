@@ -33,13 +33,13 @@ print_error() {
 }
 
 # Check if we're in the right directory
-if [ ! -f "client/package.json" ]; then
+if [ ! -f "nextjs/package.json" ]; then
     print_error "Please run this script from the project root directory"
     exit 1
 fi
 
-# Change to client directory
-cd client
+# Change to nextjs directory
+cd nextjs
 
 print_status "Checking Node.js and npm versions..."
 node --version
@@ -56,40 +56,51 @@ fi
 # Check for environment variables
 print_status "Checking environment configuration..."
 
-if [ -f ".env" ]; then
-    print_success "Environment file found"
-    if grep -q "VITE_DEMO_MODE=true" .env; then
-        print_warning "Demo mode is enabled"
-    else
-        print_status "Production mode configured"
-    fi
+if [ -f ".env.local" ]; then
+    print_success "Local environment file found"
+    print_status "Using Next.js environment configuration"
+elif [ -f "../.env" ]; then
+    print_success "Root environment file found"
+    print_status "Using root environment configuration"
 else
-    print_warning "No .env file found. Creating demo configuration..."
-    cat > .env << EOF
-# Esus Audit AI Frontend Configuration
-VITE_DEMO_MODE=true
-VITE_API_BASE_URL=/api
+    print_warning "No environment file found. Creating local configuration..."
+    cat > .env.local << EOF
+# Esus Audit AI Next.js Local Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 EOF
-    print_success "Demo .env file created"
+    print_success "Local .env.local file created"
+    print_warning "Please update .env.local with your actual Supabase credentials"
 fi
 
-# Function to test in demo mode
+# Function to test in development mode
 test_demo_mode() {
-    print_status "Testing in Demo Mode..."
+    print_status "Testing in Development Mode..."
     
-    # Ensure demo mode is enabled
-    if ! grep -q "VITE_DEMO_MODE=true" .env; then
-        sed -i.bak 's/VITE_DEMO_MODE=.*/VITE_DEMO_MODE=true/' .env 2>/dev/null || echo "VITE_DEMO_MODE=true" >> .env
-    fi
-    
-    print_status "Starting development server in demo mode..."
-    print_warning "The server will start in demo mode with sample data"
+    print_status "Starting Next.js development server..."
+    print_warning "The server will start with your configured environment"
     print_warning "Press Ctrl+C to stop the server"
+    print_status "Server will be available at http://localhost:3000"
     
     # Start the dev server
     npm run dev
 }
 
+# Function to test with API mode
+test_api_mode() {
+    print_status "Testing with Full API Mode..."
+    
+    # Check if environment variables are set
+    if [ -f ".env.local" ] && grep -q "NEXT_PUBLIC_SUPABASE_URL=your_supabase_url" .env.local; then
+        print_error "Environment variables not configured!"
+        print_status "Please update .env.local with your actual Supabase credentials"
+        return 1
+    fi
+    
+    print_status "Starting Next.js development server with full API..."
+    print_warning "Press Ctrl+C to stop the server"
+    
     # Start the dev server
     npm run dev
 }
@@ -150,10 +161,10 @@ test_build() {
 show_menu() {
     echo ""
     print_status "Choose a testing option:"
-    echo "1) Test in Demo Mode (with sample data)"
-    echo "2) Test with Real API (requires Azure setup)"
-    echo "3) Run Code Quality Checks"
-    echo "4) Test Production Build"
+    echo "1) Test in Development Mode (Next.js dev server)"
+    echo "2) Test with Full API (requires Supabase setup)"
+    echo "3) Run Code Quality Checks (lint, TypeScript)"
+    echo "4) Test Production Build (Vercel-ready)"
     echo "5) Exit"
     echo ""
 }

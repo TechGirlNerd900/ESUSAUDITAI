@@ -7,7 +7,22 @@ export class Database {
             process.env.NEXT_PUBLIC_SUPABASE_URL,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
             {
-                cookies: cookieStore
+                cookies: {
+                    getAll() {
+                        return cookieStore.getAll();
+                    },
+                    setAll(cookiesToSet) {
+                        try {
+                            // Set all cookies with their proper options
+                            cookiesToSet.forEach(({ name, value, options }) => {
+                                cookieStore.set(name, value, options);
+                            });
+                        } catch (error) {
+                            console.error('Error setting cookies:', error);
+                            // This can happen in middleware or server components
+                        }
+                    }
+                }
             }
         );
     }
@@ -22,7 +37,8 @@ export class Database {
                     first_name: userData.firstName,
                     last_name: userData.lastName,
                     role: userData.role,
-                    company: userData.company
+                    company: userData.company,
+                    organization_id: userData.organizationId
                 }])
                 .select()
                 .single();
@@ -37,16 +53,51 @@ export class Database {
 
     async getUser(userId) {
         try {
+            // First check if we have a UUID or auth_user_id
+            let query;
+            
+            if (userId.startsWith('auth_')) {
+                // This is an auth user ID, remove the prefix
+                const authUserId = userId.replace('auth_', '');
+                query = this.client
+                    .from('users')
+                    .select('*')
+                    .eq('auth_user_id', authUserId)
+                    .eq('deleted_at', null)
+                    .single();
+            } else {
+                // Regular UUID
+                query = this.client
+                    .from('users')
+                    .select('*')
+                    .eq('id', userId)
+                    .eq('deleted_at', null)
+                    .single();
+            }
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error getting user:', error);
+            throw error;
+        }
+    }
+
+    async getUserByEmail(email) {
+        try {
             const { data, error } = await this.client
                 .from('users')
                 .select('*')
-                .eq('id', userId)
+                .eq('email', email)
+                .eq('deleted_at', null)
                 .single();
 
             if (error) throw error;
             return data;
         } catch (error) {
-            console.error('Error getting user:', error);
+            console.error('Error getting user by email:', error);
             throw error;
         }
     }
@@ -71,6 +122,12 @@ export class Database {
     // Project operations
     async createProject(projectData) {
         try {
+            // Get user's organization_id if not provided
+            if (!projectData.organizationId) {
+                const user = await this.getUser(projectData.userId);
+                projectData.organizationId = user.organization_id;
+            }
+            
             const { data, error } = await this.client
                 .from('projects')
                 .insert([{
@@ -81,7 +138,6 @@ export class Database {
                     start_date: projectData.startDate,
                     end_date: projectData.endDate,
                     status: projectData.status || 'active',
-                    project_type: projectData.projectType || 'general',
                     created_by: projectData.userId,
                     assigned_to: projectData.assignedTo || [projectData.userId],
                     organization_id: projectData.organizationId
@@ -111,9 +167,12 @@ export class Database {
 
             if (error) throw error;
             
-            // Check access
-            const canAccess = data.created_by === userId || 
-                            data.assigned_to.includes(userId);
+            // Automatic RLS handles permissions, but add extra checks for safety
+            const user = await this.getUser(userId);
+            const canAccess = 
+                data.created_by === userId || 
+                data.assigned_to.includes(userId) ||
+                (user.role === 'admin' && data.organization_id === user.organization_id);
             
             if (!canAccess) {
                 throw new Error('Access denied to this project');
@@ -149,9 +208,8 @@ export class Database {
                     analysis_results (id)
                 `, { count: 'exact' });
             
-            // Add filters
-            // Filter by user access (created by user or assigned to user)
-            query = query.or(`created_by.eq.${userId},assigned_to.cs.{${userId}}`);
+            // RLS will automatically filter by user access
+            // But we can add additional filters
             
             // Filter by status if provided
             if (status) {

@@ -33,6 +33,10 @@ export interface AuthSuccess {
 export interface AuthFailure {
   success: false;
   response: NextResponse;
+  error?: {
+    status: number;
+    message: string;
+  };
 }
 
 export type AuthResult = AuthSuccess | AuthFailure
@@ -73,6 +77,7 @@ export async function authenticateApiRequest(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      console.error('Authentication error:', authError);
       return {
         success: false,
         response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -80,7 +85,7 @@ export async function authenticateApiRequest(
     }
 
     // Fetch user profile from users table
-    const { data: userProfile, error: profileError } = await supabase
+    let { data: userProfile, error: profileError } = await supabase
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)
@@ -88,12 +93,58 @@ export async function authenticateApiRequest(
       .single()
 
     if (profileError || !userProfile) {
-      return {
-        success: false,
-        response: NextResponse.json(
-          { error: 'User profile not found. Please contact support.' }, 
-          { status: 403 }
-        )
+      console.error('Profile fetch error:', profileError, 'User ID:', user.id);
+      
+      // Check if we need to create a profile (migration fallback)
+      if (profileError?.code === 'PGRST116') { // "No rows found" error code
+        // Try to create a profile based on auth user data
+        try {
+          const { data: newProfile, error: createError } = await supabase
+            .from('users')
+            .insert([{
+              auth_user_id: user.id,
+              email: user.email,
+              first_name: user.user_metadata?.first_name || 'User',
+              last_name: user.user_metadata?.last_name || 'User',
+              role: user.user_metadata?.role || 'auditor',
+              organization_id: user.user_metadata?.organization_id,
+              is_active: true,
+              status: 'active'
+            }])
+            .select()
+            .single();
+            
+          if (createError || !newProfile) {
+            console.error('Failed to create profile:', createError);
+            return {
+              success: false,
+              response: NextResponse.json(
+                { error: 'User profile not found and could not be created. Please contact support.' }, 
+                { status: 403 }
+              )
+            }
+          }
+          
+          // Use the newly created profile
+          userProfile = newProfile;
+        } catch (createProfileError) {
+          console.error('Error in profile creation fallback:', createProfileError);
+          return {
+            success: false,
+            response: NextResponse.json(
+              { error: 'User profile not found. Please contact support.' }, 
+              { status: 403 }
+            )
+          }
+        }
+      } else {
+        return {
+          success: false,
+          response: NextResponse.json(
+            { error: 'User profile not found. Please contact support.' }, 
+            { status: 403 }
+          )
+        }
       }
     }
 
@@ -124,7 +175,7 @@ export async function authenticateApiRequest(
     // Self-access validation for user-specific endpoints
     if (options.allowSelf && options.targetUserId) {
       const canAccess = userProfile.role === 'admin' || 
-                       user.id === options.targetUserId ||
+                       userProfile.auth_user_id === options.targetUserId ||
                        userProfile.id === options.targetUserId
       
       if (!canAccess) {
@@ -141,7 +192,7 @@ export async function authenticateApiRequest(
     return {
       success: true,
       user: user as AuthUser,
-      profile: userProfile
+      profile: userProfile as UserProfile
     }
 
   } catch (error) {
@@ -167,12 +218,12 @@ export async function checkOrganizationAccess(
 ): Promise<boolean> {
   // Admin can access any organization
   if (userProfile.role === 'admin') {
-    return true
+    return true;
   }
 
   // Direct organization match
   if (userProfile.organization_id === resourceOrganizationId) {
-    return true
+    return true;
   }
 
   // Check if user's organization is a parent of the resource organization
@@ -182,24 +233,24 @@ export async function checkOrganizationAccess(
       .from('organizations')
       .select('parent_organization_id, hierarchy_path')
       .eq('id', resourceOrganizationId)
-      .single()
+      .single();
 
     if (orgError || !orgData) {
       console.error('Error checking organization hierarchy:', orgError)
-      return false
+      return false;
     }
 
     // If organization has a hierarchy path, check if user's org is in the path
     if (orgData.hierarchy_path && Array.isArray(orgData.hierarchy_path)) {
-      return orgData.hierarchy_path.includes(userProfile.organization_id)
+      return orgData.hierarchy_path.includes(userProfile.organization_id);
     }
 
     // Check direct parent relationship
-    return orgData.parent_organization_id === userProfile.organization_id
+    return orgData.parent_organization_id === userProfile.organization_id;
   } catch (error) {
     console.error('Error in organization access check:', error)
     // Fail closed - deny access on error
-    return false
+    return false;
   }
 }
 
@@ -210,34 +261,54 @@ export async function checkOrganizationAccess(
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-// Initialize Redis client
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-})
+// Only initialize Redis client if environment variables are available
+let redis: Redis | null = null;
+try {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+  }
+} catch (error) {
+  console.warn('Rate limiting disabled: Redis client initialization failed', error);
+}
 
 export function createRateLimitCheck(requestsPerMinute: number = 60) {
-  // Create a sliding window rate limiter
-  const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(requestsPerMinute, '1 m'),
-    analytics: true,
-    prefix: 'api_ratelimit',
-  })
+  // Create a sliding window rate limiter if Redis is available
+  let ratelimit: Ratelimit | null = null;
+  
+  if (redis) {
+    try {
+      ratelimit = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(requestsPerMinute, '1 m'),
+        analytics: true,
+        prefix: 'api_ratelimit',
+      });
+    } catch (error) {
+      console.warn('Rate limiting disabled: Ratelimit initialization failed', error);
+    }
+  }
 
   return async (request: NextRequest): Promise<NextResponse | null> => {
+    // Skip rate limiting if not configured
+    if (!ratelimit) {
+      return null;
+    }
+    
     const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 
                     request.headers.get('x-real-ip') || 
-                    'unknown'
+                    'unknown';
     
     // Add some entropy to prevent IP spoofing
-    const identifier = `${clientIP}:${request.nextUrl.pathname}`
+    const identifier = `${clientIP}:${request.nextUrl.pathname}`;
     
     try {
-      const { success, limit, remaining, reset } = await ratelimit.limit(identifier)
+      const { success, limit, remaining, reset } = await ratelimit.limit(identifier);
       
       if (!success) {
-        const resetTime = Math.ceil((reset - Date.now()) / 1000)
+        const resetTime = Math.ceil((reset - Date.now()) / 1000);
         
         return NextResponse.json(
           { 
@@ -253,14 +324,14 @@ export function createRateLimitCheck(requestsPerMinute: number = 60) {
               'X-RateLimit-Reset': String(reset)
             }
           }
-        )
+        );
       }
       
-      return null
+      return null;
     } catch (error) {
-      console.error('Rate limiting error:', error)
+      console.error('Rate limiting error:', error);
       // Fail open - don't block requests if rate limiting fails
-      return null
+      return null;
     }
-  }
+  };
 }

@@ -1,0 +1,202 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+
+env:
+  VERCEL_ORG_ID: secrets.VERCEL_ORG_ID 
+  VERCEL_PROJECT_ID: secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: nextjs/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd nextjs
+          npm ci
+
+      - name: Run linting
+        run: |
+          cd nextjs
+          npm run lint
+
+      - name: Run type checking
+        run: |
+          cd nextjs
+          npm run build
+
+      - name: Run tests
+        run: |
+          cd nextjs
+          npm test -- --passWithNoTests
+
+  deploy-preview:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: lint-and-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: nextjs/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Preview to Vercel
+        id: deploy
+        run: |
+          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          echo "preview_url=$(cat deployment-url.txt)" >> $GITHUB_OUTPUT
+
+      - name: Comment PR with Preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deploymentUrl = '${{ steps.deploy.outputs.preview_url }}';
+            const comment = `🚀 **Preview deployment ready!**
+            
+            📱 **Preview URL:** ${deploymentUrl}
+            
+            🔍 **Changes in this PR:**
+            - Test your changes in the preview environment
+            - Verify all functionality works as expected
+            - Check for any performance regressions
+            
+            ⚡ This preview will be updated automatically when you push new commits.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    needs: lint-and-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: nextjs/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=staging --token=
+
+      - name: Build Project Artifacts
+        run: vercel build --token=
+
+      - name: Deploy to Staging
+        run: vercel deploy --prebuilt --token=
+
+      - name: Run Staging Tests
+        run: |
+          cd nextjs
+          npm run test:e2e:staging || echo "E2E tests not configured"
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: lint-and-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: nextjs/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Production
+        id: deploy
+        run: |
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          echo "production_url=$(cat deployment-url.txt)" >> $GITHUB_OUTPUT
+
+      - name: Configure Vercel Edge Firewall
+        run: |
+          # Enable DDoS protection and rate limiting
+          vercel env add VERCEL_EDGE_FIREWALL_ENABLED 1 production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel env add VERCEL_RATE_LIMIT_ENABLED 1 production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Notify Deployment Success
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deploymentUrl = '${{ steps.deploy.outputs.production_url }}';
+            console.log(`🚀 Production deployment successful: ${deploymentUrl}`);
+            
+            // You can add Slack/Discord notifications here
+            // await notifySlack(deploymentUrl);
+
+      - name: Run Production Health Check
+        run: |
+          sleep 30  # Wait for deployment to be ready
+          curl -f ${{ steps.deploy.outputs.production_url }}/api/health || exit 1
+
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'nextjs'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'

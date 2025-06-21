@@ -4,58 +4,59 @@ import { cookies } from 'next/headers';
 import { authenticateApiRequest } from '@/lib/apiAuth';
 import { withErrorHandling }  from '@/lib/errorHandler';
 import { successResponse, errorResponse, createdResponse } from '@/lib/apiResponse';
+import { 
+  parsePaginationParams, 
+  createPaginatedResponse, 
+  validatePaginationParams
+} from '@/lib/pagination';
 
 /**
  * GET handler for projects
- * Retrieves projects with pagination and filtering
+ * Retrieves projects with optimized pagination and filtering
  */
 export const GET = withErrorHandling(async (request: NextRequest) => {
-  // Get query parameters
+  // Parse and validate pagination parameters
   const searchParams = request.nextUrl.searchParams;
-  const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '10');
-  const status = searchParams.get('status') || undefined;
-  const search = searchParams.get('search') || undefined;
-  const sortBy = searchParams.get('sortBy') || 'created_at';
-  const sortOrder = searchParams.get('sortOrder') || 'desc';
+  const paginationParams = parsePaginationParams(searchParams);
+  
+  const validation = validatePaginationParams(paginationParams);
+  if (!validation.isValid) {
+    return errorResponse(validation.errors.join(', '), 400);
+  }
 
   // Authenticate request with rate limiting
   const auth = await authenticateApiRequest(request, { rateLimit: 100 });
   
   if (!auth.success) {
-    // Type assertion to help TypeScript understand the auth object structure
     return (auth as import('@/lib/apiAuth').AuthFailure).response;
   }
 
   // Initialize database
   const db = new Database(cookies());
   
-  // Get projects with pagination and filters
+  // Get projects with optimized pagination
   const result = await db.getProjects(auth.user.id, {
-    page,
-    pageSize,
-    status,
-    search,
-    sortBy,
-    sortOrder
+    ...paginationParams,
+    search: searchParams.get('search') || undefined,
+    status: searchParams.get('status') || undefined
   });
 
-  // Transform data to include document count and ensure compatibility
+  // Transform data for compatibility
   const transformedProjects = result.data.map(project => ({
     ...project,
     document_count: project.documents?.length || 0,
-    // Ensure backward compatibility
     due_date: project.end_date,
     audit_type: project.project_type || 'general'
   }));
 
-  return successResponse({
-    projects: transformedProjects,
-    total: result.pagination.total,
-    page: result.pagination.page,
-    pageSize: result.pagination.pageSize,
-    totalPages: result.pagination.totalPages
-  });
+  // Create paginated response
+  const paginatedResponse = createPaginatedResponse(
+    transformedProjects,
+    paginationParams,
+    result.totalCount
+  );
+
+  return successResponse(paginatedResponse);
 });
 
 /**

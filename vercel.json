@@ -1,0 +1,103 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "cd nextjs && npm run build",
+  "devCommand": "cd nextjs && npm run dev",
+  "installCommand": "cd nextjs && npm install",
+  "outputDirectory": "nextjs/.next",
+  "functions": {
+    "nextjs/app/api/**/*.ts": {
+      "maxDuration": 60
+    },
+    "supabase/functions/**/*.ts": {
+      "runtime": "edge"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://esusaudit.vercel.app"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' https:; object-src 'none'; media-src 'self' https:; frame-src 'none';"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/health",
+      "destination": "/api/health/route"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/admin",
+      "destination": "/dashboard/admin",
+      "permanent": true
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_APP_ENV": "@vercel-env"
+    }
+  },
+  "regions": ["iad1"],
+  "github": {
+    "silent": true
+  },
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/backup",
+      "schedule": "0 3 * * 0"
+    }
+  ]
+}

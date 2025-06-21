@@ -421,4 +421,134 @@ COMMENT ON TABLE risk_assessments IS 'Risk assessments for audit areas and proce
 COMMENT ON TABLE audit_samples IS 'Sampling configurations and selections for audit procedures';
 COMMENT ON TABLE findings IS 'Audit findings, deficiencies, and observations';
 COMMENT ON TABLE evidence IS 'Supporting evidence and documentation for findings and procedures';
-COMMENT ON TABLE audit_logs IS 'System audit trail for all actions and changes';
+COMMENT ON TABLE audit_logs IS 'System audit trail for all actions and changes';-- Emergency RLS Policy Fixes
+-- These policies are causing infinite recursion and blocking signup
+
+-- 1. Fix infinite recursion in users table
+-- Drop existing problematic policies
+DROP POLICY IF EXISTS "Users can view own profile" ON users;
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+DROP POLICY IF EXISTS "Enable read access for users based on user_id" ON users;
+DROP POLICY IF EXISTS "Enable update for users based on user_id" ON users;
+DROP POLICY IF EXISTS "Users can read own data" ON users;
+DROP POLICY IF EXISTS "Users can update own data" ON users;
+
+-- Create simple, non-recursive policies for users
+CREATE POLICY "users_select_own" ON users
+    FOR SELECT
+    USING (auth.uid() = id);
+
+CREATE POLICY "users_update_own" ON users
+    FOR UPDATE
+    USING (auth.uid() = id);
+
+-- Allow service role full access (for signup process)
+CREATE POLICY "service_role_all_users" ON users
+    FOR ALL
+    USING (auth.jwt() ->> 'role' = 'service_role');
+
+-- 2. Fix organizations table - allow inserts during signup
+DROP POLICY IF EXISTS "Organizations are viewable by members" ON organizations;
+DROP POLICY IF EXISTS "Enable read access for all users" ON organizations; 
+DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON organizations;
+DROP POLICY IF EXISTS "Users can insert organizations" ON organizations;
+
+-- Create simple policies for organizations
+CREATE POLICY "organizations_select_member" ON organizations
+    FOR SELECT
+    USING (
+        id IN (
+            SELECT organization_id 
+            FROM users 
+            WHERE id = auth.uid()
+        )
+    );
+
+CREATE POLICY "organizations_insert_authenticated" ON organizations
+    FOR INSERT
+    WITH CHECK (auth.role() = 'authenticated' OR auth.jwt() ->> 'role' = 'service_role');
+
+-- Allow service role full access
+CREATE POLICY "service_role_all_organizations" ON organizations
+    FOR ALL
+    USING (auth.jwt() ->> 'role' = 'service_role');
+
+-- 3. Fix invitations table policies
+DROP POLICY IF EXISTS "Invitations are viewable by organization members" ON invitations;
+DROP POLICY IF EXISTS "Users can insert invitations for their organization" ON invitations;
+
+-- Create simple policies for invitations
+CREATE POLICY "invitations_select_org_member" ON invitations
+    FOR SELECT
+    USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM users 
+            WHERE id = auth.uid()
+        )
+    );
+
+CREATE POLICY "invitations_insert_authenticated" ON invitations
+    FOR INSERT
+    WITH CHECK (auth.role() = 'authenticated' OR auth.jwt() ->> 'role' = 'service_role');
+
+CREATE POLICY "invitations_update_authenticated" ON invitations
+    FOR UPDATE
+    USING (auth.role() = 'authenticated' OR auth.jwt() ->> 'role' = 'service_role');
+
+-- Allow service role full access
+CREATE POLICY "service_role_all_invitations" ON invitations
+    FOR ALL
+    USING (auth.jwt() ->> 'role' = 'service_role');
+
+-- 4. Ensure audit_logs table allows inserts during signup
+DROP POLICY IF EXISTS "Audit logs are viewable by organization members" ON audit_logs;
+DROP POLICY IF EXISTS "Users can insert audit logs for their organization" ON audit_logs;
+
+CREATE POLICY "audit_logs_select_org_member" ON audit_logs
+    FOR SELECT
+    USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM users 
+            WHERE id = auth.uid()
+        ) OR user_id = auth.uid()
+    );
+
+CREATE POLICY "audit_logs_insert_authenticated" ON audit_logs
+    FOR INSERT
+    WITH CHECK (auth.role() = 'authenticated' OR auth.jwt() ->> 'role' = 'service_role');
+
+-- Allow service role full access
+CREATE POLICY "service_role_all_audit_logs" ON audit_logs
+    FOR ALL
+    USING (auth.jwt() ->> 'role' = 'service_role');
+
+-- 5. Verify RLS is enabled but with working policies
+-- These should already be enabled, but let's make sure
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;  
+ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- 6. Create a function to check for policy recursion (debugging tool)
+CREATE OR REPLACE FUNCTION check_policy_recursion()
+RETURNS TABLE(table_name text, policy_name text, policy_cmd text, policy_qual text) 
+LANGUAGE sql SECURITY DEFINER
+AS $$
+    SELECT 
+        schemaname||'.'||tablename as table_name,
+        policyname as policy_name, 
+        cmd as policy_cmd,
+        qual as policy_qual
+    FROM pg_policies 
+    WHERE schemaname = 'public'
+    AND (
+        qual LIKE '%auth.uid()%' 
+        AND qual LIKE '%users%'
+        AND tablename = 'users'
+    );
+$$;
+
+-- Comment explaining the fix
+COMMENT ON FUNCTION check_policy_recursion() IS 'Debugging function to identify potentially recursive RLS policies';

@@ -13,8 +13,11 @@
     "init": "node scripts/init-local.js",
     "db:setup": "psql -d esusauditai -f database/schema.sql && psql -d esusauditai -f database/seed.sql",
     "db:migrate": "psql -d esusauditai -f database/migrations/*.sql",
+    "db:fix-auth": "psql -d esusauditai -f database/migrations/fix_auth_issues.sql",
     "supabase:setup": "NODE_ENV=development node scripts/supabase-setup.js",
-    "supabase:setup:prod": "NODE_ENV=production node scripts/supabase-setup.js"
+    "supabase:setup:prod": "NODE_ENV=production node scripts/supabase-setup.js",
+    "fix:admin-access": "node scripts/fix-admin-access.js",
+    "fix:admin-user": "node scripts/fix-admin-user.js"
   },
   "keywords": [
     "audit",
@@ -29,6 +32,9 @@
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
+    "@supabase/ssr": "^0.0.10",
+    "@upstash/ratelimit": "^1.0.0",
+    "@upstash/redis": "^1.28.4",
     "axios": "^1.9.0",
     "dotenv": "^16.5.0",
     "path": "^0.12.7",
