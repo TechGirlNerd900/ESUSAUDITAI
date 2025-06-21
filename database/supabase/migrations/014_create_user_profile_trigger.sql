@@ -6,6 +6,33 @@
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user();
 
+-- Add organization_id column to users table if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'users' 
+        AND column_name = 'organization_id'
+    ) THEN
+        ALTER TABLE public.users ADD COLUMN organization_id UUID;
+        -- Add foreign key constraint to organizations table
+        ALTER TABLE public.users ADD CONSTRAINT fk_users_organization 
+            FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- Add auth_user_id column to users table if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'users' 
+        AND column_name = 'auth_user_id'
+    ) THEN
+        ALTER TABLE public.users ADD COLUMN auth_user_id UUID UNIQUE;
+    END IF;
+END $$;
+
 -- Create a function to handle new user profile creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -98,7 +125,12 @@ GRANT SELECT, INSERT ON TABLE public.organizations TO supabase_auth_admin;
 -- Revoke permissions from other roles for security
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM authenticated, anon, public;
 
--- Create a migration for existing auth users who don't have profiles
+
+ALTER TABLE public.users
+ADD CONSTRAINT unique_auth_user_id UNIQUE (auth_user_id);
+
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM authenticated, anon, public;
+
 -- This handles the case where users authenticated before this trigger was created
 INSERT INTO public.users (
     auth_user_id,
@@ -123,8 +155,8 @@ SELECT
     NOW()
 FROM auth.users au
 LEFT JOIN public.users u ON u.auth_user_id = au.id
-WHERE u.auth_user_id IS NULL  -- Only insert for users without profiles
-ON CONFLICT (auth_user_id) DO NOTHING;  -- Prevent duplicates if run multiple times
+WHERE u.auth_user_id IS NULL
+ON CONFLICT (auth_user_id) DO NOTHING;
 
 -- Create index for performance if it doesn't exist
 CREATE INDEX IF NOT EXISTS idx_users_auth_user_id_active 
@@ -134,6 +166,3 @@ WHERE deleted_at IS NULL;
 -- Add a comment for documentation
 COMMENT ON FUNCTION public.handle_new_user() IS 
 'Automatically creates user profile when new user signs up via Supabase Auth';
-
-COMMENT ON TRIGGER on_auth_user_created ON auth.users IS 
-'Triggers profile creation for new authenticated users';

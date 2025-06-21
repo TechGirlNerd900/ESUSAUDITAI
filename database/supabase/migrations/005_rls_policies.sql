@@ -5,16 +5,15 @@ ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analysis_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 -- Projects table policies
 CREATE POLICY "Users can view assigned projects"
     ON projects FOR SELECT
     USING (auth.uid() = created_by OR 
            auth.uid() = ANY(assigned_to) OR
            EXISTS (
-               SELECT 1 FROM user_profiles
-               WHERE user_id = auth.uid() 
+               SELECT 1 FROM users
+               WHERE auth_user_id = auth.uid() 
                AND role = 'admin'
            ));
 
@@ -26,8 +25,8 @@ CREATE POLICY "Project owners and admins can update"
     ON projects FOR UPDATE
     USING (auth.uid() = created_by OR
            EXISTS (
-               SELECT 1 FROM user_profiles
-               WHERE user_id = auth.uid() 
+               SELECT 1 FROM users
+               WHERE auth_user_id = auth.uid() 
                AND role = 'admin'
            ));
 
@@ -63,12 +62,12 @@ CREATE POLICY "Users can view analysis results"
 
 -- User profiles policies
 CREATE POLICY "Users can view profiles"
-    ON user_profiles FOR SELECT
+    ON users FOR SELECT
     USING (true);
 
 CREATE POLICY "Users can update own profile"
-    ON user_profiles FOR UPDATE
-    USING (auth.uid() = user_id);
+    ON users FOR UPDATE
+    USING (auth.uid() = auth_user_id);
 
 -- Enable real-time subscriptions for specific tables
 ALTER PUBLICATION supabase_realtime ADD TABLE projects;

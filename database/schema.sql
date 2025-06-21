@@ -4,19 +4,21 @@
 -- Enable UUID extension first
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Drop existing triggers first to avoid conflicts
+-- Drop triggers, functions, indexes, and tables in dependency order
 DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
 DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;
 DROP TRIGGER IF EXISTS update_audit_reports_updated_at ON audit_reports;
 DROP TRIGGER IF EXISTS update_app_settings_updated_at ON app_settings;
 DROP TRIGGER IF EXISTS track_user_password_change ON users;
+DROP TRIGGER IF EXISTS update_audit_programs_updated_at ON audit_programs;
+DROP TRIGGER IF EXISTS update_workpapers_updated_at ON workpapers;
+DROP TRIGGER IF EXISTS update_risk_assessments_updated_at ON risk_assessments;
+DROP TRIGGER IF EXISTS update_findings_updated_at ON findings;
 
--- Drop existing functions
 DROP FUNCTION IF EXISTS update_updated_at_column();
 DROP FUNCTION IF EXISTS track_password_change();
 
--- Drop existing indexes
 DROP INDEX IF EXISTS idx_users_email;
 DROP INDEX IF EXISTS idx_users_active;
 DROP INDEX IF EXISTS idx_users_role;
@@ -54,8 +56,25 @@ DROP INDEX IF EXISTS idx_audit_logs_ip_address;
 DROP INDEX IF EXISTS idx_app_settings_category;
 DROP INDEX IF EXISTS idx_app_settings_sensitive;
 DROP INDEX IF EXISTS idx_app_settings_updated_by;
+DROP INDEX IF EXISTS idx_audit_programs_status;
+DROP INDEX IF EXISTS idx_audit_programs_risk_level;
+DROP INDEX IF EXISTS idx_workpapers_audit_program;
+DROP INDEX IF EXISTS idx_workpapers_project;
+DROP INDEX IF EXISTS idx_workpapers_status;
+DROP INDEX IF EXISTS idx_risk_assessments_project;
+DROP INDEX IF EXISTS idx_risk_assessments_risk_level;
+DROP INDEX IF EXISTS idx_audit_samples_workpaper;
+DROP INDEX IF EXISTS idx_findings_project;
+DROP INDEX IF EXISTS idx_findings_status;
+DROP INDEX IF EXISTS idx_evidence_workpaper;
 
--- Drop existing tables in correct order (dependent tables first)
+-- Drop tables in correct dependency order
+DROP TABLE IF EXISTS evidence;
+DROP TABLE IF EXISTS findings;
+DROP TABLE IF EXISTS audit_samples;
+DROP TABLE IF EXISTS risk_assessments;
+DROP TABLE IF EXISTS workpapers;
+DROP TABLE IF EXISTS audit_programs;
 DROP TABLE IF EXISTS audit_logs;
 DROP TABLE IF EXISTS chat_history;
 DROP TABLE IF EXISTS analysis_results;
@@ -65,7 +84,8 @@ DROP TABLE IF EXISTS projects;
 DROP TABLE IF EXISTS app_settings;
 DROP TABLE IF EXISTS users;
 
--- Create tables
+-- ---- MAIN APPLICATION TABLES ----
+
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
@@ -170,14 +190,115 @@ CREATE TABLE app_settings (
     last_updated_by VARCHAR(255)
 );
 
--- Create functions
+-- ---- AUDIT MANAGEMENT TABLES ----
+
+CREATE TABLE audit_programs (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    standard_reference VARCHAR(100),
+    risk_level VARCHAR(20) CHECK (risk_level IN ('low', 'medium', 'high', 'critical')),
+    required_procedures JSONB,
+    compliance_requirements JSONB,
+    status VARCHAR(20) CHECK (status IN ('draft', 'approved', 'archived')) DEFAULT 'draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID REFERENCES users(id),
+    updated_by UUID REFERENCES users(id)
+);
+
+CREATE TABLE workpapers (
+    id SERIAL PRIMARY KEY,
+    audit_program_id INTEGER REFERENCES audit_programs(id),
+    project_id UUID REFERENCES projects(id),
+    reference_number VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    procedure_steps JSONB,
+    status VARCHAR(20) CHECK (status IN ('draft', 'in_progress', 'review', 'completed', 'archived')) DEFAULT 'draft',
+    prepared_by UUID REFERENCES users(id),
+    reviewed_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE risk_assessments (
+    id SERIAL PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    audit_program_id INTEGER REFERENCES audit_programs(id),
+    area VARCHAR(255) NOT NULL,
+    risk_description TEXT,
+    risk_level VARCHAR(20) CHECK (risk_level IN ('low', 'medium', 'high', 'critical')),
+    impact_assessment TEXT,
+    likelihood VARCHAR(20) CHECK (likelihood IN ('remote', 'unlikely', 'possible', 'likely', 'certain')),
+    mitigating_controls TEXT,
+    residual_risk_level VARCHAR(20) CHECK (residual_risk_level IN ('low', 'medium', 'high', 'critical')),
+    assessed_by UUID REFERENCES users(id),
+    assessment_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE audit_samples (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workpaper_id INTEGER REFERENCES workpapers(id),
+    project_id UUID REFERENCES projects(id),
+    population_size INTEGER,
+    sample_size INTEGER,
+    confidence_level DECIMAL(5,2),
+    materiality_threshold DECIMAL(10,6),
+    sampling_method VARCHAR(50),
+    selected_items JSONB,
+    selection_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE findings (
+    id SERIAL PRIMARY KEY,
+    workpaper_id INTEGER REFERENCES workpapers(id),
+    project_id UUID REFERENCES projects(id),
+    finding_type VARCHAR(50) CHECK (finding_type IN ('deficiency', 'significant_deficiency', 'material_weakness', 'observation')),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    impact_assessment TEXT,
+    recommendation TEXT,
+    management_response TEXT,
+    status VARCHAR(20) CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')) DEFAULT 'open',
+    severity VARCHAR(20) CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    identified_by UUID REFERENCES users(id),
+    identified_date DATE DEFAULT CURRENT_DATE,
+    target_resolution_date DATE,
+    actual_resolution_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE evidence (
+    id SERIAL PRIMARY KEY,
+    workpaper_id INTEGER REFERENCES workpapers(id),
+    finding_id INTEGER REFERENCES findings(id),
+    evidence_type VARCHAR(50) CHECK (evidence_type IN ('document', 'screenshot', 'data_extract', 'correspondence', 'observation')),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    file_path VARCHAR(500),
+    file_name VARCHAR(255),
+    file_size INTEGER,
+    mime_type VARCHAR(100),
+    hash_value VARCHAR(128),
+    collected_by UUID REFERENCES users(id),
+    collected_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ---- FUNCTIONS ----
+
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION track_password_change()
 RETURNS TRIGGER AS $$
@@ -189,34 +310,53 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE 'plpgsql';
 
--- Create triggers
-CREATE TRIGGER update_users_updated_at 
-    BEFORE UPDATE ON users 
+-- ---- TRIGGERS ----
+
+CREATE TRIGGER update_users_updated_at
+    BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_projects_updated_at 
-    BEFORE UPDATE ON projects 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_documents_updated_at 
-    BEFORE UPDATE ON documents 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_audit_reports_updated_at 
-    BEFORE UPDATE ON audit_reports 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_app_settings_updated_at 
-    BEFORE UPDATE ON app_settings 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER track_user_password_change 
-    BEFORE UPDATE ON users 
+CREATE TRIGGER track_user_password_change
+    BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION track_password_change();
 
--- Create indexes
+CREATE TRIGGER update_projects_updated_at
+    BEFORE UPDATE ON projects
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_documents_updated_at
+    BEFORE UPDATE ON documents
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_audit_reports_updated_at
+    BEFORE UPDATE ON audit_reports
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_app_settings_updated_at ON app_settings;
+CREATE TRIGGER update_app_settings_updated_at
+    BEFORE UPDATE ON app_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_audit_programs_updated_at
+    BEFORE UPDATE ON audit_programs
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_workpapers_updated_at
+    BEFORE UPDATE ON workpapers
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_risk_assessments_updated_at
+    BEFORE UPDATE ON risk_assessments
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_findings_updated_at
+    BEFORE UPDATE ON findings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ---- INDEXES ----
+
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_company ON users(company);
@@ -261,146 +401,6 @@ CREATE INDEX idx_app_settings_category ON app_settings(category);
 CREATE INDEX idx_app_settings_sensitive ON app_settings(is_sensitive);
 CREATE INDEX idx_app_settings_updated_by ON app_settings(last_updated_by);
 
--- Audit Management System Database Schema
--- Create all tables needed for the audit management system
-
--- Create audit_programs table
-CREATE TABLE audit_programs (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    standard_reference VARCHAR(100),
-    risk_level VARCHAR(20) CHECK (risk_level IN ('low', 'medium', 'high', 'critical')),
-    required_procedures JSONB,
-    compliance_requirements JSONB,
-    status VARCHAR(20) CHECK (status IN ('draft', 'approved', 'archived')) DEFAULT 'draft',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by INTEGER,
-    updated_by INTEGER
-);
-
--- Note: Main projects table is already defined above (lines 85-98)
--- This is a reference to that table for the audit management system
-
--- Create workpapers table
-CREATE TABLE workpapers (
-    id SERIAL PRIMARY KEY,
-    audit_program_id INTEGER REFERENCES audit_programs(id),
-    project_id UUID REFERENCES projects(id),
-    reference_number VARCHAR(50) UNIQUE NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    procedure_steps JSONB,
-    status VARCHAR(20) CHECK (status IN ('draft', 'in_progress', 'review', 'completed', 'archived')) DEFAULT 'draft',
-    prepared_by INTEGER,
-    reviewed_by INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create risk_assessments table
-CREATE TABLE risk_assessments (
-    id SERIAL PRIMARY KEY,
-    project_id UUID REFERENCES projects(id),
-    audit_program_id INTEGER REFERENCES audit_programs(id),
-    area VARCHAR(255) NOT NULL,
-    risk_description TEXT,
-    risk_level VARCHAR(20) CHECK (risk_level IN ('low', 'medium', 'high', 'critical')),
-    impact_assessment TEXT,
-    likelihood VARCHAR(20) CHECK (likelihood IN ('remote', 'unlikely', 'possible', 'likely', 'certain')),
-    mitigating_controls TEXT,
-    residual_risk_level VARCHAR(20) CHECK (residual_risk_level IN ('low', 'medium', 'high', 'critical')),
-    assessed_by INTEGER,
-    assessment_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create audit_samples table
-CREATE TABLE audit_samples (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    workpaper_id UUID REFERENCES workpapers(id),
-    project_id UUID REFERENCES projects(id),
-    population_size INTEGER,
-    sample_size INTEGER,
-    confidence_level DECIMAL(5,2),
-    materiality_threshold DECIMAL(10,6),
-    sampling_method VARCHAR(50),
-    selected_items JSONB,
-    selection_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create audit_logs table
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    action VARCHAR(100) NOT NULL,
-    resource_type VARCHAR(50),
-    resource_id UUID,
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
-    details JSONB,
-    success BOOLEAN DEFAULT true,
-    error_message TEXT,
-    ip_address INET,
-    user_agent TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-DROP TRIGGER IF EXISTS update_users_updated_at ON users;
-
--- Create users table (referenced by other tables)
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    role VARCHAR(50) CHECK (role IN ('auditor', 'senior_auditor', 'manager', 'partner', 'admin')),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create findings table
-CREATE TABLE findings (
-    id SERIAL PRIMARY KEY,
-    workpaper_id INTEGER REFERENCES workpapers(id),
-    project_id UUID REFERENCES projects(id),
-    finding_type VARCHAR(50) CHECK (finding_type IN ('deficiency', 'significant_deficiency', 'material_weakness', 'observation')),
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    impact_assessment TEXT,
-    recommendation TEXT,
-    management_response TEXT,
-    status VARCHAR(20) CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')) DEFAULT 'open',
-    severity VARCHAR(20) CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-    identified_by UUID REFERENCES users(id),  -- Changed INTEGER to UUID
-    identified_date DATE DEFAULT CURRENT_DATE,
-    target_resolution_date DATE,
-    actual_resolution_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
--- Create evidence table
-CREATE TABLE evidence (
-    id SERIAL PRIMARY KEY,
-    workpaper_id INTEGER REFERENCES workpapers(id),
-    finding_id INTEGER REFERENCES findings(id),
-    evidence_type VARCHAR(50) CHECK (evidence_type IN ('document', 'screenshot', 'data_extract', 'correspondence', 'observation')),
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    file_path VARCHAR(500),
-    file_name VARCHAR(255),
-    file_size INTEGER,
-    mime_type VARCHAR(100),
-    hash_value VARCHAR(128),
-    collected_by UUID REFERENCES users(id),  -- Changed INTEGER to UUID
-    collected_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create indexes for better performance
 CREATE INDEX idx_audit_programs_status ON audit_programs(status);
 CREATE INDEX idx_audit_programs_risk_level ON audit_programs(risk_level);
 CREATE INDEX idx_workpapers_audit_program ON workpapers(audit_program_id);
@@ -413,22 +413,8 @@ CREATE INDEX idx_findings_project ON findings(project_id);
 CREATE INDEX idx_findings_status ON findings(status);
 CREATE INDEX idx_evidence_workpaper ON evidence(workpaper_id);
 
--- Create triggers for updating timestamps
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- ---- COMMENTS ----
 
-CREATE TRIGGER update_audit_programs_updated_at BEFORE UPDATE ON audit_programs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_workpapers_updated_at BEFORE UPDATE ON workpapers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_risk_assessments_updated_at BEFORE UPDATE ON risk_assessments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_findings_updated_at BEFORE UPDATE ON findings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Add comments for documentation
 COMMENT ON TABLE audit_programs IS 'Standard audit programs and procedures based on industry standards';
 COMMENT ON TABLE workpapers IS 'Individual workpapers and procedures within audit programs';
 COMMENT ON TABLE risk_assessments IS 'Risk assessments for audit areas and procedures';
@@ -436,4 +422,3 @@ COMMENT ON TABLE audit_samples IS 'Sampling configurations and selections for au
 COMMENT ON TABLE findings IS 'Audit findings, deficiencies, and observations';
 COMMENT ON TABLE evidence IS 'Supporting evidence and documentation for findings and procedures';
 COMMENT ON TABLE audit_logs IS 'System audit trail for all actions and changes';
-

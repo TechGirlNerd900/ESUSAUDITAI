@@ -153,11 +153,17 @@ END;
 $$ language 'plpgsql';
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
 CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;
 CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_analysis_results_updated_at ON analysis_results;
 CREATE TRIGGER update_analysis_results_updated_at BEFORE UPDATE ON analysis_results FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_audit_reports_updated_at ON audit_reports;
 CREATE TRIGGER update_audit_reports_updated_at BEFORE UPDATE ON audit_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_app_settings_updated_at ON app_settings;
 CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- RLS: Enable and enforce tenant isolation
@@ -170,32 +176,7 @@ ALTER TABLE audit_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 
--- Example RLS policy for strict org isolation (repeat/adapt for each table)
-CREATE POLICY org_isolation_users ON users
-    USING (organization_id = current_setting('esus.current_organization_id', true)::uuid);
-CREATE POLICY org_isolation_projects ON projects
-    USING (organization_id = current_setting('esus.current_organization_id', true)::uuid);
-CREATE POLICY org_isolation_documents ON documents
-    USING (organization_id = current_setting('esus.current_organization_id', true)::uuid);
-CREATE POLICY org_isolation_analysis_results ON analysis_results
-    USING (organization_id = current_setting('esus.current_organization_id', true)::uuid);
-CREATE POLICY org_isolation_chat_history ON chat_history
-    USING (organization_id = current_setting('esus.current_organization_id', true)::uuid);
-CREATE POLICY org_isolation_audit_reports ON audit_reports
-    USING (organization_id = current_setting('esus.current_organization_id', true)::uuid);
-CREATE POLICY org_isolation_audit_logs ON audit_logs
-    USING (organization_id = current_setting('esus.current_organization_id', true)::uuid);
-CREATE POLICY org_isolation_app_settings ON app_settings
-    USING (organization_id = current_setting('esus.current_organization_id', true)::uuid);
-
--- Indexes for performance (examples, add more as needed)
-CREATE INDEX idx_users_org ON users(organization_id);
-CREATE INDEX idx_projects_org ON projects(organization_id);
-CREATE INDEX idx_documents_org ON documents(organization_id);
-CREATE INDEX idx_analysis_results_org ON analysis_results(organization_id);
-CREATE INDEX idx_chat_history_org ON chat_history(organization_id);
-CREATE INDEX idx_audit_reports_org ON audit_reports(organization_id);
-CREATE INDEX idx_audit_logs_org ON audit_logs(organization_id);
-CREATE INDEX idx_app_settings_org ON app_settings(organization_id);
+-- Note: RLS policies are configured in migration 015_fix_rls_policies.sql
+-- Note: Organization-related indexes are added by subsequent migrations as needed
 
 COMMIT; 

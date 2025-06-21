@@ -26,6 +26,47 @@ AS $$
 $$;
 
 -- Create RLS policies that work with Supabase auth
+-- First ensure required columns exist
+DO $$
+BEGIN
+    -- Add organization_id to tables that need it for RLS policies
+    
+    -- Projects table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'projects' AND column_name = 'organization_id') THEN
+        ALTER TABLE projects ADD COLUMN organization_id UUID;
+    END IF;
+    
+    -- Documents table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'documents' AND column_name = 'organization_id') THEN
+        ALTER TABLE documents ADD COLUMN organization_id UUID;
+    END IF;
+    
+    -- Analysis results table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'analysis_results' AND column_name = 'organization_id') THEN
+        ALTER TABLE analysis_results ADD COLUMN organization_id UUID;
+    END IF;
+    
+    -- Chat history table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_history' AND column_name = 'organization_id') THEN
+        ALTER TABLE chat_history ADD COLUMN organization_id UUID;
+    END IF;
+    
+    -- Audit reports table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'audit_reports' AND column_name = 'organization_id') THEN
+        ALTER TABLE audit_reports ADD COLUMN organization_id UUID;
+    END IF;
+    
+    -- Audit logs table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'audit_logs' AND column_name = 'organization_id') THEN
+        ALTER TABLE audit_logs ADD COLUMN organization_id UUID;
+    END IF;
+    
+    -- App settings table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'app_settings' AND column_name = 'organization_id') THEN
+        ALTER TABLE app_settings ADD COLUMN organization_id UUID;
+    END IF;
+END $$;
+
 CREATE POLICY users_org_isolation ON users
   FOR ALL
   USING (organization_id = get_current_organization_id());

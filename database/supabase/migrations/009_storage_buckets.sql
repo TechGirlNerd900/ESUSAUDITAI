@@ -11,7 +11,8 @@ VALUES
     ('audit-documents', 'audit-documents', false),
     ('evidence-files', 'evidence-files', false),
     ('avatars', 'avatars', true),
-    ('temp-uploads', 'temp-uploads', false);
+    ('temp-uploads', 'temp-uploads', false)
+ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies for audit-documents bucket
 CREATE POLICY "Authenticated users can view audit documents they have access to"
