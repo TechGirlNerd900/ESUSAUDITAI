@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { Database } from '@/lib/database';
 import { cookies } from 'next/headers';
 import { authenticateApiRequest } from '@/lib/apiAuth';
-import { withErrorHandling } from '@/lib/errorHandler';
+import { withErrorHandling }  from '@/lib/errorHandler';
 import { successResponse, errorResponse, createdResponse } from '@/lib/apiResponse';
 
 /**
@@ -20,10 +20,12 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   const sortOrder = searchParams.get('sortOrder') || 'desc';
 
   // Authenticate request with rate limiting
-  const auth = await authenticateApiRequest(request)
-    if (!auth.success) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const auth = await authenticateApiRequest(request, { rateLimit: 100 });
+  
+  if (!auth.success) {
+    // Type assertion to help TypeScript understand the auth object structure
+    return (auth as import('@/lib/apiAuth').AuthFailure).response;
+  }
 
   // Initialize database
   const db = new Database(cookies());
@@ -68,7 +70,8 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   });
   
   if (!auth.success) {
-    return auth.response;
+    // Type assertion to help TypeScript understand the auth object structure
+    return (auth as import('@/lib/apiAuth').AuthFailure).response;
   }
 
   // Parse request body

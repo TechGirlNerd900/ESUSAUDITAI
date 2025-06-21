@@ -20,19 +20,32 @@ const publicApiPaths = [
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
+  console.log('[Middleware] Processing request for:', pathname)
+
+  // Handle potential network/config fetch issues
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error('[Middleware] Missing required Supabase configuration')
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('error', 'System configuration error')
+    return NextResponse.redirect(url)
+  }
 
   // Skip middleware for static files
   if (pathname.includes('.') && !pathname.startsWith('/api')) {
+    console.log('[Middleware] Skipping static file:', pathname)
     return NextResponse.next()
   }
 
   // Skip middleware for public paths
   if (publicPaths.some(path => pathname.startsWith(path))) {
+    console.log('[Middleware] Skipping public path:', pathname)
     return NextResponse.next()
   }
 
   // Skip middleware for specific public API routes
   if (publicApiPaths.some(path => pathname.startsWith(path))) {
+    console.log('[Middleware] Skipping public API route:', pathname)
     return NextResponse.next()
   }
 
@@ -48,8 +61,8 @@ export async function middleware(request: NextRequest) {
 
   try {
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           getAll() {
@@ -63,26 +76,40 @@ export async function middleware(request: NextRequest) {
             
             // Set all cookies with their proper options
             cookiesToSet.forEach(({ name, value, options }) => {
-              supabaseResponse.cookies.set(name, value, options)
+              try {
+                supabaseResponse.cookies.set(name, value, options)
+              } catch (e) {
+                console.error('[Middleware] Cookie setting error:', e)
+              }
             })
           },
         },
       }
     )
 
-    const { data: { user }, error } = await supabase.auth.getUser()
+    // Add timeout for auth requests
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Auth request timeout')), 5000)
+    )
+    const authPromise = supabase.auth.getUser()
+    
+    const { data: { user }, error } = await Promise.race([authPromise, timeoutPromise])
+      .catch(error => ({ data: { user: null }, error }))
 
     if (error || !user) {
+      console.log('[Middleware] Auth failed:', error?.message || 'No user found')
       // Store the original URL to redirect back after login
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('redirectTo', request.nextUrl.pathname)
+      console.log('[Middleware] Redirecting to:', url.toString())
       return NextResponse.redirect(url)
     }
 
+    console.log('[Middleware] Auth successful for user:', user.id)
     return supabaseResponse
   } catch (error) {
-    console.error('Middleware error:', error)
+    console.error('[Middleware] Critical error:', error)
     // Redirect to login on error with a generic error message
     const url = request.nextUrl.clone()
     url.pathname = '/login'

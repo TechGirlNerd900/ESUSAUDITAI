@@ -101,11 +101,7 @@ CREATE POLICY projects_policy ON public.projects
     FOR ALL
     USING (
         created_by = (SELECT id FROM users WHERE auth_user_id = auth.uid()) OR
-        id IN (
-            SELECT project_id 
-            FROM project_assignments 
-            WHERE user_id = (SELECT id FROM users WHERE auth_user_id = auth.uid())
-        ) OR
+        (SELECT id FROM users WHERE auth_user_id = auth.uid()) = ANY(assigned_to) OR
         EXISTS (
             SELECT 1 FROM users
             WHERE auth_user_id = auth.uid()
@@ -120,11 +116,7 @@ CREATE POLICY documents_policy ON public.documents
         project_id IN (
             SELECT id FROM projects
             WHERE created_by = (SELECT id FROM users WHERE auth_user_id = auth.uid()) OR
-            id IN (
-                SELECT project_id 
-                FROM project_assignments 
-                WHERE user_id = (SELECT id FROM users WHERE auth_user_id = auth.uid())
-            )
+            (SELECT id FROM users WHERE auth_user_id = auth.uid()) = ANY(assigned_to)
         ) OR
         EXISTS (
             SELECT 1 FROM users
@@ -142,11 +134,7 @@ CREATE POLICY analysis_results_policy ON public.analysis_results
             WHERE project_id IN (
                 SELECT id FROM projects
                 WHERE created_by = (SELECT id FROM users WHERE auth_user_id = auth.uid()) OR
-                id IN (
-                    SELECT project_id 
-                    FROM project_assignments 
-                    WHERE user_id = (SELECT id FROM users WHERE auth_user_id = auth.uid())
-                )
+                (SELECT id FROM users WHERE auth_user_id = auth.uid()) = ANY(assigned_to)
             )
         ) OR
         EXISTS (
@@ -163,11 +151,7 @@ CREATE POLICY chat_history_policy ON public.chat_history
         project_id IN (
             SELECT id FROM projects
             WHERE created_by = (SELECT id FROM users WHERE auth_user_id = auth.uid()) OR
-            id IN (
-                SELECT project_id 
-                FROM project_assignments 
-                WHERE user_id = (SELECT id FROM users WHERE auth_user_id = auth.uid())
-            )
+            (SELECT id FROM users WHERE auth_user_id = auth.uid()) = ANY(assigned_to)
         ) OR
         EXISTS (
             SELECT 1 FROM users
@@ -183,11 +167,7 @@ CREATE POLICY audit_reports_policy ON public.audit_reports
         project_id IN (
             SELECT id FROM projects
             WHERE created_by = (SELECT id FROM users WHERE auth_user_id = auth.uid()) OR
-            id IN (
-                SELECT project_id 
-                FROM project_assignments 
-                WHERE user_id = (SELECT id FROM users WHERE auth_user_id = auth.uid())
-            )
+            (SELECT id FROM users WHERE auth_user_id = auth.uid()) = ANY(assigned_to)
         ) OR
         EXISTS (
             SELECT 1 FROM users
@@ -224,6 +204,14 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_users_updated_at ON public.users;
+DROP TRIGGER IF EXISTS update_projects_updated_at ON public.projects;
+DROP TRIGGER IF EXISTS update_documents_updated_at ON public.documents;
+DROP TRIGGER IF EXISTS update_analysis_results_updated_at ON public.analysis_results;
+DROP TRIGGER IF EXISTS update_chat_history_updated_at ON public.chat_history;
+DROP TRIGGER IF EXISTS update_audit_reports_updated_at ON public.audit_reports;
+DROP TRIGGER IF EXISTS update_audit_logs_updated_at ON public.audit_logs;
 
 -- Add updated_at triggers to all tables
 CREATE TRIGGER update_users_updated_at

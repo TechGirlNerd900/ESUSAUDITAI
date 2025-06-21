@@ -78,9 +78,13 @@ export class Database {
                     description: projectData.description,
                     client_name: projectData.clientName,
                     client_email: projectData.clientEmail,
+                    start_date: projectData.startDate,
+                    end_date: projectData.endDate,
                     status: projectData.status || 'active',
+                    project_type: projectData.projectType || 'general',
                     created_by: projectData.userId,
-                    assigned_to: projectData.assignedTo || [projectData.userId]
+                    assigned_to: projectData.assignedTo || [projectData.userId],
+                    organization_id: projectData.organizationId
                 }])
                 .select()
                 .single();
@@ -118,6 +122,72 @@ export class Database {
             return data;
         } catch (error) {
             console.error('Error getting project:', error);
+            throw error;
+        }
+    }
+
+    async getProjects(userId, options = {}) {
+        try {
+            const {
+                page = 1,
+                pageSize = 10,
+                status,
+                search,
+                sortBy = 'created_at',
+                sortOrder = 'desc'
+            } = options;
+
+            // Calculate offset for pagination
+            const offset = (page - 1) * pageSize;
+            
+            // Start building the query
+            let query = this.client
+                .from('projects')
+                .select(`
+                    *,
+                    documents (id),
+                    analysis_results (id)
+                `, { count: 'exact' });
+            
+            // Add filters
+            // Filter by user access (created by user or assigned to user)
+            query = query.or(`created_by.eq.${userId},assigned_to.cs.{${userId}}`);
+            
+            // Filter by status if provided
+            if (status) {
+                query = query.eq('status', status);
+            }
+            
+            // Filter by search term if provided
+            if (search) {
+                query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,client_name.ilike.%${search}%`);
+            }
+            
+            // Add sorting
+            query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+            
+            // Add pagination
+            query = query.range(offset, offset + pageSize - 1);
+            
+            // Execute the query
+            const { data, error, count } = await query;
+            
+            if (error) throw error;
+            
+            // Calculate total pages
+            const totalPages = Math.ceil(count / pageSize);
+            
+            return {
+                data,
+                pagination: {
+                    total: count,
+                    page,
+                    pageSize,
+                    totalPages
+                }
+            };
+        } catch (error) {
+            console.error('Error getting projects:', error);
             throw error;
         }
     }

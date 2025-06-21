@@ -1,22 +1,8 @@
 -- Admin Management Tables for Environment Variables and API Integrations
 -- This migration adds support for runtime configuration management
 
--- App Settings table for environment variables and configuration
-CREATE TABLE IF NOT EXISTS app_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    key VARCHAR(100) NOT NULL,
-    value TEXT,
-    description TEXT,
-    category VARCHAR(50) DEFAULT 'custom',
-    type VARCHAR(50) DEFAULT 'environment', -- 'environment', 'config', 'feature_flag'
-    sensitive BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID REFERENCES auth.users(id),
-    updated_by UUID REFERENCES auth.users(id),
-    
-    UNIQUE(key, type)
-);
+-- App Settings table is already created in 001_init.sql with the following schema:
+-- id, organization_id, key, value, description, category, is_sensitive, created_at, updated_at, last_updated_by
 
 -- API Integrations table
 CREATE TABLE IF NOT EXISTS api_integrations (
@@ -35,12 +21,14 @@ CREATE TABLE IF NOT EXISTS api_integrations (
     updated_by UUID REFERENCES auth.users(id)
 );
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_app_settings_type_category ON app_settings(type, category);
-CREATE INDEX IF NOT EXISTS idx_app_settings_key ON app_settings(key);
-CREATE INDEX IF NOT EXISTS idx_api_integrations_type ON api_integrations(type);
-CREATE INDEX IF NOT EXISTS idx_api_integrations_enabled ON api_integrations(enabled);
+-- This query creates an index on the category column of the app_settings table.
 
+CREATE INDEX IF NOT EXISTS idx_app_settings_category ON app_settings(category);
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_app_settings_category ON app_settings(category);
+CREATE INDEX IF NOT EXISTS idx_app_settings_key ON app_settings(key);
+-- Adjust the following lines based on the actual columns in api_integrations
+CREATE INDEX IF NOT EXISTS idx_api_integrations_enabled ON api_integrations(enabled);
 -- Row Level Security policies for app_settings
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 
@@ -59,7 +47,7 @@ CREATE POLICY "Admin users can manage app settings" ON app_settings
 CREATE POLICY "Users can read non-sensitive settings" ON app_settings
     FOR SELECT
     USING (
-        NOT sensitive AND 
+        NOT is_sensitive AND 
         EXISTS (
             SELECT 1 FROM users 
             WHERE users.auth_user_id = auth.uid()
@@ -101,6 +89,7 @@ END;
 $$ language 'plpgsql';
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_app_settings_updated_at ON app_settings;
 CREATE TRIGGER update_app_settings_updated_at 
     BEFORE UPDATE ON app_settings 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -109,18 +98,24 @@ CREATE TRIGGER update_api_integrations_updated_at
     BEFORE UPDATE ON api_integrations 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+ALTER TABLE app_settings 
+ADD COLUMN created_by UUID REFERENCES auth.users(id);
+ALTER TABLE app_settings 
+ADD COLUMN type character varying(50);
+
+
 -- Insert default environment variable categories
-INSERT INTO app_settings (key, value, description, category, type, sensitive, created_by)
+INSERT INTO app_settings (key, value, description, category, is_sensitive, created_by, type)
 VALUES 
-    ('NODE_ENV', 'production', 'Node.js environment mode', 'system', 'environment', false, 
-     (SELECT id FROM users WHERE role = 'super_admin' LIMIT 1)),
-    ('LOG_LEVEL', 'info', 'Application log level', 'system', 'environment', false,
-     (SELECT id FROM users WHERE role = 'super_admin' LIMIT 1)),
-    ('RATE_LIMIT_MAX_REQUESTS', '100', 'Maximum requests per window', 'security', 'environment', false,
-     (SELECT id FROM users WHERE role = 'super_admin' LIMIT 1)),
-    ('AUTH_RATE_LIMIT_MAX_REQUESTS', '5', 'Maximum auth requests per window', 'security', 'environment', false,
-     (SELECT id FROM users WHERE role = 'super_admin' LIMIT 1))
-ON CONFLICT (key, type) DO NOTHING;
+    ('NODE_ENV', 'production', 'Node.js environment mode', 'system', false, 
+     (SELECT id FROM users WHERE role = 'super_admin' LIMIT 1), 'environment'),
+    ('LOG_LEVEL', 'info', 'Application log level', 'system', false,
+     (SELECT id FROM users WHERE role = 'super_admin' LIMIT 1), 'environment'),
+    ('RATE_LIMIT_MAX_REQUESTS', '100', 'Maximum requests per window', 'security', false,
+     (SELECT id FROM users WHERE role = 'super_admin' LIMIT 1), 'security'),
+    ('AUTH_RATE_LIMIT_MAX_REQUESTS', '5', 'Maximum auth requests per window', 'security', false,
+     (SELECT id FROM users WHERE role = 'super_admin' LIMIT 1), 'security')
+ON CONFLICT (key) DO NOTHING;
 
 -- Add admin role to first user if no admin exists
 UPDATE users 

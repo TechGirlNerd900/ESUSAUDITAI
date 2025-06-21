@@ -16,6 +16,18 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
     updated_by UUID REFERENCES auth.users(id)
 );
 
+-- Add type column if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'app_settings' 
+        AND column_name = 'type'
+    ) THEN
+        ALTER TABLE public.app_settings ADD COLUMN type TEXT DEFAULT 'general';
+    END IF;
+END $$;
+
 -- Add indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_app_settings_key ON public.app_settings(key);
 CREATE INDEX IF NOT EXISTS idx_app_settings_type ON public.app_settings(type);
@@ -23,18 +35,25 @@ CREATE INDEX IF NOT EXISTS idx_app_settings_type ON public.app_settings(type);
 -- Add RLS policies
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
--- Only authenticated users with admin role can modify settings
-CREATE POLICY "app_settings_modify_admin" ON public.app_settings
-    FOR UPDATE, DELETE
-    TO authenticated
-    USING (auth.jwt() ->> 'role' = 'admin')
-    WITH CHECK (auth.jwt() ->> 'role' = 'admin');
+CREATE POLICY "Admin users can update app settings" 
+ON public.app_settings 
+FOR UPDATE 
+TO authenticated 
+USING ((select auth.jwt() ->> 'role') = 'admin') 
+WITH CHECK ((select auth.jwt() ->> 'role') = 'admin');
+
+CREATE POLICY "Admin users can delete app settings" 
+ON public.app_settings 
+FOR DELETE 
+TO authenticated 
+USING ((select auth.jwt() ->> 'role') = 'admin');
 
 -- Authenticated users can read non-sensitive settings
-CREATE POLICY "app_settings_read_auth" ON public.app_settings
-    FOR SELECT
-    TO authenticated
-    USING (NOT sensitive);
+CREATE POLICY "app_settings_read_auth" 
+ON public.app_settings 
+FOR SELECT 
+TO authenticated 
+USING (NOT is_sensitive);
 
 -- Add unique constraint on key and type
 ALTER TABLE public.app_settings 

@@ -5,8 +5,38 @@
 
 BEGIN;
 
+-- Check and fix tables if they exist with wrong ID types (SERIAL instead of UUID)
+DO $$
+BEGIN
+    -- Drop audit tables with integer IDs to recreate with UUIDs
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'audit_programs' 
+        AND column_name = 'id' 
+        AND data_type = 'integer'
+    ) THEN
+        DROP TABLE IF EXISTS audit_programs CASCADE;
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'workpapers' 
+        AND column_name = 'id' 
+        AND data_type = 'integer'
+    ) THEN
+        DROP TABLE IF EXISTS workpapers CASCADE;
+    END IF;
+    
+    -- Check and drop other audit tables that might have integer IDs
+    DROP TABLE IF EXISTS financial_statements CASCADE;
+    DROP TABLE IF EXISTS trial_balances CASCADE; 
+    DROP TABLE IF EXISTS audit_samples CASCADE;
+    DROP TABLE IF EXISTS review_notes CASCADE;
+    DROP TABLE IF EXISTS risk_assessments CASCADE;
+END $$;
+
 -- Audit Programs table
-CREATE TABLE audit_programs (
+CREATE TABLE IF NOT EXISTS audit_programs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -23,7 +53,9 @@ CREATE TABLE audit_programs (
 );
 
 -- Workpapers table
-CREATE TABLE workpapers (
+-- This query creates the workpapers table and a junction table for supporting documents.
+
+CREATE TABLE IF NOT EXISTS workpapers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     audit_program_id UUID REFERENCES audit_programs(id),
@@ -38,13 +70,19 @@ CREATE TABLE workpapers (
     review_notes JSONB,
     risk_identified BOOLEAN DEFAULT false,
     materiality_impact DECIMAL,
-    supporting_documents UUID[] REFERENCES documents(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Junction table for supporting documents
+CREATE TABLE IF NOT EXISTS workpaper_supporting_documents (
+    workpaper_id UUID REFERENCES workpapers(id) ON DELETE CASCADE,
+    document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+    PRIMARY KEY (workpaper_id, document_id)
+);
+
 -- Financial Statements table
-CREATE TABLE financial_statements (
+CREATE TABLE IF NOT EXISTS financial_statements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     statement_type VARCHAR(50) CHECK (statement_type IN ('balance_sheet', 'income_statement', 'cash_flow', 'equity_changes', 'notes')),
@@ -60,7 +98,7 @@ CREATE TABLE financial_statements (
 );
 
 -- Trial Balance table
-CREATE TABLE trial_balances (
+CREATE TABLE IF NOT EXISTS trial_balances (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     period_end DATE NOT NULL,
@@ -77,7 +115,7 @@ CREATE TABLE trial_balances (
 );
 
 -- Audit Sampling table
-CREATE TABLE audit_samples (
+CREATE TABLE IF NOT EXISTS audit_samples (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     workpaper_id UUID REFERENCES workpapers(id) ON DELETE CASCADE,
     population_size INTEGER NOT NULL,
@@ -94,7 +132,7 @@ CREATE TABLE audit_samples (
 );
 
 -- Review Notes table
-CREATE TABLE review_notes (
+CREATE TABLE IF NOT EXISTS review_notes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     workpaper_id UUID REFERENCES workpapers(id) ON DELETE CASCADE,
     note TEXT NOT NULL,
@@ -109,7 +147,7 @@ CREATE TABLE review_notes (
 );
 
 -- Risk Assessment table
-CREATE TABLE risk_assessments (
+CREATE TABLE IF NOT EXISTS risk_assessments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     area VARCHAR(255) NOT NULL,

@@ -6,17 +6,19 @@
 BEGIN;
 
 -- Add new columns to users table for enhanced security
-ALTER TABLE users 
+ALTER TABLE public.users 
     ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE,
     ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0,
     ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE;
 
 -- Add email validation constraint
+-- This query adds a check constraint to ensure email format is valid.
+
 DO $$
 BEGIN
-    ALTER TABLE users ADD CONSTRAINT users_email_format_check 
-        CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$');
+    ALTER TABLE public.users ADD CONSTRAINT users_email_format_check
+        CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END;
@@ -25,7 +27,7 @@ $$;
 -- Add name validation constraints
 DO $$
 BEGIN
-    ALTER TABLE users ADD CONSTRAINT users_first_name_not_empty_check 
+    ALTER TABLE public.users ADD CONSTRAINT users_first_name_not_empty_check 
         CHECK (LENGTH(TRIM(first_name)) > 0);
 EXCEPTION
     WHEN duplicate_object THEN NULL;
@@ -34,7 +36,7 @@ $$;
 
 DO $$
 BEGIN
-    ALTER TABLE users ADD CONSTRAINT users_last_name_not_empty_check 
+    ALTER TABLE public.users ADD CONSTRAINT users_last_name_not_empty_check 
         CHECK (LENGTH(TRIM(last_name)) > 0);
 EXCEPTION
     WHEN duplicate_object THEN NULL;
@@ -118,10 +120,15 @@ CREATE TRIGGER track_user_password_change
     FOR EACH ROW EXECUTE FUNCTION track_password_change();
 
 -- Add app_settings update trigger
-DROP TRIGGER IF EXISTS update_app_settings_updated_at ON app_settings;
+-- This query drops the existing trigger before creating a new one.
+
+DROP TRIGGER IF EXISTS update_app_settings_updated_at ON public.app_settings;
+
+-- Now create the new trigger
 CREATE TRIGGER update_app_settings_updated_at 
-    BEFORE UPDATE ON app_settings 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+BEFORE UPDATE ON app_settings 
+FOR EACH ROW 
+EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert new application settings
 INSERT INTO app_settings (key, value, description, category, is_sensitive, last_updated_by) VALUES
