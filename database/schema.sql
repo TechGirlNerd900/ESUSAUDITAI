@@ -436,7 +436,7 @@ DROP POLICY IF EXISTS "Users can update own data" ON users;
 -- Create simple, non-recursive policies for users
 CREATE POLICY "users_select_own" ON users
     FOR SELECT
-    USING (auth.uid() = id);
+    USING (auth.uid() = auth_user_id);
 
 CREATE POLICY "users_update_own" ON users
     FOR UPDATE

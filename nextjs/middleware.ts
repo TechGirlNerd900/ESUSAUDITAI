@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { authenticateApiRequest as authenticateRequest } from '@/lib/apiAuth'
-
+import { createClient } from '@/utils/supabase/middleware'
 
 // Define public paths that don't require auth check
 const publicPaths = [
@@ -21,58 +20,72 @@ const publicApiPaths = [
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
+  console.log('🛡️ Middleware running for:', pathname);
 
   // Skip middleware for static files
   if (pathname.includes('.') && !pathname.startsWith('/api')) {
+    console.log('⏭️ Skipping middleware for static file:', pathname);
     return NextResponse.next()
   }
 
   // Skip middleware for public paths
   if (publicPaths.some(path => pathname.startsWith(path))) {
+    console.log('⏭️ Skipping middleware for public path:', pathname);
     return NextResponse.next()
   }
 
   // Skip middleware for specific public API routes
   if (publicApiPaths.some(path => pathname.startsWith(path))) {
+    console.log('⏭️ Skipping middleware for public API path:', pathname);
     return NextResponse.next()
   }
 
   // For protected API routes, let them handle their own authentication
-  // This allows API routes to return proper JSON error responses
   if (pathname.startsWith('/api')) {
+    console.log('⏭️ Skipping middleware for API route (handled by route):', pathname);
     return NextResponse.next()
   }
 
   try {
-    const auth = await authenticateRequest(request)
-    if (!auth.success) {
+    console.log('🔍 Creating Supabase client for middleware...');
+    const { supabase, response } = createClient(request)
+    
+    console.log('📋 Request cookies:', request.cookies.getAll().map(c => `${c.name}=${c.value.substring(0, 10)}...`));
+    
+    const { data: { session }, error } = await supabase.auth.getSession()
+    
+    console.log('🔍 Middleware session check:', {
+      hasSession: !!session,
+      error: error?.message,
+      userId: session?.user?.id,
+      expiresAt: session?.expires_at ? new Date(session.expires_at * 1000) : null
+    });
+    
+    if (error || !session) {
+      console.error('❌ Middleware auth failed:', error?.message || 'No session');
       const url = request.nextUrl.clone()
       url.pathname = '/login'
-      url.searchParams.set('error', 'error' in auth && typeof auth.error === 'object' && auth.error !== null && 'message' in auth.error ? String((auth.error as { message: string }).message) : 'Unknown error')
+      url.protocol = 'http:' // Force HTTP for local development
+      url.searchParams.set('error', error?.message || 'Session expired')
+      console.log('🔄 Redirecting to:', url.toString());
       return NextResponse.redirect(url)
     }
 
-    return NextResponse.next()
+    console.log('✅ Middleware auth successful, continuing...');
+    return response
   } catch (error) {
-    console.error('Middleware error:', error)
-    // Redirect to login on error with a generic error message
+    console.error('💥 Middleware error:', error)
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('error', 'An error occurred during authentication')
+    url.protocol = 'http:' // Force HTTP for local development
+    url.searchParams.set('error', 'Authentication failed')
+    console.log('🔄 Redirecting to (error):', url.toString());
     return NextResponse.redirect(url)
   }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
-     * Feel free to modify this pattern to include more paths.
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

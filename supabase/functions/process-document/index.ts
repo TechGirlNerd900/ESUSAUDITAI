@@ -186,22 +186,70 @@ serve(async (req) => {
     )
   }
 })
-
 async function processWithAI(document: any) {
-  // Simulate AI processing - replace with actual AI service calls
-  const mockDelay = Math.random() * 5000 + 2000 // 2-7 seconds
-  await new Promise(resolve => setTimeout(resolve, mockDelay))
+  try {
+    // Create Supabase client for invoking edge functions
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-  // Mock AI results - replace with actual AI processing
-  return {
-    extractedData: {
-      documentType: 'financial_statement',
-      entities: ['Company ABC', '2023'],
-      amounts: [{ value: 1000000, currency: 'USD' }]
-    },
-    summary: `Analysis of ${document.original_name}: Document appears to be a financial statement with key metrics extracted.`,
-    redFlags: ['Unusual transaction pattern detected'],
-    highlights: ['Revenue growth of 15%', 'Strong cash position'],
-    confidence: 0.85
+    // Call the smart-task edge function
+    const { data, error } = await supabase.functions.invoke('smart-task', {
+      body: { 
+        document: {
+          id: document.id,
+          name: document.original_name,
+          file_path: document.file_path,
+          file_type: document.file_type,
+          file_size: document.file_size
+        },
+        task_type: 'document_analysis',
+        options: {
+          extract_entities: true,
+          detect_red_flags: true,
+          generate_summary: true,
+          confidence_threshold: 0.7
+        }
+      }
+    })
+
+    if (error) {
+      console.error('Smart-task function error:', error)
+      throw new Error(`Smart-task processing failed: ${error.message}`)
+    }
+
+    if (!data || !data.success) {
+      throw new Error(`Smart-task returned unsuccessful result: ${data?.error || 'Unknown error'}`)
+    }
+
+    // Return standardized format expected by the calling function
+    return {
+      extractedData: data.extracted_data || {
+        documentType: data.document_type || 'unknown',
+        entities: data.entities || [],
+        amounts: data.amounts || []
+      },
+      summary: data.summary || `Analysis of ${document.original_name}: Processing completed.`,
+      redFlags: data.red_flags || [],
+      highlights: data.highlights || [],
+      confidence: data.confidence_score || 0.5
+    }
+
+  } catch (error) {
+    console.error('AI processing error:', error)
+    
+    // Fallback to basic processing if smart-task fails
+    return {
+      extractedData: {
+        documentType: 'unknown',
+        entities: [],
+        amounts: []
+      },
+      summary: `Analysis of ${document.original_name}: Basic processing completed (AI service unavailable).`,
+      redFlags: ['AI analysis unavailable - manual review recommended'],
+      highlights: ['Document uploaded successfully'],
+      confidence: 0.3
+    }
   }
 }

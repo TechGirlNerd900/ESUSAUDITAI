@@ -37,7 +37,7 @@ export default function Login() {
     }
   }, [searchParams]);
 
-  // The handleSubmit function is adapted for the Supabase SSR client
+  // UPDATED handleSubmit with extensive debugging
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -49,20 +49,38 @@ export default function Login() {
     const supabase = createClient();
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('🔄 Attempting login for:', email);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      console.log('🔍 Login response:', { data, error });
+
       if (error) {
+        console.error('❌ Login error:', error);
         throw error;
       }
 
-      // On success, Next.js router will handle the redirect
-      // The middleware will automatically redirect to the dashboard
-      router.refresh();
+      if (data.session) {
+        console.log('✅ Login successful, session created:', data.session.access_token.substring(0, 10) + '...');
+        console.log('🍪 Session expires at:', new Date(data.session.expires_at! * 1000));
+        
+        // Check if session is immediately available
+        const { data: sessionCheck } = await supabase.auth.getSession();
+        console.log('🔍 Immediate session check:', sessionCheck);
+        
+        // Force a hard navigation to trigger middleware
+        console.log('🚀 Redirecting to dashboard...');
+        window.location.href = '/dashboard';
+      } else {
+        console.warn('⚠️ Login succeeded but no session returned');
+        setError('Login succeeded but session was not created');
+      }
 
     } catch (error: any) {
+      console.error('💥 Login exception:', error);
       setError(error.message || 'An error occurred during login. Please check your credentials.');
     } finally {
       setLoading(false);
