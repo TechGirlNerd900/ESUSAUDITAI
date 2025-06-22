@@ -73,7 +73,7 @@ export default function Login() {
         
         // Force a hard navigation to trigger middleware
         console.log('🚀 Redirecting to dashboard...');
-        window.location.href = '/dashboard';
+        router.push('/dashboard');
       } else {
         console.warn('⚠️ Login succeeded but no session returned');
         setError('Login succeeded but session was not created');

@@ -43,7 +43,7 @@ export default function Register() {
 
       // Then create the user profile in our database via API
       if (authData.user) {
-        const response = await fetch('/api/auth/register', {
+        const response = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

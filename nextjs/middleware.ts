@@ -14,8 +14,8 @@ const publicPaths = [
 // Define public API routes that don't need authentication in middleware
 const publicApiPaths = [
   '/api/auth/callback',
-  '/api/auth/logout', 
-  '/api/auth/register'
+  '/api/auth/logout',
+  '/api/auth/signup' // Updated to reflect the correct signup endpoint
 ]
 
 export async function middleware(request: NextRequest) {
