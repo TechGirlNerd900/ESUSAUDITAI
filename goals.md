@@ -67,18 +67,15 @@ Custom Templates: The roadmap includes the ability for users to create and save 
 
 Part 3: User Roles, Management, & Security
 User Roles & Permissions (RBAC)
-The system is built on a strict Role-Based Access Control model.
+The system is built on the Role-Based Access Control model.
 
-Admin: Has full system control. Can manage users (change roles, activate/deactivate accounts, reset passwords), oversee all projects, manage system-level settings, and view comprehensive audit trails. Admins have self-protection rules to prevent accidental lockouts.
+Admin: Has full system control. Can manage users (change roles, deactivate accounts, reset passwords), oversee all projects, manage system-level settings, and view comprehensive audit trails. Admins have self-protection rules to prevent accidental lockouts.
 
-Auditor: The primary user role. Can create projects, upload and manage documents, interact with the "Ask Esus" AI assistant, and generate draft reports for the projects they are assigned to.
+Auditor: The primary user role. Can sugn in and manage their profile, register/sisnup, and create projects, upload and manage documents, interact with the "Ask Esus" AI assistant, and generate draft reports for the projects they are assigned to.
 
 Reviewer: A limited-access role designed for oversight. Can view projects and documents they are assigned to, review generated reports, and provide feedback. Their interaction with the "Ask Esus" assistant is being clarified but is intended to be limited.
 
-Enterprise Security, Compliance, & Resilience
-Security is a foundational pillar of the platform's architecture.
-
-Authentication: Secure user registration and login handled by Supabase Auth, with a clear plan to implement Multi-Factor Authentication (MFA).
+Authentication: Secure user registration and login handled by Supabase Auth. 
 
 Authorization:
 
@@ -121,10 +118,6 @@ Azure Cognitive Search: For intelligent search and RAG.
 
 Azure OpenAI Service: For generative tasks like report writing and summaries.
 
-Asynchronous Processing (Queue Layer): An event-driven queue using Supabase Edge Functions (triggered by database webhooks) to offload long-running AI tasks, ensuring the user interface remains fast and responsive.
-
-Deployment & CI/CD: A full CI/CD pipeline managed through GitHub Actions and Vercel, enabling automated deployments, preview environments for pull requests, and production gates.
-
 Observability: A unified monitoring stack combining Vercel Analytics, Supabase logs, and Azure Application Insights.
 
 
@@ -137,5 +130,5 @@ Organization Profile & Branding: The ability for an Organization Admin to upload
 Organization-Specific Settings: Configuration options that apply to an entire organization, such as default notification settings or custom report disclaimers.
 In summary, while the Canvas describes a technically robust application, it needs the entire business and administrative layer built on top of it to function as a scalable, secure, and commercially viabl
 
--------------------------------------------------------------------------------------
+
 

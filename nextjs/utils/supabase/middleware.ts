@@ -1,3 +1,4 @@
+
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -30,6 +31,6 @@ export const createClient = (request: NextRequest) => {
     },
   );
 
-  // Return both the supabase client and the response
-  return { supabase, response: supabaseResponse };
+  return supabaseResponse
 };
+

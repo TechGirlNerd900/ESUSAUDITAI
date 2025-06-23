@@ -3,12 +3,28 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { v4 as uuidv4 } from 'uuid' // Add UUID for better ID handling
 
 export interface AuthUser {
   id: string
-  email: string
-  user_metadata?: any
-  role?: string
+  email?: string | null
+  user_metadata: Record<string, any>
+  app_metadata: {
+    provider_id: string
+    role: string
+    providers: Array<{
+      domain: string | null
+      provider_id: string
+      provider_type: string
+    }>
+  }
+}
+
+// Add more specific error types
+export interface AuthError {
+  code: string
+  message: string
+  status: number
 }
 
 export interface UserProfile {
@@ -68,13 +84,14 @@ export async function authenticateApiRequest(
       }
     }
     
-    const supabase = await createClient()
-
+    // Use the Supabase middleware client
+    const client = await createClient()
+    
     // Check if user is authenticated
     const {
       data: { user },
       error: authError
-    } = await supabase.auth.getUser()
+    } = await client.auth.getUser()
 
     if (authError || !user) {
       console.error('Authentication error:', authError);
@@ -84,91 +101,69 @@ export async function authenticateApiRequest(
       }
     }
 
-    // Fetch user profile from users table
-    let { data: userProfile, error: profileError } = await supabase
+    // Transform the Supabase User object into AuthUser
+    const authUser: AuthUser = {
+      id: user.id,
+      email: user.email,
+      user_metadata: user.user_metadata || {},
+      app_metadata: {
+        provider_id: (user.app_metadata?.provider as string) || '', // Use 'provider' from Supabase app_metadata
+        role: (user.app_metadata?.role as string) || 'auditor', // Assume 'role' is a custom claim in app_metadata
+        providers: (user.app_metadata?.providers as Array<{ domain: string | null; provider_id: string; provider_type: string; }>) || [], // Assume 'providers' is a custom claim
+      }
+    };
+
+    // Fetch user profile with organization_id for multi-tenant security
+    const { data: userProfile, error: profileError } = await client
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)
       .eq('deleted_at', null)
       .single()
-
+    
     if (profileError || !userProfile) {
-      console.error('Profile fetch error:', profileError, 'User ID:', user.id);
-      
-      // Check if we need to create a profile (migration fallback)
-      if (profileError?.code === 'PGRST116') { // "No rows found" error code
-        // Try to create a profile based on auth user data
-        try {
-          const { data: newProfile, error: createError } = await supabase
-            .from('users')
-            .insert([{
-              auth_user_id: user.id,
-              email: user.email,
-              first_name: user.user_metadata?.first_name || 'User',
-              last_name: user.user_metadata?.last_name || 'User',
-              role: user.user_metadata?.role || 'auditor',
-              organization_id: user.user_metadata?.organization_id,
-              is_active: true,
-              status: 'active'
-            }])
-            .select()
-            .single();
-            
-          if (createError || !newProfile) {
-            console.error('Failed to create profile:', createError);
-            return {
-              success: false,
-              response: NextResponse.json(
-                { error: 'User profile not found and could not be created. Please contact support.' }, 
-                { status: 403 }
-              )
-            }
-          }
-          
-          // Use the newly created profile
-          userProfile = newProfile;
-        } catch (createProfileError) {
-          console.error('Error in profile creation fallback:', createProfileError);
-          return {
-            success: false,
-            response: NextResponse.json(
-              { error: 'User profile not found. Please contact support.' }, 
-              { status: 403 }
-            )
-          }
+      console.error(profileError ? 'Profile fetch error:' : 'User profile not found:', profileError || user.id);
+      // If we have an auth user but no profile, create a default one
+      try {
+        const { data: newUserProfile, error: createError } = await client
+          .from('users')
+          .insert({
+            auth_user_id: user.id,
+            email: user.email,
+            first_name: user.user_metadata?.first_name || user.email.split('@')[0],
+            last_name: user.user_metadata?.last_name || 'User',
+            role: user.user_metadata?.role || 'auditor',
+            organization_id: user.user_metadata?.organization_id || null,
+            is_active: true,
+            status: 'active'
+          })
+          .select()
+          .single()
+        
+        if (createError) {
+          throw createError
         }
-      } else {
+        
+        return {
+          success: true,
+          user: authUser, // Use the transformed authUser
+          profile: newUserProfile
+        }
+      } catch (profileError) {
+        console.error('Failed to create default profile:', profileError);
         return {
           success: false,
-          response: NextResponse.json(
-            { error: 'User profile not found. Please contact support.' }, 
-            { status: 403 }
-          )
+          response: NextResponse.json({ error: 'User profile not found' }, { status: 403 })
         }
       }
     }
 
-    // Check if user is active
-    if (!userProfile.is_active || userProfile.status !== 'active') {
+    // Validate organization access - CRITICAL for multi-tenant security
+    if (options.requireRole && userProfile.role !== options.requireRole) {
+      console.error(`Required role ${options.requireRole} does not match user role ${userProfile.role}`);
       return {
         success: false,
-        response: NextResponse.json(
-          { error: 'Account is inactive. Please contact support.' }, 
-          { status: 403 }
-        )
-      }
-    }
-
-    // Role-based access control
-    if (options.requireRole) {
-      if (userProfile.role !== 'admin' && userProfile.role !== options.requireRole) {
-        return {
-          success: false,
-          response: NextResponse.json(
-            { error: `Access denied. ${options.requireRole} role required.` }, 
-            { status: 403 }
-          )
-        }
+        response: NextResponse.json({ error: `Forbidden: ${options.requireRole} access required` }, { status: 403 })
       }
     }
 
@@ -191,7 +186,7 @@ export async function authenticateApiRequest(
 
     return {
       success: true,
-      user: user as AuthUser,
+      user: authUser, // Use the transformed authUser
       profile: userProfile as UserProfile
     }
 
