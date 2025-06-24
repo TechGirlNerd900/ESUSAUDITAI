@@ -123,6 +123,7 @@ Observability: A unified monitoring stack combining Vercel Analytics, Supabase l
 
 Universal organization_id: Every relevant table in the database (e.g., projects, documents, users, audit_logs) must have a non-nullable organization_id column.
 Enforced Tenant-Scoped Queries: All RLS policies and API queries must be fundamentally built to filter by the current user's organization_id. This guarantees that no action or query can ever cross the boundary between two organizations. The current description focuses on project-level access, but organization-level access is the primary security boundary.
+
 4. Platform Customization & Configuration
 To enhance the value for different organizations, SaaS platforms often include tenant-specific settings.
 

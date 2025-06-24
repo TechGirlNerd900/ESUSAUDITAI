@@ -172,15 +172,16 @@ export async function POST(request: NextRequest) {
 
     // Create user in Supabase Auth
     const { data: authUser, error: authError } = await supabase.auth.signUp({
-      email,
+      email: email.toLowerCase().trim(),
       password,
       options: {
         data: {
-          first_name: firstName,
-          last_name: lastName,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
           role: userRole,
           organization_id: organizationId
-        }
+        },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?type=signup`
       }
     })
 

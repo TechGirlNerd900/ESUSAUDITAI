@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import clsx from 'clsx'
 
 export default function SignUpPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [registrationType, setRegistrationType] = useState<'create_org' | 'join_invite'>('create_org')
   const [formData, setFormData] = useState({
     email: '',
@@ -20,6 +21,15 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  // Check for invitation token in URL
+  useEffect(() => {
+    const invite = searchParams.get('invite')
+    if (invite) {
+      setFormData(prev => ({ ...prev, inviteToken: invite }))
+      setRegistrationType('join_invite')
+    }
+  }, [searchParams])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({

@@ -1,43 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client'; // Correct import
-import LoadingSpinner from '@/app/components/LoadingSpinner'; // Ensure this path is correct
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
 
 // Import the icons
 import {
   SparklesIcon,
   ShieldCheckIcon,
-  DocumentTextIcon,
-  ChartBarIcon,
+  BuildingOfficeIcon,
+  UserPlusIcon,
   EyeIcon,
   EyeSlashIcon
 } from '@heroicons/react/24/outline';
 
-export default function Login() {
+export default function AdminSignup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    // Check for success message from URL params
-    const urlMessage = searchParams.get('message');
-    const urlError = searchParams.get('error');
-    
-    if (urlMessage) {
-      setMessage(urlMessage);
-    }
-    if (urlError) {
-      setError(urlError);
-    }
-  }, [searchParams]);
-
-  // UPDATED handleSubmit with extensive debugging
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -46,48 +30,44 @@ export default function Login() {
     const formData = new FormData(event.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    const supabase = createClient();
+    const firstName = formData.get('firstName') as string;
+    const lastName = formData.get('lastName') as string;
+    const organizationName = formData.get('organizationName') as string;
+    const adminKey = formData.get('adminKey') as string;
 
     try {
-      console.log('🔄 Attempting login for:', email);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch('/api/auth/admin-signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+          organizationName,
+          adminKey: adminKey || undefined
+        }),
       });
 
-      console.log('🔍 Login response:', { data, error });
+      const data = await response.json();
 
-      if (error) {
-        console.error('❌ Login error:', error);
-        throw error;
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create organization');
       }
 
-      if (data.session) {
-        console.log('✅ Login successful, session created:', data.session.access_token.substring(0, 10) + '...');
-        console.log('🍪 Session expires at:', new Date(data.session.expires_at! * 1000));
-        
-        // Check if session is immediately available
-        const { data: sessionCheck } = await supabase.auth.getSession();
-        console.log('🔍 Immediate session check:', sessionCheck);
-        
-        // Force a hard navigation to trigger middleware
-        console.log('🚀 Redirecting to dashboard...');
-        router.push('/dashboard');
-      } else {
-        console.warn('⚠️ Login succeeded but no session returned');
-        setError('Login succeeded but session was not created');
-      }
+      // Redirect to login with success message
+      router.push('/login?message=Organization+created+successfully.+Please+check+your+email+to+verify+your+account.');
 
     } catch (error: any) {
-      console.error('💥 Login exception:', error);
-      setError(error.message || 'An error occurred during login. Please check your credentials.');
+      console.error('Admin signup error:', error);
+      setError(error.message || 'An error occurred during organization creation.');
     } finally {
       setLoading(false);
     }
   }
 
-  // --- This is the new, merged JSX ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex">
       {/* Left Side - Branding */}
@@ -108,24 +88,24 @@ export default function Login() {
               <span className="text-2xl font-light ml-2">AuditAI</span>
             </div>
             <p className="text-blue-100 text-lg">
-              Intelligent Audit Automation Platform
+              Create Your Organization
             </p>
           </div>
 
           {/* Features */}
           <div className="space-y-6 max-w-md mx-auto">
             <div className="flex items-center text-left">
-              <DocumentTextIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
+              <BuildingOfficeIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold">AI-Powered Document Analysis</h3>
-                <p className="text-sm text-blue-100">Extract insights from financial documents automatically</p>
+                <h3 className="font-semibold">Multi-Tenant Architecture</h3>
+                <p className="text-sm text-blue-100">Complete data isolation for your organization</p>
               </div>
             </div>
             <div className="flex items-center text-left">
-              <ChartBarIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
+              <UserPlusIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold">Intelligent Reporting</h3>
-                <p className="text-sm text-blue-100">Generate comprehensive audit reports with AI assistance</p>
+                <h3 className="font-semibold">Team Management</h3>
+                <p className="text-sm text-blue-100">Invite and manage your audit team members</p>
               </div>
             </div>
             <div className="flex items-center text-left">
@@ -138,12 +118,12 @@ export default function Login() {
           </div>
 
           <div className="mt-12 text-sm text-blue-200">
-            "Transforming audit workflows with the power of AI"
+            "Start your audit automation journey today"
           </div>
         </div>
       </div>
 
-      {/* Right Side - Login Form */}
+      {/* Right Side - Admin Signup Form */}
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="lg:hidden text-center mb-8">
@@ -153,16 +133,16 @@ export default function Login() {
               <span className="text-xl font-light text-gray-600 ml-2">AuditAI</span>
             </div>
             <p className="text-gray-600">
-              Intelligent Audit Automation Platform
+              Create Your Organization
             </p>
           </div>
 
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome back
+              Create Organization
             </h2>
             <p className="text-gray-600 mb-8">
-              Sign in to access your audit workspace
+              Set up your organization and become the first admin
             </p>
           </div>
 
@@ -182,25 +162,53 @@ export default function Login() {
               </div>
             )}
 
-            {message && (
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-green-700">{message}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
+                <label htmlFor="organizationName" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Organization Name
+                </label>
+                <input
+                  id="organizationName"
+                  name="organizationName"
+                  type="text"
+                  required
+                  placeholder="Enter your organization name"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="firstName" className="block text-sm font-semibold text-gray-700 mb-2">
+                    First Name
+                  </label>
+                  <input
+                    id="firstName"
+                    name="firstName"
+                    type="text"
+                    required
+                    placeholder="First name"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="lastName" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    id="lastName"
+                    name="lastName"
+                    type="text"
+                    required
+                    placeholder="Last name"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email address
+                  Admin Email Address
                 </label>
                 <input
                   id="email"
@@ -222,9 +230,9 @@ export default function Login() {
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
+                    autoComplete="new-password"
                     required
-                    placeholder="Enter your password"
+                    placeholder="Create a strong password"
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900"
                   />
                   <button
@@ -239,20 +247,39 @@ export default function Login() {
                     )}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be 8+ characters with uppercase, lowercase, number, and special character
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="adminKey" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Admin Key <span className="text-gray-400 font-normal">(if required)</span>
+                </label>
+                <input
+                  id="adminKey"
+                  name="adminKey"
+                  type="password"
+                  placeholder="Enter admin key if required"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave blank if no admin key is configured
+                </p>
               </div>
 
               <div className="flex items-center justify-between text-sm">
                 <Link
+                  href="/login"
+                  className="font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200"
+                >
+                  Already have an account? Sign in
+                </Link>
+                <Link
                   href="/signup"
                   className="font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200"
                 >
-                  Need an account? Sign up
-                </Link>
-                <Link
-                  href="/reset-password"
-                  className="font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200"
-                >
-                  Forgot password?
+                  Join existing organization
                 </Link>
               </div>
 
@@ -264,12 +291,12 @@ export default function Login() {
                 {loading ? (
                   <>
                     <LoadingSpinner />
-                    <span className="ml-2">Signing in...</span>
+                    <span className="ml-2">Creating Organization...</span>
                   </>
                 ) : (
                   <>
-                    <SparklesIcon className="h-5 w-5 mr-2" />
-                    Sign in to EsusAuditAI
+                    <BuildingOfficeIcon className="h-5 w-5 mr-2" />
+                    Create Organization
                   </>
                 )}
               </button>

@@ -56,11 +56,11 @@ export async function GET(request: NextRequest) {
 
     // Get pending invitations count
     const { data: invitations, error: invitationsError } = await supabase
-      .from('app_settings')
-      .select('key')
+      .from('invitations')
+      .select('id')
       .eq('organization_id', organizationId)
-      .eq('category', 'invitations')
-      .like('key', 'invite_%')
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString())
 
     if (invitationsError) {
       console.error('Error fetching invitations:', invitationsError)
