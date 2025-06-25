@@ -3,7 +3,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { withErrorHandling } from '@/lib/errorHandler'
 import { authenticateApiRequest } from '@/lib/apiAuth'
+import crypto from 'crypto'
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request)
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
     // Create admin user for the organization
     const { data: authUser, error: authError } = await supabase.auth.signUp({
       email: adminEmail,
-      password: 'TempPassword123!', // They'll be prompted to change this
+      password: crypto.randomBytes(16).toString('hex') + 'A1!', // They'll be prompted to change this
       options: {
         data: {
           first_name: adminFirstName,

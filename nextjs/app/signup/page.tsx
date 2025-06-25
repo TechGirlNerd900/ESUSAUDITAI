@@ -52,8 +52,10 @@ export default function SignUpPage() {
       return
     }
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long')
+    // Validate password complexity to match API requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    if (!passwordRegex.test(formData.password)) {
+      setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character')
       setLoading(false)
       return
     }

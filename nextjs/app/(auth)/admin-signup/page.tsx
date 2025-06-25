@@ -35,6 +35,14 @@ export default function AdminSignup() {
     const organizationName = formData.get('organizationName') as string;
     const adminKey = formData.get('adminKey') as string;
 
+    // Client-side validation to match API requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    if (!passwordRegex.test(password)) {
+      setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character')
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/auth/admin-signup', {
         method: 'POST',

@@ -138,6 +138,11 @@ export class Database {
                     start_date: projectData.startDate,
                     end_date: projectData.endDate,
                     status: projectData.status || 'active',
+                    project_type: projectData.projectType || 'general',
+                    priority: projectData.priority || 'medium',
+                    budget: projectData.budget || null,
+                    compliance_framework: projectData.complianceFramework || null,
+                    risk_level: projectData.riskLevel || 'medium',
                     created_by: projectData.userId,
                     assigned_to: projectData.assignedTo || [projectData.userId],
                     organization_id: projectData.organizationId
@@ -218,7 +223,9 @@ export class Database {
             
             // Filter by search term if provided
             if (search) {
-                query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,client_name.ilike.%${search}%`);
+                // Sanitize search term to prevent injection
+                const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&');
+                query = query.or(`name.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%,client_name.ilike.%${sanitizedSearch}%`);
             }
             
             // Add sorting

@@ -26,6 +26,17 @@ export default function UpdatePassword() {
     setLoading(true)
     setMessage(null)
 
+    // Client-side password validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    if (!passwordRegex.test(password)) {
+      setMessage({
+        type: 'error',
+        text: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character'
+      })
+      setLoading(false)
+      return
+    }
+
     try {
       const { error } = await supabase.auth.updateUser({
         password: password
@@ -84,8 +95,8 @@ export default function UpdatePassword() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="relative block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
-              placeholder="New password"
-              minLength={6}
+              placeholder="New password (min 8 chars, uppercase, lowercase, number, special char)"
+              minLength={8}
             />
           </div>
 

@@ -80,13 +80,14 @@ export async function POST(
 
     // Store user message
     const { error: chatError } = await supabase
-      .from('chat_messages')
+      .from('chat_history')
       .insert({
         project_id: projectId,
         organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
         user_id: user.id,
-        content: message.trim(),
-        role: 'user'
+        question: message.trim(),
+        answer: '',
+        context_documents: []
       })
 
     if (chatError) {
@@ -96,7 +97,7 @@ export async function POST(
 
     // Get chat history with organization filtering
     const { data: chatHistory, error: historyError } = await supabase
-      .from('chat_messages')
+      .from('chat_history')
       .select('*')
       .eq('project_id', projectId)
       .eq('organization_id', userProfile.organization_id) // CRITICAL: Filter by organization for multi-tenant security
@@ -119,12 +120,14 @@ export async function POST(
 
     // Store AI response
     const { data: aiMessage, error: aiError } = await supabase
-      .from('chat_messages')
+      .from('chat_history')
       .insert({
         project_id: projectId,
         organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
-        content: aiResponse.answer,
-        role: 'assistant'
+        user_id: user.id,
+        question: '',
+        answer: aiResponse.answer,
+        context_documents: aiResponse.citations || []
       })
       .select()
       .single()
@@ -209,7 +212,7 @@ export async function GET(
 
     // Get total count for pagination metadata
     const { count, error: countError } = await supabase
-      .from('chat_messages')
+      .from('chat_history')
       .select('*', { count: 'exact', head: true })
       .eq('project_id', projectId)
 
@@ -220,7 +223,7 @@ export async function GET(
 
     // Get paginated chat history
     const { data: messages, error: messagesError } = await supabase
-      .from('chat_messages')
+      .from('chat_history')
       .select('*')
       .eq('project_id', projectId)
       .order('created_at', { ascending: true })

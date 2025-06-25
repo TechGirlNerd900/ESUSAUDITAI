@@ -143,11 +143,13 @@ export function addSearchFilters(
   // Text search across multiple fields
   if (search && search.trim()) {
     const searchTerm = search.trim()
+    // Sanitize search term to prevent injection
+    const sanitizedSearch = searchTerm.replace(/[%_\\]/g, '\\$&')
     
     // Build OR conditions for searchable fields
     const searchConditions = Object.entries(searchableFields)
       .flatMap(([table, fields]) => 
-        fields.map(field => `${field}.ilike.%${searchTerm}%`)
+        fields.map(field => `${field}.ilike.%${sanitizedSearch}%`)
       )
     
     if (searchConditions.length > 0) {

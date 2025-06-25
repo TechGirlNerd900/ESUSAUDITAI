@@ -104,7 +104,7 @@ const Dashboard = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       const params = {
-        api_token: 'kxhBSKgscIZZsZsYFQ3IiOoRxD0l692bTIK4CQ6h',
+        api_token: process.env.NEXT_PUBLIC_NEWS_API_TOKEN || '',
         categories: 'business',
         search: 'finance,sec,regulation',
         limit: '3' // Reduced to minimize API usage

@@ -20,6 +20,13 @@ function sanitizeFileName(name: string): string {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
+    
+    // Start a transaction
+    const { error: txnError } = await supabase.rpc('begin_transaction')
+    if (txnError) {
+      console.error('Error starting transaction:', txnError)
+      return NextResponse.json({ error: 'Failed to start transaction' }, { status: 500 })
+    }
 
     // Check authentication
     const {
@@ -112,23 +119,29 @@ export async function POST(request: NextRequest) {
 
     // Upload file to Supabase Storage
     const { error: uploadError } = await supabase.storage
-      .from('audit-documents')
+      .from('documents')
       .upload(filePath, file)
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError);
-      throw uploadError
+      // Rollback transaction on error
+      await supabase.rpc('rollback_transaction')
+      return NextResponse.json(
+        { error: 'Failed to upload file to storage' },
+        { status: 500 }
+      )
     }
 
     // Get the public URL of the uploaded file
     const { data: { publicUrl } } = supabase.storage
-      .from('audit-documents')
+      .from('documents')
       .getPublicUrl(filePath)
 
     // Create document record in the database
     const { data: document, error: dbError } = await supabase
       .from('documents')
       .insert({
+        name: sanitizedFileName,
         original_name: file.name,
         file_path: filePath,
         project_id: projectId,
@@ -138,6 +151,10 @@ export async function POST(request: NextRequest) {
         file_type: file.type,
         file_size: file.size,
         blob_url: publicUrl,
+        classification: 'internal',
+        sensitivity_level: 'medium',
+        access_level: 'internal',
+        processing_status: 'pending',
         custom_fields,
         tags
       })
@@ -145,7 +162,25 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      throw dbError
+      console.error('Database error:', dbError);
+      // Rollback transaction and delete the uploaded file
+      await supabase.rpc('rollback_transaction')
+      // Compensating transaction: delete the uploaded file
+      await supabase.storage
+        .from('documents')
+        .remove([filePath])
+      return NextResponse.json(
+        { error: 'Failed to create document record' },
+        { status: 500 }
+      )
+    }
+
+    // Commit the transaction after successful operations
+    const { error: commitError } = await supabase.rpc('commit_transaction')
+    if (commitError) {
+      console.error('Error committing transaction:', commitError)
+      // Even if commit fails, we don't want to roll back at this point
+      // as the operations were successful
     }
 
     return NextResponse.json({
@@ -155,6 +190,21 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Upload error:', error)
+    
+    try {
+      // Attempt to rollback the transaction
+      await supabase.rpc('rollback_transaction')
+      
+      // If we have a filePath defined, try to clean up the uploaded file
+      if (typeof filePath !== 'undefined') {
+        await supabase.storage
+          .from('documents')
+          .remove([filePath])
+      }
+    } catch (cleanupError) {
+      console.error('Error during error cleanup:', cleanupError)
+    }
+    
     return NextResponse.json(
       { error: 'Failed to upload document' },
       { status: 500 }

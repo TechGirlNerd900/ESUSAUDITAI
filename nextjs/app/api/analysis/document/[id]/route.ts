@@ -12,6 +12,13 @@ export async function POST(
     const { id: documentId } = await params
     
     const supabase = await createClient()
+    
+    // Start a transaction
+    const { error: txnError } = await supabase.rpc('begin_transaction')
+    if (txnError) {
+      console.error('Error starting transaction:', txnError)
+      return NextResponse.json({ error: 'Failed to start transaction' }, { status: 500 })
+    }
 
     // Check if user is authenticated
     const {
@@ -118,6 +125,14 @@ export async function POST(
       azureServices = new AzureServices(cookieStore)
     } catch (azureError) {
       console.error('Azure services initialization error:', azureError)
+      
+      // Rollback transaction
+      const { error: rollbackError } = await supabase.rpc('rollback_transaction')
+      if (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError)
+      }
+      
+      // Update document status to error (outside transaction)
       await supabase
         .from('documents')
         .update({ status: 'error' })
@@ -201,6 +216,13 @@ export async function POST(
             highlights: extractHighlights(aiSummary),
             confidence_score: confidence,
             processing_time_ms: Date.now() - startTime,
+            analysis_type: 'document_analysis',
+            model_version: 'gpt-4-turbo',
+            metadata: {
+              file_type: document.file_type,
+              file_size: document.file_size || null,
+              processing_duration: Date.now() - startTime
+            },
           },
         ])
         .select()
@@ -208,6 +230,11 @@ export async function POST(
 
       if (analysisError) {
         console.error('Analysis save error:', analysisError)
+        // Rollback transaction if analysis save fails
+        const { error: rollbackError } = await supabase.rpc('rollback_transaction')
+        if (rollbackError) {
+          console.error('Error rolling back transaction:', rollbackError)
+        }
         throw new Error('Failed to save analysis results: ' + analysisError.message)
       }
 
@@ -219,6 +246,17 @@ export async function POST(
 
       if (finalStatusError) {
         console.error('Final status update error:', finalStatusError)
+        // Rollback transaction if status update fails
+        await supabase.rpc('rollback_transaction')
+        return NextResponse.json({ error: 'Failed to update document status' }, { status: 500 })
+      }
+      
+      // Commit the transaction after successful operations
+      const { error: commitError } = await supabase.rpc('commit_transaction')
+      if (commitError) {
+        console.error('Error committing transaction:', commitError)
+        // Even if commit fails, we don't want to roll back at this point
+        // as the operations were successful
       }
 
       return NextResponse.json({ 
@@ -229,7 +267,13 @@ export async function POST(
     } catch (analysisError) {
       console.error('Analysis processing error:', analysisError)
       
-      // Update document status to error
+      // Rollback transaction
+      const { error: rollbackError } = await supabase.rpc('rollback_transaction')
+      if (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError)
+      }
+      
+      // Update document status to error (outside transaction)
       await supabase
         .from('documents')
         .update({ status: 'error' })
@@ -246,6 +290,22 @@ export async function POST(
 
   } catch (error) {
     console.error('Document analysis error:', error)
+    
+    try {
+      // Attempt to rollback the transaction
+      await supabase.rpc('rollback_transaction')
+      
+      // If we have a document ID, update its status to error
+      if (typeof documentId !== 'undefined') {
+        await supabase
+          .from('documents')
+          .update({ status: 'error' })
+          .eq('id', documentId)
+      }
+    } catch (cleanupError) {
+      console.error('Error during error cleanup:', cleanupError)
+    }
+    
     return NextResponse.json(
       { 
         error: 'Internal server error',
