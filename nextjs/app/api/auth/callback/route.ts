@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     // For regular login callbacks, check if user profile exists
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('id, is_active, status')
+      .select('id, is_active, status, organization_id')
       .eq('auth_user_id', data.user.id)
       .single()
 

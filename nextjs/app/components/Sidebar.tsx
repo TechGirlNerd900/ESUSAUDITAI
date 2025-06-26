@@ -6,7 +6,21 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
-const navigation = [
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: (props: any) => JSX.Element;
+  color: string;
+  bgColor: string;
+  isNew?: boolean;
+}
+
+interface SidebarProps {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}
+
+const navigation: NavigationItem[] = [
   { 
     name: 'Dashboard', 
     href: '/dashboard', 
@@ -65,7 +79,7 @@ const navigation = [
   },
 ];
 
-const Sidebar = ({ open, setOpen }) => {
+const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
   const pathname = usePathname();
 
   const SidebarContent = () => (

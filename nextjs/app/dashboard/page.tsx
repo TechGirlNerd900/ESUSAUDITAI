@@ -10,19 +10,49 @@ import CreateProjectModal from '../components/CreateProjectModal';
 import WelcomeModal from '../components/WelcomeModal';
 import ChatWidget from '../components/ChatWidget';
 
-const Dashboard = () => {
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  client_name: string;
+  status: 'active' | 'completed' | 'on_hold' | 'cancelled';
+  created_by: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
+  tags?: string[];
+  custom_fields?: Record<string, any>;
+}
+
+interface UserProfile {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: 'admin' | 'auditor' | 'reviewer';
+  organization_id: string;
+}
+
+interface NewsArticle {
+  title: string;
+  description: string;
+  published_at: string;
+  url: string;
+}
+
+const Dashboard: React.FC = () => {
   const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [statsVisible, setStatsVisible] = useState(false);
   const [projectsVisible, setProjectsVisible] = useState(false);
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<Error | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [news, setNews] = useState([]);
+  const [news, setNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [tagFilter, setTagFilter] = useState('')
   const [customFieldFilter, setCustomFieldFilter] = useState('')
@@ -158,12 +188,12 @@ const Dashboard = () => {
     }
   };
 
-  const handleProjectCreated = (newProject) => {
+  const handleProjectCreated = (newProject: Project) => {
     // Add the new project to the existing projects list
     setProjects(prevProjects => [newProject, ...prevProjects]);
   };
 
-  const handleWelcomeTaskSelect = (taskId) => {
+  const handleWelcomeTaskSelect = (taskId: string) => {
     // Mark welcome as seen
     if (userProfile) {
       localStorage.setItem(`welcome_seen_${userProfile.id}`, 'true');

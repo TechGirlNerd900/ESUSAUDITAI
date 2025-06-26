@@ -7,11 +7,16 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Declare supabase and documentId outside try block for error handling access
+  let supabase: Awaited<ReturnType<typeof createClient>>
+  let documentId: string
+
   try {
     // Await params since they're now a Promise in newer Next.js versions
-    const { id: documentId } = await params
+    const resolvedParams = await params
+    documentId = resolvedParams.id
     
-    const supabase = await createClient()
+    supabase = await createClient()
     
     // Start a transaction
     const { error: txnError } = await supabase.rpc('begin_transaction')
@@ -292,12 +297,14 @@ export async function POST(
     console.error('Document analysis error:', error)
     
     try {
-      // Attempt to rollback the transaction
-      await supabase.rpc('rollback_transaction')
+      // Attempt to rollback the transaction if supabase is available
+      if (supabase) {
+        await supabase.rpc('rollback_transaction')
+      }
       
-      // If we have a document ID, update its status to error
-      if (typeof documentId !== 'undefined') {
-        await supabase
+      // If we have a document ID and supabase client, update its status to error
+      if (documentId && supabase) {
+        await supabase 
           .from('documents')
           .update({ status: 'error' })
           .eq('id', documentId)

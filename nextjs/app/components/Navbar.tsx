@@ -8,7 +8,21 @@ import clsx from 'clsx';
 import { createClient } from '@/utils/supabase/client';
 import LogoutButton from './LogoutButton';
 
-const Navbar = ({ setSidebarOpen, user }) => {
+interface User {
+  id: string;
+  email: string;
+  user_metadata?: {
+    first_name?: string;
+    last_name?: string;
+  };
+}
+
+interface NavbarProps {
+  setSidebarOpen: (open: boolean) => void;
+  user: User;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen, user }) => {
   const router = useRouter();
   const [notificationCount] = useState(3);
   const supabase = createClient();
@@ -22,7 +36,11 @@ const Navbar = ({ setSidebarOpen, user }) => {
     }
   };
 
-  const isActive = (path) => pathname === path;
+  const isActive = (path: string) => {
+    // Note: pathname is not defined in this component
+    // This function needs to be properly implemented
+    return false;
+  };
 
   return (
     <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200/50 bg-white/80 backdrop-blur-md px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">

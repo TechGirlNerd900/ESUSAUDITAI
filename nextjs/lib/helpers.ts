@@ -5,9 +5,13 @@
 /**
  * Executes a promise with a timeout
  */
-export function promiseWithTimeout(promise, timeoutMs, errorMsg = 'Operation timed out') {
-    let timeoutHandle;
-    const timeoutPromise = new Promise((_, reject) => {
+export function promiseWithTimeout<T>(
+    promise: Promise<T>, 
+    timeoutMs: number, 
+    errorMsg: string = 'Operation timed out'
+): Promise<T> {
+    let timeoutHandle: NodeJS.Timeout;
+    const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutHandle = setTimeout(() => {
             reject(new Error(errorMsg));
         }, timeoutMs);
@@ -22,12 +26,22 @@ export function promiseWithTimeout(promise, timeoutMs, errorMsg = 'Operation tim
 }
 
 /**
+ * Error object interface for consistent error handling
+ */
+export interface FormattedError {
+    message: string;
+    code: string;
+    context: string;
+    stack?: string | undefined;
+}
+
+/**
  * Formats an error object for consistent error handling
  */
-export function formatError(error, context = '') {
+export function formatError(error: Error, context: string = ''): FormattedError {
     return {
         message: error.message,
-        code: error.code || 'UNKNOWN_ERROR',
+        code: (error as any).code || 'UNKNOWN_ERROR',
         context,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     };
@@ -36,7 +50,7 @@ export function formatError(error, context = '') {
 /**
  * Sanitizes objects for logging by removing sensitive information
  */
-export function sanitizeForLogging(obj) {
+export function sanitizeForLogging(obj: Record<string, any>): Record<string, any> {
     const sensitiveFields = ['password', 'token', 'key', 'secret', 'authorization'];
     const sanitized = { ...obj };
 
@@ -54,7 +68,7 @@ export function sanitizeForLogging(obj) {
 /**
  * Sanitizes filenames to prevent path traversal attacks
  */
-export function sanitizeFileName(fileName) {
+export function sanitizeFileName(fileName: string): string {
     const name = fileName.replace(/^.*[\\\/]/, '');
     return name.replace(/[^a-zA-Z0-9\.\-\_]/g, '_');
 }
@@ -62,7 +76,7 @@ export function sanitizeFileName(fileName) {
 /**
  * Checks if a MIME type is in the allowed list
  */
-export function isAllowedMimeType(mimeType) {
+export function isAllowedMimeType(mimeType: string): boolean {
     const allowedTypes = process.env.ALLOWED_FILE_TYPES?.split(',') || [
         'application/pdf',
         'application/vnd.ms-excel',

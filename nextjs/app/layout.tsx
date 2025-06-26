@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ChatWidget from './components/ChatWidget'
+import { ReactNode } from 'react'
 
 const inter = Inter({
   subsets: ["latin"],
@@ -12,7 +13,11 @@ export const metadata = {
   description: "AI-powered audit automation platform for finance and audit firms",
 };
 
-export default function RootLayout({ children }) {
+interface RootLayoutProps {
+  children: ReactNode;
+}
+
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <body className={inter.variable}>

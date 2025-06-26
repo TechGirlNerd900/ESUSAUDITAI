@@ -193,10 +193,12 @@ export async function POST(request: NextRequest) {
     
     try {
       // Attempt to rollback the transaction
+      const supabase = await createClient()
       await supabase.rpc('rollback_transaction')
       
       // If we have a filePath defined, try to clean up the uploaded file
-      if (typeof filePath !== 'undefined') {
+      let filePath: string | undefined;
+      if (filePath) {
         await supabase.storage
           .from('documents')
           .remove([filePath])

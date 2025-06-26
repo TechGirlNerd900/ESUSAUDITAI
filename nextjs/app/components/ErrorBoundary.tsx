@@ -1,9 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { ReactNode, ErrorInfo } from 'react';
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+  retryCount: number;
+}
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback?: React.ComponentType<{ error: Error | null; retry: () => void }>;
+  showDetails?: boolean;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
       hasError: false,
@@ -13,11 +26,11 @@ class ErrorBoundary extends React.Component {
     };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({
       error: error,
       errorInfo: errorInfo
@@ -129,8 +142,11 @@ class ErrorBoundary extends React.Component {
 }
 
 // Higher-order component for easier usage
-export const withErrorBoundary = (Component, errorBoundaryProps = {}) => {
-  return function WrappedComponent(props) {
+export const withErrorBoundary = <P extends object>(
+  Component: React.ComponentType<P>, 
+  errorBoundaryProps: Partial<ErrorBoundaryProps> = {}
+) => {
+  return function WrappedComponent(props: P) {
     return (
       <ErrorBoundary {...errorBoundaryProps}>
         <Component {...props} />
@@ -147,7 +163,7 @@ export const useErrorHandler = () => {
     setError(null);
   }, []);
 
-  const handleError = React.useCallback((error) => {
+  const handleError = React.useCallback((error: Error) => {
     setError(error);
   }, []);
 

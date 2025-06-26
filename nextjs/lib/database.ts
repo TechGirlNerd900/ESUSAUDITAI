@@ -1,7 +1,41 @@
 import { createServerClient } from '@supabase/ssr';
+import { SupabaseClient } from '@supabase/supabase-js';
+
+interface UserData {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  company?: string;
+  organizationId?: string;
+}
+
+interface CookieStore {
+  getAll: () => any[];
+  set: (name: string, value: string, options?: any) => void;
+}
+
+interface ProjectData {
+  name: string;
+  description?: string;
+  clientName: string;
+  clientEmail?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  projectType?: string;
+  priority?: string;
+  budget?: number;
+  complianceFramework?: string;
+  riskLevel?: string;
+  userId: string;
+  assignedTo?: string[];
+  organizationId?: string;
+}
 
 export class Database {
-    constructor(cookieStore) {
+    private client: SupabaseClient;
+    constructor(cookieStore: CookieStore) {
         // Initialize Supabase client with SSR support
         this.client = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -28,7 +62,7 @@ export class Database {
     }
 
     // User operations
-    async createUser(userData) {
+    async createUser(userData: UserData) {
         try {
             const { data, error } = await this.client
                 .from('users')
@@ -51,7 +85,7 @@ export class Database {
         }
     }
 
-    async getUser(userId) {
+    async getUser(userId: string) {
         try {
             // First check if we have a UUID or auth_user_id
             let query;
@@ -85,7 +119,7 @@ export class Database {
         }
     }
 
-    async getUserByEmail(email) {
+    async getUserByEmail(email: string) {
         try {
             const { data, error } = await this.client
                 .from('users')
@@ -102,7 +136,7 @@ export class Database {
         }
     }
 
-    async updateUser(userId, updates) {
+    async updateUser(userId: string, updates: Partial<UserData>) {
         try {
             const { data, error } = await this.client
                 .from('users')
@@ -120,7 +154,7 @@ export class Database {
     }
 
     // Project operations
-    async createProject(projectData) {
+    async createProject(projectData: ProjectData) {
         try {
             // Get user's organization_id if not provided
             if (!projectData.organizationId) {

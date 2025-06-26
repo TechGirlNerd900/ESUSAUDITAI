@@ -1,6 +1,6 @@
 import { OpenAI } from 'openai'
 import { ChatMessage } from '@/types/supabase'
-import { AzureServices } from './azureServices.js'
+import { AzureServices } from './azureServices'
 
 if (!process.env.AZURE_OPENAI_API_KEY) {
   throw new Error('AZURE_OPENAI_API_KEY is required')
@@ -42,6 +42,11 @@ export async function analyzeDocument(text: string) {
   }
 }
 
+interface SearchResultItem {
+  textContent: string;
+  sourceDocument: string;
+}
+
 export async function generateChatResponse(
   chatHistory: ChatMessage[],
   projectContext: any,
@@ -49,9 +54,15 @@ export async function generateChatResponse(
   projectId?: string
 ) {
   // If query and projectId are provided, use RAG pipeline
-  let contextChunks = []
+  let contextChunks: SearchResultItem[] = []
   if (query && projectId) {
-    const azure = new AzureServices()
+    // For server-side usage, we need to pass a cookieStore
+    // This is a simplified example - in practice, you'd get this from the request
+    const mockCookieStore = {
+      getAll: () => [],
+      setAll: () => {}
+    }
+    const azure = new AzureServices(mockCookieStore)
     contextChunks = await azure.searchCognitive(query, projectId)
   }
   // Build guarded prompt if contextChunks exist

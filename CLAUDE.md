@@ -1,312 +1,309 @@
-# Specification for Security Verification, Implementation, and Audit
-
-> **Do NOT add, remove, or alter tasks except by explicit instruction.**  
-> Only execute or verify the items listed. Do not assume any additional security tasks.  
-> If any task is believed already implemented, verify correctness against the criteria; do not introduce new features without consulting the owner.
-
----
-
-## Purpose
-
-Provide an exact, unambiguous set of instructions for:
-1. Verifying presence and correctness of certain security-related implementations.
-2. Implementing any missing or incorrect ones strictly as described.
-3. Generating database files according to the given schema requirements.
-4. Enforcing infrastructure, monitoring, integration, and post-completion audit steps.
-
-> The system must not deviate outside these instructions or add features not explicitly listed.
-
----
-
-## Sections
-
-### 1. LOW-PRIORITY VERIFICATION 
-
-**Description:**  
-Verify that each of the following has been implemented correctly. Do not add functionality; only confirm and correct if found improperly done. If already correct, record verification; if incorrect or missing, implement exactly as described.
-
-**Tasks:**
-- **LP01: Rate Limiting on Authentication Endpoints**  
-  - *Requirement:* Ensure rate limiting is implemented on all authentication endpoints. Verify configuration values, thresholds, and behavior under limit-exceeded conditions.
-- **LP02: Environment Validation**  
-  - *Requirement:* Ensure service key validation is mandatory. Verify that any environment-specific keys or secrets are validated before allowing operations; confirm no bypasses exist.
-- **LP03: Error Handling**  
-  - *Requirement:* Confirm that error responses do not expose sensitive information (stack traces, secrets, internal details). Verify that logs capture sufficient context without leaking secrets to end users.
-- **LP04: Automated Security Scanning**  
-  - *Requirement:* Verify that automated security scanning (e.g., static analysis, dependency checks, vulnerability scanners) is integrated and running regularly. Confirm scan results are reviewed and high-severity findings are addressed promptly.
-
-**Notes:**
-- The above items are believed already implemented; verify correctness. If an item is missing or improperly configured, implement exactly as stated, no additional enhancements beyond verifying/fixing.
-
----
-
-### 2. HIGH-PRIORITY VERIFICATION (Urgent)
-
-**Description:**  
-Immediately verify that each high-priority item is implemented correctly. If found missing or incorrect, implement strictly according to these descriptions. Do not introduce unrelated features.
-
-**Tasks:**
-- **HP01: Secure Profile Creation**  
-  - *Requirement:* Validate metadata before auto-creating profiles. Confirm that any incoming metadata for profile creation is validated against schema/rules; reject or sanitize invalid fields. Ensure no unauthorized profile creation occurs without valid checks.
-- **HP02: Protect Invitation Tokens**  
-  - *Requirement:* Ensure invitation tokens are never returned in API responses. Verify that tokens are only included in secure delivery channels and never leaked via endpoints or logs accessible by unauthorized parties.
-- **HP03: Transaction Handling**  
-  - *Requirement:* Implement proper database transactions for all multi-step operations. Verify atomicity: ensure either all steps commit or all roll back on error. Confirm no partial commits occur in failure scenarios.
-- **HP04: Organization Access Validation**  
-  - *Requirement:* Ensure proper multi-tenant isolation. Verify that every data access or operation enforces the organization context; no cross-tenant data leakage or operations permitted.
-- 
-
-# DONE#####--- Verified and Corrected Items**
-
- # == BEGIN HERE =====
-
-- **HP05: Secure File Uploads**  
-  - *Requirement:*  
-    - Validate file type and size strictly according to allowed types.  
-    - Enforce content inspection (e.g., MIME type checks).  
-    - Verify storage permissions and access controls.  
-
-**Notes:**
-- These high-priority items are believed already implemented; perform verification and correct any issues exactly as described, without adding unrelated functionality.
-
----
-
-### 3. POSITIVE SECURITY IMPLEMENTATIONS (Existing Features to Verify)
-
-**Description:**  
-Confirm that these features exist and operate correctly. They are stated as already implemented. Only verify and fix if misconfigured; do not extend or alter design without consultation.
-
-**Features to Verify:**
-- Multi-tenant organization isolation (when working correctly)
-- Role-based access control with Admin / Auditor / Reviewer roles
-- Comprehensive audit logging for sensitive operations
-- Input validation and sanitization in most endpoints
-- Soft delete implementation to prevent data loss
-
-**Requirement for Each Feature:**
-1. Verify presence.
-2. Confirm correctness against expected behavior.
-3. If misconfigured, adjust to match original design as described in later sections.
-
-> Do not introduce additional roles, logging beyond scope, or alter the soft-delete design unless explicitly instructed.
-
----
-
-### 4. SECURITY RECOMMENDATIONS (Auth & RBAC)
-
-**Description:**  
-These are recommendations already provided. If not implemented, implement exactly as stated. Do not expand or reinterpret recommendations.
-
-#### 4.1 Authentication & Authorization
-- Implement proper JWT token validation: verify signature, expiration, issuer, audience exactly as configured by application requirements.
-- Use secure session management with proper expiration: if sessions are used, ensure secure cookies or tokens expire appropriately and are invalidated on logout.
-
-#### 4.2 RBAC (Role-Based Access Control) and Permission Levels
-- **Preamble:** Define clear role hierarchies and assign permissions strictly as described below. Do not add or remove roles or permissions beyond Admin, Auditor, Reviewer.
-- Define clear role hierarchies: Admin > Auditor > Reviewer. Do not introduce other roles.
-- Assign permissions exactly per role definitions given in the “RBAC Role Definitions” section.
-
-#### 4.3 RBAC Role Definitions
-
-##### Administrator (Admin)
-- **Permissions:**
-  - Onboarding: Admin can sign up independently, then create a new organization profile in the application.
-  - User Management: Admin can invite, manage, and remove users (Auditors and Reviewers) in their organization.
-  - Invitation System: Admin has dashboard to send invitation links for new team members.
-  - Organizational Oversight: Admin has full access to all their organization’s data and settings.
-  - Deletion Approval: Admin reviews and approves or rejects deletion requests submitted by Auditors. Deletions execute only upon Admin approval.
-- **Notes:**
-  - Do not add extra Admin capabilities beyond above. Any change requires explicit consultation.
-
-##### Auditor
-- **Permissions:**
-  - Access Level: Broad access to view and interact with data in assigned organization.
-  - Editing Permissions: Can edit data directly; edits do not require approval.
-  - Deletion Initiation: Can initiate deletion of a piece of data/file. For project-level deletion, flag item as pending deletion and send request to Admin; do not execute deletion until Admin approves.
-- **Restrictions:**
-  - Cannot manage users, change high-level settings, or generate invitation links.
-  - Primary function: access application features for data management within scope above.
-- **Notes:**
-  - Implement database flags (e.g., `is_pending_deletion`), notifications, and interface for Admin approval workflow as described. Do not add further workflows beyond deletion approval.
-
-##### Reviewer
-- **Permissions:**
-  - Task-Specific Permissions: Limited access focused on review tasks (e.g., view submitted reports or requests; approve or reject them).
-  - Limited Scope: Only interact with data relevant to review tasks; cannot access high-level settings or user management.
-  - Access Granted: Only via invitation from Admin.
-- **Notes:**
-  - Do not expand Reviewer’s scope. Follow exactly as described.
-
-**Notes for This Section:**
-- The system must support roles and the deletion-approval workflow exactly as described.
-- If any part of these recommendations is missing, implement exactly; if already present, verify correctness.
-
----
-
-### 5. DATABASE FILE GENERATION
-
-**Description:**  
-Generate database schema files from scratch, ignoring any existing data structure guides except what is provided here. Place generated files in the project’s database directory. Include all necessary fields and relationships aligned with the project requirements as implied by above RBAC and multi-tenant design.
-
-**Requirements:**
-- Use exactly the entities and relationships implied by:  
-  Organizations, Users, Roles (Admin, Auditor, Reviewer), InvitationTokens, Profiles, AuditLogs, SoftDeletes, PendingDeletionRequests, etc.
-- Do not introduce additional entities not implied by the instructions.
-- Ensure database schema supports:  
-  - Multi-tenant isolation (e.g., `organization_id` foreign keys on all tenant-specific tables).  
-  - RBAC tables or fields linking users to roles within an organization.  
-  - Invitation tokens stored securely (but not returned in API responses).  
-  - Audit logging table(s) capturing sensitive operations.  
-  - Soft delete flags/columns on entities.  
-  - Pending-deletion workflow: a table or flag for deletion requests, linking Auditor-initiated request to Admin approval.
-- Schema files should be placed in the designated database directory. Use naming conventions consistent with the project. Ensure easy-to-understand and maintainable definitions.
-- Document foreign keys, indexes, constraints, and any necessary validations at the database level to enforce data integrity (e.g., uniqueness constraints as needed).
-
-**Notes:**
-- Before generating, confirm project directory structure for database directory; place files accordingly.
-- If existing files conflict, handle according to project policy (consult owner) rather than overwriting blindly.
-
----
-
-### 6. INFRASTRUCTURE SECURITY
-
-**Description:**  
-Implement or verify the following in all environments. If missing or misconfigured, configure exactly as stated; do not add extra infrastructure features beyond these.
-
-**Tasks:**
-- Enforce HTTPS in all environments: ensure TLS certificates are valid; no HTTP endpoints allowed in production or staging.
-- Implement proper CORS policies: restrict allowed origins as per application requirements; do not allow overly permissive settings.
-- Add security headers:  
-  - Content-Security-Policy (CSP) appropriate to application resources.  
-  - HTTP Strict Transport Security (HSTS) with suitable max-age.  
-  - X-Frame-Options to prevent clickjacking.  
-  - Other headers as required (e.g., X-Content-Type-Options: nosniff).
-- Use environment-specific configurations: secrets, keys, endpoints must be loaded per environment; verify no hard-coded secrets.
-
-**Notes:**
-- Verify existing infra; if absent or misconfigured, implement only these items as described.
-
----
-
-### 7. MONITORING & LOGGING
-
-**Description:**  
-Verify or implement the following security monitoring capabilities. Do not add beyond these.
-
-**Tasks:**
-- Implement security event monitoring: collect events relevant to authentication, authorization failures, critical operations.
-- Add anomaly detection for unusual access patterns: set up basic thresholds or integrate with existing monitoring tools; detect e.g., unusual login volumes or cross-tenant access attempts.
-- Regular security log reviews: define schedule and responsibilities for reviewing logs; ensure alerts for high-severity events.
-- Automated vulnerability scanning: ensure scheduled scans of infrastructure and code dependencies; review and remediate findings.
-
-**Notes:**
-- If part of monitoring already exists, verify configuration; if missing, integrate exactly these capabilities without additional monitoring features beyond scope.
-
----
-
-### 8. CLIENT AND SERVER SIDE INTEGRATION
-
-**Description:**  
-Ensure that database schema and application code reflect client-server integration requirements exactly as stated. Changes on either end should synchronize with the database automatically.
-
-**Requirements:**
-- Design database schema and application endpoints so that when new features are added on frontend or backend, the database changes accordingly (e.g., migrations triggered by code changes).
-- Do not assume or add extra integration patterns beyond ensuring synchronization between client, server, and database for allowed features. Any mechanism chosen (e.g., migrations, API-driven updates) should be documented and aligned with project practices.
-
-**Notes:**
-- Consult owner if integration approach conflicts with existing design. Do not alter original design without approval.
-
----
-
-### 9. GROUND RULES
-
-**Description:**  
-Overarching constraints on all work.
-
-**Rules:**
-- Do not complicate issues or alter application features without consulting the owner first. No major alterations to the original application design unless explicitly approved.
-- When drafting database schema, ensure alignment with application requirements and functionality; keep schemas easy to understand and maintain.
-- All implementations or verifications must adhere to original design intent; if uncertain, raise for clarification rather than guessing.
-
-**Notes:**  
-Treat these as hard guardrails.
-
----
-
-### 10. POST-COMPLETION VALIDATION
-
-**Description:**  
-After completing all the above verifications, fixes, and implementations, perform comprehensive audits as follows:
-
-**Tasks:**
-- Comprehensive codebase audit: Identify and rectify functional errors or security vulnerabilities overlooked during initial amendments. Do not introduce new features; only address defects or missing security controls from above scope.
-- Thorough examination of codebase: Detect and address overlooked bugs, security flaws, performance issues possibly missed earlier.
-- Validation of entire user sign-up and registration process: Examine stability and security of database connection to remote database; ensure secure handling of credentials, retries, error handling.
-- Verify correct integration and secure handling of storage, database, and authentication processes managed by Supabase: Confirm environment configurations, secrets handling, access rules in Supabase exactly per application requirements.
-
-**Notes:**  
-For each subtask, document findings and fixes. Do not extend beyond verifying or correcting issues within the scope defined above.
-
----
-
-## Instructions for Automated System Processing
-
-1. **Parse the above specification.**  
-   - Do not perform any task not explicitly listed.
-2. **For each “Verify…” item:**  
-   - Check existing implementation, compare against the requirement, log status.  
-   - If non-compliant, implement the precise fix described; do not add extras.
-3. **For tasks requiring generation** (e.g., database files):  
-   - Generate files strictly according to the requirements; place them in the designated directory.
-4. **For infrastructural changes:**  
-   - Apply only the listed configurations.
-5. **For RBAC workflows:**  
-   - Implement or verify exactly as described in RBAC Role Definitions, including deletion-approval workflow.
-6. **On ambiguous points** regarding “project directory” or “existing codebase structure”:  
-   - Pause and request clarification rather than assume.
-7. **After all steps:**  
-   - Run the post-completion validation tasks in the order listed.
-8. **Log all actions taken, changes made, and verification results.**  
-   - Provide a report summarizing compliance and any fixes applied.
-
----
-
-## Guardrails (Hard Constraints)
-
-- **DO NOT** introduce functionality not explicitly described.
-- **DO NOT** modify original design unless explicit approval is obtained.
-- **DO NOT** assume any default values or thresholds beyond what is provided; if needed, request explicit values.
-- All tasks are mandatory only as listed; no extra security enhancements outside these instructions.
-- Any uncertainties must trigger a clarification request to the owner.
-
----
-
-*End of specification.*
-
-# Claude stooped here 
-
- HP05: Verify secure file uploads with validation and access controls
-     ☐ HP03: Document upload lacks transaction handling - needs improvement
-     ☐ Verify multi-tenant organization isolation implementation
-     ☐ Verify RBAC with Admin/Auditor/Reviewer roles
-     ☐ Verify comprehensive audit logging for sensitive operations
-     ☐ Verify input validation and sanitization in endpoints
-     ☐ Verify soft delete implementation
-     ☐ Verify JWT token validation implementation
-     ☐ Verify secure session management with proper expiration
-     ☐ Comprehensive codebase audit for security vulnerabilities
-     ☐ Validate user sign-up and registration process security
-     ☐ Verify Supabase integration security and configuration
-     ☐ LP01: Rate limiting exists but not applied to auth endpoints - needs implementation
-     ☐ LP02: Verify environment validation for service keys
-     ☐ LP03: Verify error handling doesn't expose sensitive information
-     ☐ LP04: Verify automated security scanning integration
-     ☐ Verify HTTPS enforcement in all environments
-     ☐ Verify proper CORS policies
-     ☐ Verify security headers (CSP, HSTS, X-Frame-Options, etc.)
-     ☐ Verify environment-specific configurations without hard-coded secrets
-     ☐ Verify security event monitoring implementation
-     ☐ Verify anomaly detection for unusual access patterns
-     ☐ Verify regular security log review processes
-     ☐ Verify automated vulnerability scanning
-     ☐ Verify client-server-database integration synchronization
+# Claude Code: Comprehensive Codebase Architecture Audit & Implementation
+
+## 🎯 **MISSION DIRECTIVE**
+
+You are tasked with conducting a thorough architectural analysis and implementing systematic improvements to a Next.js 15 codebase. At every level of analysis and implementation, you must:
+
+1. **ANALYZE DEEPLY** - Examine each file's structure, dependencies, patterns, and potential issues
+2. **THINK CRITICALLY** - Question existing patterns, identify root causes, not just symptoms
+3. **PLAN STRATEGICALLY** - Consider ripple effects of changes across the entire codebase
+4. **IMPLEMENT METHODICALLY** - Make precise, well-reasoned changes with clear justification
+
+## 🔍 **DEEP ANALYSIS REQUIREMENTS**
+
+Before making ANY changes, perform these analyses:
+
+### **Codebase Structure Analysis**
+- Map all file dependencies and import relationships
+- Identify circular dependencies or overly complex dependency chains
+- Analyze component hierarchy and data flow patterns
+- Document all file types, naming conventions, and organizational patterns
+
+### **Architecture Pattern Analysis**
+- Evaluate current architectural patterns (MVC, layered, etc.)
+- Identify anti-patterns and code smells
+- Assess separation of concerns across layers
+- Document coupling and cohesion levels
+
+### **Type Safety & Error Handling Analysis**
+- Audit TypeScript coverage and type definitions
+- Map error handling patterns across the application
+- Identify inconsistent patterns and potential failure points
+- Document authentication and authorization flows
+
+## 📋 **CRITICAL ISSUES REQUIRING IMMEDIATE ATTENTION**
+
+### **ISSUE 1: File Extension Inconsistency**
+**Deep Analysis Required:**
+- Scan entire codebase for mixed .js/.jsx/.ts/.tsx files
+- Identify which files lack proper TypeScript coverage
+- Map import dependencies that would break during conversion
+- Plan conversion order to avoid breaking changes
+
+**Files Requiring Conversion:**
+- `layout.js` → `layout.tsx`
+- `dashboard/layout.jsx` → `dashboard/layout.tsx` 
+- `dashboard/page.jsx` → `dashboard/page.tsx`
+- `Navbar.jsx` → `Navbar.tsx`
+- `Sidebar.jsx` → `Sidebar.tsx`
+- `database.js` → `database.ts`
+
+**Implementation Strategy:**
+1. Create comprehensive type definitions first
+2. Convert leaf nodes (components with no dependencies) first
+3. Work backward through dependency chain
+4. Test each conversion thoroughly
+
+### **ISSUE 2: Middleware Return Value Bug**
+**Location:** `nextjs/utils/supabase/middleware.ts` line 35
+**Problem:** Incorrect return statement breaking authentication flow
+**Current:** `return supabaseResponse`
+**Required:** `return { supabase, response: supabaseResponse }`
+
+**Deep Analysis:**
+- Trace all middleware usage throughout application
+- Identify potential authentication failures caused by this bug
+- Document all dependent authentication flows
+
+### **ISSUE 3: Component Complexity Overload**
+**Critical Analysis Required for:**
+
+**Dashboard.jsx (500+ lines):**
+- Map all responsibilities currently handled
+- Identify state management patterns
+- Document data flow and side effects
+- Plan component decomposition strategy
+
+**Navbar.jsx (200+ lines):**
+- Separate UI logic from business logic
+- Identify reusable patterns
+- Document authentication integration points
+
+**ChatWidget.tsx (300+ lines):**
+- Analyze chat logic coupling with UI
+- Identify state management opportunities
+- Document WebSocket/API integration patterns
+
+## 🏗️ **ARCHITECTURAL IMPROVEMENTS FRAMEWORK**
+
+### **Type System Implementation**
+Create comprehensive type definitions before any refactoring:
+
+```typescript
+// types/index.ts - Complete type system
+export interface User {
+  id: string
+  auth_user_id: string
+  email: string
+  first_name: string
+  last_name: string
+  role: 'admin' | 'auditor' | 'reviewer'
+  organization_id: string
+  status: 'active' | 'inactive' | 'suspended'
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  description?: string
+  client_name: string
+  status: 'active' | 'completed' | 'on_hold' | 'cancelled'
+  created_by: string
+  organization_id: string
+  created_at: string
+  updated_at: string
+}
+
+// Add comprehensive interfaces for all data models
+```
+
+### **Service Layer Architecture**
+Implement clean separation between API routes and business logic:
+
+```typescript
+// services/ProjectService.ts
+export class ProjectService {
+  constructor(private db: Database, private auth: AuthService) {}
+
+  async createProject(data: CreateProjectData, userId: string): Promise<Result<Project>> {
+    // Deep validation logic
+    const validation = this.validateProjectData(data)
+    if (!validation.isValid) return Result.error(validation.errors)
+    
+    // Business logic implementation
+    const projectData = await this.prepareProjectData(data, userId)
+    
+    // Transactional database operations
+    return await this.db.transaction(async (tx) => {
+      return await tx.createProject(projectData)
+    })
+  }
+
+  private async validateProjectData(data: CreateProjectData): Promise<ValidationResult> {
+    // Comprehensive validation logic
+  }
+}
+```
+
+### **Component Architecture Patterns**
+Implement systematic component decomposition:
+
+**For Dashboard Refactoring:**
+1. **DashboardContainer** - Main orchestration component
+2. **DashboardStats** - Statistics display logic
+3. **DashboardProjects** - Project management interface
+4. **DashboardNews** - News and updates section
+5. **DashboardQuickActions** - Action buttons and shortcuts
+
+**For Each Component, Implement:**
+- Clear prop interfaces
+- Comprehensive error boundaries
+- Loading states and error handling
+- Accessibility compliance
+- Performance optimization (memoization, lazy loading)
+
+### **Custom Hooks Architecture**
+Create comprehensive custom hooks for all major operations:
+
+```typescript
+// hooks/useAuth.ts
+export function useAuth() {
+  // Comprehensive authentication state management
+  // Error handling and retry logic
+  // Automatic token refresh
+  // Session persistence
+}
+
+// hooks/useProjects.ts  
+export function useProjects(filters?: ProjectFilters) {
+  // Advanced caching strategies
+  // Optimistic updates
+  // Background refetching
+  // Error recovery
+}
+```
+
+### **Error Handling System**
+Implement comprehensive error handling throughout:
+
+```typescript
+// lib/errors.ts
+export class AppError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public statusCode: number = 500,
+    public context?: Record<string, any>
+  ) {
+    super(message)
+    this.name = 'AppError'
+  }
+}
+
+// Specific error types
+export class ValidationError extends AppError {
+  constructor(message: string, field?: string) {
+    super(message, 'VALIDATION_ERROR', 400, { field })
+  }
+}
+```
+
+## 🚀 **IMPLEMENTATION EXECUTION PLAN**
+
+### **PHASE 1: Foundation & Critical Fixes**
+1. **Type System Implementation**
+   - Create comprehensive type definitions
+   - Implement strict TypeScript configuration
+   - Add type checking for all existing code
+
+2. **Critical Bug Fixes**
+   - Fix middleware return value bug
+   - Resolve authentication flow issues
+   - Patch any security vulnerabilities
+
+3. **File Structure Standardization**
+   - Convert all JavaScript files to TypeScript
+   - Implement consistent naming conventions
+   - Organize imports and dependencies
+
+### **PHASE 2: Component Architecture Refactoring**
+1. **Large Component Decomposition**
+   - Break down Dashboard component systematically
+   - Implement proper component hierarchy
+   - Add comprehensive prop typing
+
+2. **Layout Component Optimization**
+   - Refactor Navbar with proper separation of concerns
+   - Implement reusable layout patterns
+   - Add responsive design improvements
+
+3. **State Management Implementation**
+   - Create custom hooks for all major operations
+   - Implement proper state lifting and prop drilling elimination
+   - Add global state management where appropriate
+
+### **PHASE 3: Service Layer & API Architecture**
+1. **Service Layer Implementation**
+   - Create service classes for all business logic
+   - Implement proper dependency injection
+   - Add comprehensive validation and error handling
+
+2. **API Route Standardization**
+   - Implement consistent error handling across all routes
+   - Add proper authentication middleware usage
+   - Standardize response formats
+
+3. **Database Layer Optimization**
+   - Convert database class to TypeScript
+   - Implement proper connection pooling
+   - Add query optimization and caching
+
+### **PHASE 4: Quality Assurance & Testing**
+1. **Testing Infrastructure**
+   - Implement comprehensive unit testing
+   - Add integration testing for API routes
+   - Create end-to-end testing scenarios
+
+2. **Performance Optimization**
+   - Implement code splitting and lazy loading
+   - Add performance monitoring
+   - Optimize bundle sizes and loading times
+
+3. **Error Boundaries & Monitoring**
+   - Add comprehensive error boundaries
+   - Implement error reporting and monitoring
+   - Add user-friendly error interfaces
+
+## 📊 **SUCCESS METRICS & VALIDATION**
+
+After each phase, validate improvements using these metrics:
+
+### **Code Quality Metrics**
+- TypeScript coverage: 100%
+- ESLint error count: 0
+- Component complexity scores (< 10 per component)
+- Test coverage: > 90%
+
+### **Performance Metrics**
+- Bundle size reduction
+- Page load time improvements
+- Memory usage optimization
+- Network request optimization
+
+### **Architectural Metrics**
+- Cyclomatic complexity reduction
+- Coupling coefficient improvements
+- Cohesion score improvements
+- Code duplication elimination
+
+## 🎯 **EXECUTION COMMANDS FOR EACH PHASE**
+
+**Before Starting:** Analyze the current codebase structure completely
+**During Implementation:** Test each change immediately
+**After Each Phase:** Validate all metrics and run comprehensive tests
+**Final Step:** Document all changes and create migration guide
+
+Remember: Every change must be justified with clear reasoning, tested thoroughly, and documented comprehensively. Think deeply about the implications of each modification on the entire system architecture.
