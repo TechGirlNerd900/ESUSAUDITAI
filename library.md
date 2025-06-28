@@ -19,6 +19,12 @@ This file maintains a list of Context7-compatible library IDs that have been sea
 - Trust Score: 10
 - Versions: v14.3.0-canary.87, v13.5.11, v15.1.8
 
+## WebSockets
+- Library ID: /websockets/ws
+- Description: Simple to use, blazing fast and thoroughly tested WebSocket client and server for Node.js
+- Code Snippets: 23
+- Trust Score: 6.7
+
 ## Other Libraries
 (Add other libraries as needed)
 
@@ -28,4 +34,4 @@ This file maintains a list of Context7-compatible library IDs that have been sea
 - **Storage Buckets**: Bucket creation, security policies, file upload restrictions
 
 ---
-*Last updated: 2025-06-14*
+*Last updated: 2025-06-26*

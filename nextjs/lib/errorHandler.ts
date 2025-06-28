@@ -19,8 +19,10 @@ export class NotFoundError extends ApiError {
 }
 
 export class ValidationError extends ApiError {
-  constructor(message: string = 'Validation failed') {
+  constructor(message: string = 'Validation failed', public details?: Array<{ field: string; message: string }>) {
     super(message, 400);
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
   }
 }
 
@@ -51,26 +53,33 @@ export function withErrorHandling(
       
       // Handle custom API errors
       if (error instanceof ApiError) {
+        // Specifically handle ValidationError to include details
+        if (error instanceof ValidationError && error.details) {
+          return NextResponse.json(
+            { error: error.message, details: error.details },
+            { status: error.statusCode }
+          );
+        }
         return NextResponse.json(
           { error: error.message },
           { status: error.statusCode }
         );
       }
       
-      // Handle Prisma or database errors
-      if (error.code && error.code.startsWith('P')) {
+      // Handle Prisma or database errors (assuming 'code' property exists on Prisma errors)
+      if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' && error.code.startsWith('P')) {
         return NextResponse.json(
-          { error: 'Database error', details: error.message },
+          { error: 'Database error', details: (error as any).message },
           { status: 500 }
         );
       }
       
-      // Handle validation errors from Zod or other validators
-      if (error.errors && Array.isArray(error.errors)) {
+      // Handle generic validation errors (if not a custom ValidationError)
+      if (error && typeof error === 'object' && 'errors' in error && Array.isArray((error as any).errors)) {
         return NextResponse.json(
-          { 
-            error: 'Validation error', 
-            details: error.errors.map((e: any) => e.message || e).join(', ')
+          {
+            error: 'Validation error',
+            details: (error as any).errors.map((e: any) => e.message || e)
           },
           { status: 400 }
         );

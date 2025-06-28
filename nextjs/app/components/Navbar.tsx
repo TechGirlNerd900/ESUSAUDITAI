@@ -3,44 +3,44 @@
 import React, { Fragment, useState } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import clsx from 'clsx';
-import { createClient } from '@/utils/supabase/client';
-import LogoutButton from './LogoutButton';
-
-interface User {
-  id: string;
-  email: string;
-  user_metadata?: {
-    first_name?: string;
-    last_name?: string;
-  };
-}
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
+import type { User } from '@/types/components';
 
 interface NavbarProps {
   setSidebarOpen: (open: boolean) => void;
-  user: User;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen, user }) => {
+const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen }) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user, signOut, loading } = useSupabaseAuth();
   const [notificationCount] = useState(3);
-  const supabase = createClient();
 
   const handleSignOut = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await signOut();
       router.push('/login');
     } catch (error) {
       console.error('Sign out error:', error);
     }
   };
 
-  const isActive = (path: string) => {
-    // Note: pathname is not defined in this component
-    // This function needs to be properly implemented
-    return false;
+  const isActive = (path: string): boolean => {
+    return pathname === path;
   };
+
+  // Show loading state if auth is still loading
+  if (loading || !user) {
+    return (
+      <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200/50 bg-white/80 backdrop-blur-md px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+        <div className="flex flex-1 items-center justify-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200/50 bg-white/80 backdrop-blur-md px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
@@ -110,7 +110,7 @@ const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen, user }) => {
                   className="ml-4 text-sm font-semibold leading-6 text-gray-900 group-hover:text-gray-700 transition-colors duration-200"
                   aria-hidden="true"
                 >
-                  {user?.user_metadata?.first_name || user?.email?.split('@')[0] || 'User'}
+                  {user?.first_name || user?.email?.split('@')[0] || 'User'}
                 </span>
                 <svg className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -129,7 +129,7 @@ const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen, user }) => {
               <Menu.Items className="absolute right-0 z-10 mt-3 w-48 origin-top-right rounded-xl bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none border border-gray-100">
                 <div className="px-3 py-2 border-b border-gray-100">
                   <p className="text-sm font-medium text-gray-900">
-                    {user?.user_metadata?.first_name || user?.email?.split('@')[0] || 'User'}
+                    {user?.first_name || user?.email?.split('@')[0] || 'User'}
                   </p>
                   <p className="text-xs text-gray-500">{user?.email}</p>
                 </div>
@@ -169,11 +169,6 @@ const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen, user }) => {
               </Menu.Items>
             </Transition>
           </Menu>
-          <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            <div className="flex items-center space-x-4">
-              <LogoutButton />
-            </div>
-          </div>
         </div>
       </div>
     </div>

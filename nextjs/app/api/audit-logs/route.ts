@@ -1,50 +1,136 @@
-import { createClient } from '@/utils/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/utils/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withErrorHandling } from '@/lib/errorHandler';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-export async function GET(request: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+// Function to insert an audit log (can be called internally or via a POST endpoint)
+export async function insertAuditLog(
+  supabase: SupabaseClient,
+  logData: {
+    user_id: string;
+    organization_id: string;
+    action: string;
+    details?: object;
+    ip_address?: string;
+    user_agent?: string;
+    resource_type?: string;
+    resource_id?: string;
+    severity?: string;
+    tags?: string[];
   }
-  // Fetch user role
-  const { data: userProfile, error: userError } = await supabase
-    .from('users')
-    .select('role')
-    .eq('auth_user_id', user.id)
-    .single()
-  if (userError || !userProfile) {
-    return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
-  }
-  if (userProfile.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: admin access required' }, { status: 403 })
-  }
-  const { searchParams } = new URL(request.url)
-  const organization_id = searchParams.get('organization_id')
-  const event_type = searchParams.get('event_type')
-  const severity = searchParams.get('severity')
-  const tag = searchParams.get('tag')
-  const limit = parseInt(searchParams.get('limit') || '100', 10)
-  const resource_type = searchParams.get('resource_type')
-  const resource_id = searchParams.get('resource_id')
-
-  if (!organization_id) {
-    return NextResponse.json({ error: 'organization_id is required' }, { status: 400 })
-  }
-
-  const { data, error } = await supabase.rpc('search_audit_logs', {
-    p_organization_id: organization_id,
-    p_event_type: event_type,
-    p_severity: severity,
-    p_tag: tag,
-    p_limit: limit,
-    ...(resource_type && { p_resource_type: resource_type }),
-    ...(resource_id && { p_resource_id: resource_id })
-  })
+) {
+  const { data, error } = await supabase.from('audit_logs').insert([
+    {
+      user_id: logData.user_id,
+      organization_id: logData.organization_id,
+      action: logData.action,
+      details: logData.details,
+      ip_address: logData.ip_address,
+      user_agent: logData.user_agent,
+      resource_type: logData.resource_type,
+      resource_id: logData.resource_id,
+      severity: logData.severity,
+      tags: logData.tags,
+    },
+  ]).select();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Error inserting audit log:', error);
+    throw new Error('Failed to insert audit log');
   }
+  return data;
+}
 
-  return NextResponse.json({ logs: data })
-} 
+  export const GET = withErrorHandling(async (request: NextRequest) => {
+    const supabase: SupabaseClient = await createClient(); // Await createClient()
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select('role, organization_id')
+      .eq('auth_user_id', user.id)
+      .single();
+    if (userError || !userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
+    }
+    if (userProfile.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: admin access required' }, { status: 403 });
+    }
+  
+    const { searchParams } = new URL(request.url);
+    const organization_id = userProfile.organization_id;
+    
+    const event_type = searchParams.get('event_type');
+    const severity = searchParams.get('severity');
+    const tag = searchParams.get('tag');
+    const resource_type = searchParams.get('resource_type');
+    const resource_id = searchParams.get('resource_id');
+    
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+    const offset = (page - 1) * pageSize;
+  
+    const { count, error: countError } = await supabase
+      .from('audit_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organization_id)
+      .eq('event_type', event_type || null)
+      .eq('severity', severity || null)
+      .contains(tag ? 'tags' : 'id', tag ? [tag] : [])
+      .eq('resource_type', resource_type || null)
+      .eq('resource_id', resource_id || null);
+  
+    if (countError) {
+      console.error('Error fetching audit logs count:', countError);
+      return NextResponse.json({ error: 'Failed to fetch audit logs count' }, { status: 500 });
+    }
+  
+    const totalLogs = count || 0;
+    const totalPages = Math.ceil(totalLogs / pageSize);
+  
+    const { data: logs, error: logsError } = await supabase.rpc('search_audit_logs', {
+      p_organization_id: organization_id,
+      p_event_type: event_type,
+      p_severity: severity,
+      p_tag: tag,
+      p_limit: pageSize,
+      p_offset: offset,
+      ...(resource_type && { p_resource_type: resource_type }),
+      ...(resource_id && { p_resource_id: resource_id })
+    });
+  
+    if (logsError) {
+      console.error('Error fetching audit logs:', logsError);
+      return NextResponse.json({ error: 'Failed to fetch audit logs' }, { status: 500 });
+    }
+  
+    return NextResponse.json({ logs, totalPages, currentPage: page, pageSize });
+  });
+  
+  export const POST = withErrorHandling(async (request: NextRequest) => {
+    const supabase: SupabaseClient = await createClient(); // Await createClient()
+    const body = await request.json();
+  
+    if (!body.user_id || !body.organization_id || !body.action) {
+      return NextResponse.json({ error: 'Missing required log data' }, { status: 400 });
+    }
+  
+    const ip_address = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+    const user_agent = request.headers.get('user-agent') || 'unknown';
+  
+    try {
+      const newLog = await insertAuditLog(supabase, {
+        ...body,
+        ip_address,
+        user_agent,
+      });
+      return NextResponse.json({ success: true, log: newLog[0] }, { status: 201 });
+    } catch (error: any) {
+      console.error('Failed to process audit log POST request:', error);
+      return NextResponse.json({ error: error.message || 'Failed to log audit event' }, { status: 500 });
+    }
+  });

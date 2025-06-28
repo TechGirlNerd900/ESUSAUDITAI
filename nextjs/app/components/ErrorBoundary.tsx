@@ -31,6 +31,20 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Generate unique error ID for tracking
+    const errorId = `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const errorData = {
+      id: errorId,
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString(),
+      url: typeof window !== 'undefined' ? window.location.href : 'unknown',
+      userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'unknown',
+      retryCount: this.state.retryCount
+    };
+
     this.setState({
       error: error,
       errorInfo: errorInfo
@@ -38,11 +52,33 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
     // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('ErrorBoundary caught an error:', error, errorInfo);
+      console.error('ErrorBoundary caught an error:', errorData);
     }
 
-    // In production, you might want to log to an error reporting service
-    // logErrorToService(error, errorInfo);
+    // Report to error tracking service in production
+    if (process.env.NODE_ENV === 'production') {
+      this.reportError(errorData);
+    }
+  }
+
+  private async reportError(errorData: any) {
+    try {
+      // Report to internal error API
+      await fetch('/api/errors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...errorData,
+          severity: 'error',
+          source: 'error_boundary'
+        }),
+      });
+    } catch (reportingError) {
+      // Silently fail if error reporting fails
+      console.error('Failed to report error:', reportingError);
+    }
   }
 
   handleRetry = () => {
@@ -157,7 +193,7 @@ export const withErrorBoundary = <P extends object>(
 
 // Hook for error handling in functional components
 export const useErrorHandler = () => {
-  const [error, setError] = React.useState(null);
+  const [error, setError] = React.useState<Error | null>(null);
 
   const resetError = React.useCallback(() => {
     setError(null);
