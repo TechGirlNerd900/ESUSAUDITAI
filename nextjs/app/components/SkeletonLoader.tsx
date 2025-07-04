@@ -38,13 +38,13 @@ interface SkeletonLoaderProps {
  * A versatile Skeleton Loader component for displaying loading states.
  * It provides a visual placeholder for content that is still loading,
  * improving perceived performance and user experience.
- * 
+ *
  * Features:
  * - Customizable number of lines for text placeholders.
  * - Adjustable line height and overall width.
  * - Option for circular placeholders (e.g., for avatars).
  * - Shimmer effect for a modern loading indication.
- * 
+ *
  * Usage Examples:
  * - Basic text skeleton: `<SkeletonLoader />`
  * - Multi-line text: `<SkeletonLoader lines={3} />`
@@ -71,7 +71,8 @@ const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   circleSize = 'w-12 h-12',
 }) => {
   const baseClasses = 'bg-gray-200 animate-pulse rounded';
-  const shimmerEffect = 'relative overflow-hidden before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/50 before:to-transparent';
+  const shimmerEffect =
+    'relative overflow-hidden before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/50 before:to-transparent';
 
   if (isCircle) {
     return (

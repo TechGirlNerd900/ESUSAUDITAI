@@ -54,17 +54,17 @@ const Dashboard: React.FC = () => {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
-  const [tagFilter, setTagFilter] = useState('')
-  const [customFieldFilter, setCustomFieldFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('');
+  const [customFieldFilter, setCustomFieldFilter] = useState('');
 
   useEffect(() => {
     // Initialize user profile and check if first visit
     initializeUser();
-    
+
     // Show UI elements with staggered animations
     const timer1 = setTimeout(() => setStatsVisible(true), 300);
     const timer2 = setTimeout(() => setProjectsVisible(true), 600);
-    
+
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
@@ -78,7 +78,7 @@ const Dashboard: React.FC = () => {
       if (response.ok) {
         const profileData = await response.json();
         setUserProfile(profileData.profile);
-        
+
         // Check if this is user's first visit (you could store this in localStorage or database)
         const hasSeenWelcome = localStorage.getItem(`welcome_seen_${profileData.profile.id}`);
         if (!hasSeenWelcome) {
@@ -92,10 +92,10 @@ const Dashboard: React.FC = () => {
 
   const loadProjects = async () => {
     if (isLoading) return; // Prevent duplicate calls
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch('/api/projects');
       if (!response.ok) {
@@ -115,73 +115,74 @@ const Dashboard: React.FC = () => {
 
   const loadNews = async () => {
     if (newsLoading) return;
-    
+
     // Check cache first - only fetch if data is older than 1 hour
     const cachedNews = localStorage.getItem('financial_news');
     const cacheTimestamp = localStorage.getItem('financial_news_timestamp');
     const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
-    
-    if (cachedNews && cacheTimestamp && 
-        (Date.now() - parseInt(cacheTimestamp)) < oneHour) {
+
+    if (cachedNews && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < oneHour) {
       setNews(JSON.parse(cachedNews));
       return;
     }
-    
+
     setNewsLoading(true);
-    
+
     try {
       // Add delay to respect rate limits
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const params = {
         api_token: process.env.NEXT_PUBLIC_NEWS_API_TOKEN || '',
         categories: 'business',
         search: 'finance,sec,regulation',
-        limit: '3' // Reduced to minimize API usage
+        limit: '3', // Reduced to minimize API usage
       };
 
       const esc = encodeURIComponent;
       const query = Object.keys(params)
-        .map(k => esc(k) + '=' + esc((params as Record<string, string>)[k])) // Explicitly cast to Record<string, string>
+        .map((k) => esc(k) + '=' + esc((params as Record<string, string>)[k])) // Explicitly cast to Record<string, string>
         .join('&');
 
       const response = await fetch(`https://api.thenewsapi.com/v1/news/all?${query}`);
-      
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.status}`);
       }
-      
+
       const data = await response.json();
       const newsData = data.data || [];
-      
+
       // Cache the results
       localStorage.setItem('financial_news', JSON.stringify(newsData));
       localStorage.setItem('financial_news_timestamp', Date.now().toString());
-      
+
       setNews(newsData);
     } catch (error) {
       console.error('Failed to load news:', error);
       // Fallback to cached data if available, otherwise use defaults
-      const fallbackNews = cachedNews ? JSON.parse(cachedNews) : [
-        {
-          title: "SEC Updates Financial Reporting Guidelines",
-          description: "New compliance requirements for public companies",
-          published_at: new Date().toISOString(),
-          url: "#"
-        },
-        {
-          title: "ESG Reporting Standards Enhanced",
-          description: "Environmental and governance disclosure updates",
-          published_at: new Date().toISOString(),
-          url: "#"
-        },
-        {
-          title: "Financial Technology Trends 2024",
-          description: "AI and automation in financial services",
-          published_at: new Date().toISOString(),
-          url: "#"
-        }
-      ];
+      const fallbackNews = cachedNews
+        ? JSON.parse(cachedNews)
+        : [
+            {
+              title: 'SEC Updates Financial Reporting Guidelines',
+              description: 'New compliance requirements for public companies',
+              published_at: new Date().toISOString(),
+              url: '#',
+            },
+            {
+              title: 'ESG Reporting Standards Enhanced',
+              description: 'Environmental and governance disclosure updates',
+              published_at: new Date().toISOString(),
+              url: '#',
+            },
+            {
+              title: 'Financial Technology Trends 2024',
+              description: 'AI and automation in financial services',
+              published_at: new Date().toISOString(),
+              url: '#',
+            },
+          ];
       setNews(fallbackNews);
     } finally {
       setNewsLoading(false);
@@ -190,7 +191,7 @@ const Dashboard: React.FC = () => {
 
   const handleProjectCreated = (newProject: Project) => {
     // Add the new project to the existing projects list
-    setProjects(prevProjects => [newProject, ...prevProjects]);
+    setProjects((prevProjects) => [newProject, ...prevProjects]);
   };
 
   const handleWelcomeTaskSelect = (taskId: string) => {
@@ -246,64 +247,80 @@ const Dashboard: React.FC = () => {
       value: dataLoaded ? projects.length : '—',
       icon: (props: React.SVGProps<SVGSVGElement>) => (
         <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
+          />
         </svg>
       ),
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100',
       change: '+12%',
-      trend: 'up'
+      trend: 'up',
     },
     {
       name: 'Active Projects',
-      value: dataLoaded ? projects.filter(p => p.status === 'active').length : '—',
+      value: dataLoaded ? projects.filter((p) => p.status === 'active').length : '—',
       icon: (props: React.SVGProps<SVGSVGElement>) => (
         <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+          />
         </svg>
       ),
       color: 'from-green-500 to-emerald-600',
       bgColor: 'bg-gradient-to-br from-green-50 to-emerald-100',
       change: '+8%',
-      trend: 'up'
+      trend: 'up',
     },
     {
       name: 'Completed Projects',
-      value: dataLoaded ? projects.filter(p => p.status === 'completed').length : '—',
+      value: dataLoaded ? projects.filter((p) => p.status === 'completed').length : '—',
       icon: (props: React.SVGProps<SVGSVGElement>) => (
         <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+          />
         </svg>
       ),
       color: 'from-purple-500 to-indigo-600',
       bgColor: 'bg-gradient-to-br from-purple-50 to-indigo-100',
       change: '+25%',
-      trend: 'up'
+      trend: 'up',
     },
     {
       name: 'Issues Found',
       value: '12',
       icon: (props: React.SVGProps<SVGSVGElement>) => (
         <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+          />
         </svg>
       ),
       color: 'from-red-500 to-red-600',
       bgColor: 'bg-gradient-to-br from-red-50 to-red-100',
       change: '-15%',
-      trend: 'down'
-    }
+      trend: 'down',
+    },
   ];
 
-  const filteredProjects = projects.filter(project => {
-    const tagMatch = tagFilter ? (project.tags || []).includes(tagFilter) : true
+  const filteredProjects = projects.filter((project) => {
+    const tagMatch = tagFilter ? (project.tags || []).includes(tagFilter) : true;
     const customFieldMatch = customFieldFilter
-      ? Object.values(project.custom_fields || {}).some(val =>
+      ? Object.values(project.custom_fields || {}).some((val) =>
           String(val).toLowerCase().includes(customFieldFilter.toLowerCase())
         )
-      : true
-    return tagMatch && customFieldMatch
-  })
+      : true;
+    return tagMatch && customFieldMatch;
+  });
 
   // Error state
   if (error) {
@@ -311,19 +328,25 @@ const Dashboard: React.FC = () => {
       <div className="px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-md mx-auto">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <svg className="mx-auto h-12 w-12 text-red-500 mb-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
-            <h3 className="text-lg font-medium text-red-900 mb-2">
-              Unable to Load Dashboard
-            </h3>
-            <p className="text-sm text-red-700 mb-4">
-              {error.message || 'Failed to load projects. Please check your connection and try again.'}
-            </p>
-            <button
-              onClick={() => loadProjects()}
-              className="btn-primary"
+            <svg
+              className="mx-auto h-12 w-12 text-red-500 mb-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
             >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+              />
+            </svg>
+            <h3 className="text-lg font-medium text-red-900 mb-2">Unable to Load Dashboard</h3>
+            <p className="text-sm text-red-700 mb-4">
+              {error.message ||
+                'Failed to load projects. Please check your connection and try again.'}
+            </p>
+            <button onClick={() => loadProjects()} className="btn-primary">
               Try Again
             </button>
           </div>
@@ -351,7 +374,13 @@ const Dashboard: React.FC = () => {
               onClick={() => setShowCreateModal(true)}
               className="btn-primary group hover:shadow-lg transition-all duration-200 hover:scale-105"
             >
-              <svg className="h-4 w-4 mr-2 group-hover:rotate-90 transition-transform duration-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <svg
+                className="h-4 w-4 mr-2 group-hover:rotate-90 transition-transform duration-200"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               New Project
@@ -360,73 +389,116 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Stats */}
-        <div className={clsx(
-          'mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 transition-all duration-700',
-          statsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-        )}>
-          {dataLoaded ? (
-            stats.map((stat, index) => (
-              <div 
-                key={stat.name} 
-                className="card-gradient hover:shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] stagger-item animate-fade-in-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="card-body">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className={clsx('p-3 rounded-xl bg-gradient-to-br shadow-sm', stat.color)}>
-                          <stat.icon className="h-6 w-6 text-white" />
+        <div
+          className={clsx(
+            'mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 transition-all duration-700',
+            statsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          )}
+        >
+          {dataLoaded
+            ? stats.map((stat, index) => (
+                <div
+                  key={stat.name}
+                  className="card-gradient hover:shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] stagger-item animate-fade-in-up"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <div className="card-body">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <div
+                            className={clsx(
+                              'p-3 rounded-xl bg-gradient-to-br shadow-sm',
+                              stat.color
+                            )}
+                          >
+                            <stat.icon className="h-6 w-6 text-white" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <dt className="text-sm font-medium text-gray-600 truncate">
+                            {stat.name}
+                          </dt>
+                          <dd className="text-2xl font-bold text-gray-900">{stat.value}</dd>
                         </div>
                       </div>
-                      <div className="ml-4">
-                        <dt className="text-sm font-medium text-gray-600 truncate">
-                          {stat.name}
-                        </dt>
-                        <dd className="text-2xl font-bold text-gray-900">
-                          {stat.value}
-                        </dd>
+                      <div className="text-right">
+                        <div
+                          className={clsx(
+                            'flex items-center text-sm font-medium',
+                            stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                          )}
+                        >
+                          {stat.trend === 'up' ? (
+                            <svg
+                              className="h-4 w-4 mr-1"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M13 7h8m0 0v8m0-8l-8 8-4-4-3 3"
+                              />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="h-4 w-4 mr-1 transform rotate-180"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M13 7h8m0 0v8m0-8l-8 8-4-4-3 3"
+                              />
+                            </svg>
+                          )}
+                          {stat.change}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">vs last month</div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={clsx(
-                        'flex items-center text-sm font-medium',
-                        stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                      )}>
-                        {stat.trend === 'up' ? (
-                          <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-3 3" />
-                          </svg>
-                        ) : (
-                          <svg className="h-4 w-4 mr-1 transform rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-3 3" />
-                          </svg>
-                        )}
-                        {stat.change}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">vs last month</div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            Array.from({ length: 4 }).map((_, i) => (
-              <SkeletonLoader key={i} lines={3} lineHeight="h-4" width="w-full" className="h-32" />
-            ))
-          )}
+              ))
+            : Array.from({ length: 4 }).map((_, i) => (
+                <SkeletonLoader
+                  key={i}
+                  lines={3}
+                  lineHeight="h-4"
+                  width="w-full"
+                  className="h-32"
+                />
+              ))}
         </div>
 
         {/* Recent Projects */}
-        <div className={clsx(
-          'mt-12 transition-all duration-700',
-          projectsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-        )}>
+        <div
+          className={clsx(
+            'mt-12 transition-all duration-700',
+            projectsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          )}
+        >
           <div className="sm:flex sm:items-center mb-6">
             <div className="sm:flex-auto">
               <h2 className="text-2xl font-semibold text-gray-900 flex items-center">
-                <svg className="h-6 w-6 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="h-6 w-6 mr-2 text-gray-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 Recent Projects
               </h2>
@@ -435,13 +507,23 @@ const Dashboard: React.FC = () => {
               </p>
             </div>
             <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-              <Link 
-                href="/projects" 
+              <Link
+                href="/projects"
                 className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200 group"
               >
-                View all projects 
-                <svg className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                View all projects
+                <svg
+                  className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
                 </svg>
               </Link>
             </div>
@@ -452,14 +534,14 @@ const Dashboard: React.FC = () => {
               type="text"
               placeholder="Filter by tag"
               value={tagFilter}
-              onChange={e => setTagFilter(e.target.value)}
+              onChange={(e) => setTagFilter(e.target.value)}
               className="input input-modern"
             />
             <input
               type="text"
               placeholder="Filter by custom field value"
               value={customFieldFilter}
-              onChange={e => setCustomFieldFilter(e.target.value)}
+              onChange={(e) => setCustomFieldFilter(e.target.value)}
               className="input input-modern"
             />
           </div>
@@ -467,7 +549,13 @@ const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {isLoading && !dataLoaded ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <SkeletonLoader key={i} lines={3} lineHeight="h-4" width="w-full" className="h-40" />
+                <SkeletonLoader
+                  key={i}
+                  lines={3}
+                  lineHeight="h-4"
+                  width="w-full"
+                  className="h-40"
+                />
               ))
             ) : filteredProjects.length > 0 ? (
               filteredProjects.slice(0, 6).map((project, index) => (
@@ -480,22 +568,30 @@ const Dashboard: React.FC = () => {
                   <div className="card-body">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center">
-                        <div className={clsx(
-                          'status-dot mr-2',
-                          project.status === 'active' ? 'status-dot-green' :
-                          project.status === 'completed' ? 'bg-blue-400' :
-                          'status-dot-gray'
-                        )}></div>
+                        <div
+                          className={clsx(
+                            'status-dot mr-2',
+                            project.status === 'active'
+                              ? 'status-dot-green'
+                              : project.status === 'completed'
+                                ? 'bg-blue-400'
+                                : 'status-dot-gray'
+                          )}
+                        ></div>
                         <h3 className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
                           {project.name}
                         </h3>
                       </div>
-                      <span className={clsx(
-                        'badge',
-                        project.status === 'active' ? 'badge-success' :
-                        project.status === 'completed' ? 'badge-primary' :
-                        'badge-gray'
-                      )}>
+                      <span
+                        className={clsx(
+                          'badge',
+                          project.status === 'active'
+                            ? 'badge-success'
+                            : project.status === 'completed'
+                              ? 'badge-primary'
+                              : 'badge-gray'
+                        )}
+                      >
                         {project.status}
                       </span>
                     </div>
@@ -515,21 +611,39 @@ const Dashboard: React.FC = () => {
               <div className="card-gradient col-span-full">
                 <div className="card-body text-center py-12">
                   <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full mb-6">
-                    <svg className="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    <svg
+                      className="h-8 w-8 text-blue-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 4.5v15m7.5-7.5h-15"
+                      />
                     </svg>
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">No projects found.</h3>
-                  <p className="text-gray-600 mb-6">
-                    Create a new project to get started.
-                  </p>
+                  <p className="text-gray-600 mb-6">Create a new project to get started.</p>
                   <button
                     type="button"
                     onClick={() => setShowCreateModal(true)}
                     className="btn-primary group hover:shadow-lg transition-all duration-200 hover:scale-105"
                   >
-                    <svg className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform duration-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    <svg
+                      className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform duration-200"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 4.5v15m7.5-7.5h-15"
+                      />
                     </svg>
                     Create New Project
                   </button>
@@ -543,14 +657,24 @@ const Dashboard: React.FC = () => {
             {/* Quick Actions Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Create Project */}
-              <button 
+              <button
                 onClick={() => setShowCreateModal(true)}
                 className="card-gradient hover:shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] group"
               >
                 <div className="card-body text-center">
                   <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mb-4 group-hover:scale-110 transition-transform duration-200">
-                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    <svg
+                      className="h-6 w-6 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 4.5v15m7.5-7.5h-15"
+                      />
                     </svg>
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">New Project</h3>
@@ -559,14 +683,27 @@ const Dashboard: React.FC = () => {
               </button>
 
               {/* View Projects */}
-              <button 
-                onClick={() => { loadProjectsData(); router.push('/projects'); }}
+              <button
+                onClick={() => {
+                  loadProjectsData();
+                  router.push('/projects');
+                }}
                 className="card-gradient hover:shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] group"
               >
                 <div className="card-body text-center">
                   <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl mb-4 group-hover:scale-110 transition-transform duration-200">
-                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                    <svg
+                      className="h-6 w-6 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
+                      />
                     </svg>
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">View Projects</h3>
@@ -575,14 +712,24 @@ const Dashboard: React.FC = () => {
               </button>
 
               {/* Upload Documents */}
-              <button 
+              <button
                 onClick={() => loadProjectsData()}
                 className="card-gradient hover:shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] group"
               >
                 <div className="card-body text-center">
                   <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl mb-4 group-hover:scale-110 transition-transform duration-200">
-                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    <svg
+                      className="h-6 w-6 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                      />
                     </svg>
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">Upload Files</h3>
@@ -591,7 +738,7 @@ const Dashboard: React.FC = () => {
               </button>
 
               {/* Refresh News */}
-              <button 
+              <button
                 onClick={loadNews}
                 className="card-gradient hover:shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] group"
               >
@@ -600,8 +747,18 @@ const Dashboard: React.FC = () => {
                     {newsLoading ? (
                       <SkeletonLoader isCircle circleSize="w-6 h-6" /> // Use SkeletonLoader for spinner
                     ) : (
-                      <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h6.75" />
+                      <svg
+                        className="h-6 w-6 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h6.75"
+                        />
                       </svg>
                     )}
                   </div>
@@ -619,7 +776,13 @@ const Dashboard: React.FC = () => {
                 {isLoading && !dataLoaded ? (
                   <div className="grid grid-cols-1 gap-6">
                     {Array.from({ length: 4 }).map((_, i) => (
-                      <SkeletonLoader key={i} lines={3} lineHeight="h-4" width="w-full" className="h-40" />
+                      <SkeletonLoader
+                        key={i}
+                        lines={3}
+                        lineHeight="h-4"
+                        width="w-full"
+                        className="h-40"
+                      />
                     ))}
                   </div>
                 ) : (
@@ -635,22 +798,30 @@ const Dashboard: React.FC = () => {
                             <div className="card-body">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center">
-                                  <div className={clsx(
-                                    'status-dot mr-2',
-                                    project.status === 'active' ? 'status-dot-green' :
-                                    project.status === 'completed' ? 'bg-blue-400' :
-                                    'status-dot-gray'
-                                  )}></div>
+                                  <div
+                                    className={clsx(
+                                      'status-dot mr-2',
+                                      project.status === 'active'
+                                        ? 'status-dot-green'
+                                        : project.status === 'completed'
+                                          ? 'bg-blue-400'
+                                          : 'status-dot-gray'
+                                    )}
+                                  ></div>
                                   <h3 className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
                                     {project.name}
                                   </h3>
                                 </div>
-                                <span className={clsx(
-                                  'badge',
-                                  project.status === 'active' ? 'badge-success' :
-                                  project.status === 'completed' ? 'badge-primary' :
-                                  'badge-gray'
-                                )}>
+                                <span
+                                  className={clsx(
+                                    'badge',
+                                    project.status === 'active'
+                                      ? 'badge-success'
+                                      : project.status === 'completed'
+                                        ? 'badge-primary'
+                                        : 'badge-gray'
+                                  )}
+                                >
                                   {project.status}
                                 </span>
                               </div>
@@ -658,7 +829,9 @@ const Dashboard: React.FC = () => {
                                 Client: <span className="font-medium">{project.client_name}</span>
                               </p>
                               <div className="flex items-center justify-between text-xs text-gray-500">
-                                <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
+                                <span>
+                                  Created {new Date(project.created_at).toLocaleDateString()}
+                                </span>
                                 <span className="inline-flex items-center text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   View details →
                                 </span>
@@ -671,21 +844,44 @@ const Dashboard: React.FC = () => {
                       <div className="card-gradient">
                         <div className="card-body text-center py-12">
                           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full mb-6">
-                            <svg className="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            <svg
+                              className="h-8 w-8 text-blue-500"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.5}
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 4.5v15m7.5-7.5h-15"
+                              />
                             </svg>
                           </div>
-                          <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready to start your first audit?</h3>
+                          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                            Ready to start your first audit?
+                          </h3>
                           <p className="text-gray-600 mb-6">
-                            Create a project to organize your documents, collaborate with your team, and generate AI-powered audit reports.
+                            Create a project to organize your documents, collaborate with your team,
+                            and generate AI-powered audit reports.
                           </p>
                           <button
                             type="button"
                             onClick={() => setShowCreateModal(true)}
                             className="btn-primary group hover:shadow-lg transition-all duration-200 hover:scale-105"
                           >
-                            <svg className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform duration-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            <svg
+                              className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform duration-200"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.5}
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 4.5v15m7.5-7.5h-15"
+                              />
                             </svg>
                             Create Your First Project
                           </button>
@@ -702,8 +898,18 @@ const Dashboard: React.FC = () => {
                 <div className="card-gradient">
                   <div className="card-body">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <svg className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="h-5 w-5 mr-2 text-blue-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                       Recent Activity
                     </h3>
@@ -737,11 +943,23 @@ const Dashboard: React.FC = () => {
                 <div className="card-gradient">
                   <div className="card-body">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <svg className="h-5 w-5 mr-2 text-orange-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h6.75" />
+                      <svg
+                        className="h-5 w-5 mr-2 text-orange-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h6.75"
+                        />
                       </svg>
                       Financial News
-                      {newsLoading && <SkeletonLoader isCircle circleSize="w-6 h-6" className="ml-2" />}
+                      {newsLoading && (
+                        <SkeletonLoader isCircle circleSize="w-6 h-6" className="ml-2" />
+                      )}
                     </h3>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       {newsLoading ? (
@@ -752,16 +970,31 @@ const Dashboard: React.FC = () => {
                         ))
                       ) : news.length > 0 ? (
                         news.slice(0, 3).map((article, index) => (
-                          <div key={index} className={clsx(
-                            "border-l-4 pl-3 cursor-pointer hover:bg-gray-50 rounded-r-lg p-2 transition-colors duration-200",
-                            index === 0 ? "border-green-400" :
-                            index === 1 ? "border-blue-400" : "border-purple-400"
-                          )} onClick={() => article.url && article.url !== "#" && window.open(article.url, '_blank')}>
+                          <div
+                            key={index}
+                            className={clsx(
+                              'border-l-4 pl-3 cursor-pointer hover:bg-gray-50 rounded-r-lg p-2 transition-colors duration-200',
+                              index === 0
+                                ? 'border-green-400'
+                                : index === 1
+                                  ? 'border-blue-400'
+                                  : 'border-purple-400'
+                            )}
+                            onClick={() =>
+                              article.url &&
+                              article.url !== '#' &&
+                              window.open(article.url, '_blank')
+                            }
+                          >
                             <p className="text-sm font-medium text-gray-900 leading-tight mb-1">
-                              {article.title?.length > 60 ? article.title.substring(0, 60) + '...' : article.title}
+                              {article.title?.length > 60
+                                ? article.title.substring(0, 60) + '...'
+                                : article.title}
                             </p>
                             <p className="text-xs text-gray-600 leading-tight mb-1">
-                              {article.description?.length > 80 ? article.description.substring(0, 80) + '...' : article.description}
+                              {article.description?.length > 80
+                                ? article.description.substring(0, 80) + '...'
+                                : article.description}
                             </p>
                             <p className="text-xs text-gray-400">
                               {new Date(article.published_at).toLocaleDateString()}
@@ -775,7 +1008,7 @@ const Dashboard: React.FC = () => {
                       )}
                     </div>
                     <div className="mt-4 pt-3 border-t border-gray-200">
-                      <button 
+                      <button
                         onClick={loadNews}
                         disabled={newsLoading}
                         className="text-xs text-blue-600 hover:text-blue-500 transition-colors duration-200 disabled:opacity-50"
@@ -790,8 +1023,18 @@ const Dashboard: React.FC = () => {
                 <div className="card-gradient">
                   <div className="card-body">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <svg className="h-5 w-5 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                      <svg
+                        className="h-5 w-5 mr-2 text-indigo-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                        />
                       </svg>
                       AI Assistant
                     </h3>
@@ -805,9 +1048,7 @@ const Dashboard: React.FC = () => {
                         <p>• "Generate a risk assessment checklist"</p>
                       </div>
                     </div>
-                    <button className="w-full btn-primary text-sm">
-                      Start Chat
-                    </button>
+                    <button className="w-full btn-primary text-sm">Start Chat</button>
                   </div>
                 </div>
               </div>
@@ -826,7 +1067,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Create Project Modal */}
-        <CreateProjectModal 
+        <CreateProjectModal
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleProjectCreated}

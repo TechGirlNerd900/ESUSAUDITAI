@@ -1,19 +1,27 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react';
 
-export default function AuditLogViewer({ organizationId, resourceType, resourceId }: { organizationId: string, resourceType?: string, resourceId?: string }) {
-  const [logs, setLogs] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [filters, setFilters] = useState({ event_type: '', severity: '', tag: '' })
+export default function AuditLogViewer({
+  organizationId,
+  resourceType,
+  resourceId,
+}: {
+  organizationId: string;
+  resourceType?: string;
+  resourceId?: string;
+}) {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState({ event_type: '', severity: '', tag: '' });
 
   useEffect(() => {
-    fetchLogs()
+    fetchLogs();
     // eslint-disable-next-line
-  }, [organizationId, filters])
+  }, [organizationId, filters]);
 
   async function fetchLogs() {
-    setLoading(true)
+    setLoading(true);
     const params = new URLSearchParams({
       organization_id: organizationId,
       ...(filters.event_type && { event_type: filters.event_type }),
@@ -21,16 +29,16 @@ export default function AuditLogViewer({ organizationId, resourceType, resourceI
       ...(filters.tag && { tag: filters.tag }),
       ...(resourceType && { resource_type: resourceType }),
       ...(resourceId && { resource_id: resourceId }),
-      limit: '100'
-    })
-    const res = await fetch(`/api/audit-logs?${params.toString()}`)
-    const data = await res.json()
-    setLogs(data.logs || [])
-    setLoading(false)
+      limit: '100',
+    });
+    const res = await fetch(`/api/audit-logs?${params.toString()}`);
+    const data = await res.json();
+    setLogs(data.logs || []);
+    setLoading(false);
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    setFilters({ ...filters, [e.target.name]: e.target.value })
+    setFilters({ ...filters, [e.target.name]: e.target.value });
   }
 
   return (
@@ -46,7 +54,12 @@ export default function AuditLogViewer({ organizationId, resourceType, resourceI
             placeholder="Event Type"
             className="input input-modern"
           />
-          <select name="severity" value={filters.severity} onChange={handleChange} className="input input-modern">
+          <select
+            name="severity"
+            value={filters.severity}
+            onChange={handleChange}
+            className="input input-modern"
+          >
             <option value="">All Severities</option>
             <option value="info">Info</option>
             <option value="warning">Warning</option>
@@ -60,7 +73,9 @@ export default function AuditLogViewer({ organizationId, resourceType, resourceI
             placeholder="Tag"
             className="input input-modern"
           />
-          <button type="button" onClick={fetchLogs} className="btn btn-primary">Search</button>
+          <button type="button" onClick={fetchLogs} className="btn btn-primary">
+            Search
+          </button>
         </form>
       )}
       {loading ? (
@@ -96,5 +111,5 @@ export default function AuditLogViewer({ organizationId, resourceType, resourceI
         </div>
       )}
     </div>
-  )
-} 
+  );
+}

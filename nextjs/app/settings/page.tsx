@@ -1,58 +1,60 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
-import { useRouter } from 'next/navigation'
-import LoadingSpinner from '@/app/components/LoadingSpinner'
+import { useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
 
 export default function Settings() {
-  const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [notification, setNotification] = useState({
     type: '',
-    message: ''
-  })
-  const router = useRouter()
-  const supabase = createClient()
+    message: '',
+  });
+  const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
-    checkUser()
-  }, [])
+    checkUser();
+  }, []);
 
   async function checkUser() {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/login')
-        return
+        router.push('/login');
+        return;
       }
-      setUser(user)
+      setUser(user);
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function updateProfile(event: React.FormEvent) {
-    event.preventDefault()
-    setLoading(true)
+    event.preventDefault();
+    setLoading(true);
 
     try {
-      const formData = new FormData(event.target as HTMLFormElement)
-      const firstName = formData.get('firstName') as string
-      const lastName = formData.get('lastName') as string
-      const company = formData.get('company') as string
+      const formData = new FormData(event.target as HTMLFormElement);
+      const firstName = formData.get('firstName') as string;
+      const lastName = formData.get('lastName') as string;
+      const company = formData.get('company') as string;
 
       // Find the user in our users table by email
       const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('id')
         .eq('email', user?.email)
-        .single()
+        .single();
 
       if (fetchError) {
-        throw new Error('User not found in database')
+        throw new Error('User not found in database');
       }
 
       const updates = {
@@ -60,27 +62,24 @@ export default function Settings() {
         last_name: lastName || '',
         company: company || '',
         updated_at: new Date().toISOString(),
-      }
+      };
 
-      const { error } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('id', existingUser.id)
+      const { error } = await supabase.from('users').update(updates).eq('id', existingUser.id);
 
-      if (error) throw error
+      if (error) throw error;
 
       setNotification({
         type: 'success',
-        message: 'Profile updated successfully!'
-      })
+        message: 'Profile updated successfully!',
+      });
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error:', error);
       setNotification({
         type: 'error',
-        message: 'Error updating profile. Please try again.'
-      })
+        message: 'Error updating profile. Please try again.',
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -89,7 +88,7 @@ export default function Settings() {
       <div className="flex justify-center items-center min-h-screen">
         <LoadingSpinner />
       </div>
-    )
+    );
   }
 
   return (
@@ -97,9 +96,13 @@ export default function Settings() {
       <h1 className="text-2xl font-bold mb-8">Settings</h1>
 
       {notification.message && (
-        <div className={`p-4 rounded-lg mb-6 ${
-          notification.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-        }`}>
+        <div
+          className={`p-4 rounded-lg mb-6 ${
+            notification.type === 'success'
+              ? 'bg-green-100 text-green-700'
+              : 'bg-red-100 text-red-700'
+          }`}
+        >
           {notification.message}
         </div>
       )}
@@ -158,16 +161,12 @@ export default function Settings() {
           </div>
 
           <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-            >
+            <button type="submit" disabled={loading} className="btn-primary">
               {loading ? <LoadingSpinner size="sm" /> : 'Save Changes'}
             </button>
           </div>
         </form>
       </div>
     </div>
-  )
+  );
 }

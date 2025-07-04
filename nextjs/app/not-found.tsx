@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from 'next/link';
 
 export default function NotFound() {
   return (
@@ -20,12 +20,12 @@ export default function NotFound() {
             />
           </svg>
         </div>
-        
+
         <h1 className="mt-6 text-2xl font-bold text-gray-900">Page Not Found</h1>
         <p className="mt-4 text-gray-600">
           The page you're looking for doesn't exist or has been moved.
         </p>
-        
+
         <div className="mt-8 space-y-4">
           <Link
             href="/"
@@ -33,7 +33,7 @@ export default function NotFound() {
           >
             Return Home
           </Link>
-          
+
           <Link
             href="/dashboard"
             className="block w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-md transition-colors"
@@ -41,13 +41,16 @@ export default function NotFound() {
             Go to Dashboard
           </Link>
         </div>
-        
+
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
-            Need help? <Link href="/support" className="text-blue-600 hover:text-blue-700">Contact Support</Link>
+            Need help?{' '}
+            <Link href="/support" className="text-blue-600 hover:text-blue-700">
+              Contact Support
+            </Link>
           </p>
         </div>
       </div>
     </div>
-  )
+  );
 }

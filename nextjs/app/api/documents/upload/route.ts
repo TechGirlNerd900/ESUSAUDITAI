@@ -1,5 +1,5 @@
-import { createClient } from '@/utils/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/utils/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Allowed MIME types
 const ALLOWED_MIME_TYPES = [
@@ -9,35 +9,32 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
   'application/vnd.ms-excel', // .xls
   'text/csv',
-]
-const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 function sanitizeFileName(name: string): string {
   // Remove path traversal and unsafe characters
-  return name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    
+    const supabase = await createClient();
+
     // Start a transaction
-    const { error: txnError } = await supabase.rpc('begin_transaction')
+    const { error: txnError } = await supabase.rpc('begin_transaction');
     if (txnError) {
-      console.error('Error starting transaction:', txnError)
-      return NextResponse.json({ error: 'Failed to start transaction' }, { status: 500 })
+      console.error('Error starting transaction:', txnError);
+      return NextResponse.json({ error: 'Failed to start transaction' }, { status: 500 });
     }
 
     // Check authentication
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Fetch user's organization_id and role from users table
@@ -45,32 +42,32 @@ export async function POST(request: NextRequest) {
       .from('users')
       .select('organization_id, role')
       .eq('auth_user_id', user.id)
-      .single()
+      .single();
     if (userError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
+      return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
     }
 
     // Get form data
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const projectId = formData.get('projectId') as string
-    const customFieldsRaw = formData.get('custom_fields') as string | null
-    const tagsRaw = formData.get('tags') as string | null
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    const projectId = formData.get('projectId') as string;
+    const customFieldsRaw = formData.get('custom_fields') as string | null;
+    const tagsRaw = formData.get('tags') as string | null;
 
-    let custom_fields = {}
-    let tags: string[] = []
+    let custom_fields = {};
+    let tags: string[] = [];
     try {
-      if (customFieldsRaw) custom_fields = JSON.parse(customFieldsRaw)
-      if (tagsRaw) tags = JSON.parse(tagsRaw)
+      if (customFieldsRaw) custom_fields = JSON.parse(customFieldsRaw);
+      if (tagsRaw) tags = JSON.parse(tagsRaw);
     } catch (e) {
-      return NextResponse.json({ error: 'Invalid custom_fields or tags format (must be JSON)' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid custom_fields or tags format (must be JSON)' },
+        { status: 400 }
+      );
     }
 
     if (!file || !projectId) {
-      return NextResponse.json(
-        { error: 'File and project ID are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'File and project ID are required' }, { status: 400 });
     }
 
     // File validation
@@ -78,13 +75,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid file type. Only PDF, Word, Excel, and CSV files are allowed.' },
         { status: 400 }
-      )
+      );
     }
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: 'File size exceeds 50MB limit.' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'File size exceeds 50MB limit.' }, { status: 400 });
     }
 
     // Fetch project and check org
@@ -92,15 +86,15 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .select('organization_id, assigned_to, created_by, deleted_at')
       .eq('id', projectId)
-      .single()
+      .single();
     if (projectError || !project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
     if (project.deleted_at) {
-      return NextResponse.json({ error: 'Cannot upload to archived project' }, { status: 400 })
+      return NextResponse.json({ error: 'Cannot upload to archived project' }, { status: 400 });
     }
     if (project.organization_id !== userProfile.organization_id) {
-      return NextResponse.json({ error: 'Cross-organization upload denied' }, { status: 403 })
+      return NextResponse.json({ error: 'Cross-organization upload denied' }, { status: 403 });
     }
     // Only allow if user is admin, project creator, or assigned
     if (
@@ -108,34 +102,29 @@ export async function POST(request: NextRequest) {
       project.created_by !== user.id &&
       !(project.assigned_to && project.assigned_to.includes(user.id))
     ) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Sanitize filename
-    const sanitizedFileName = sanitizeFileName(file.name)
-    const timestamp = new Date().getTime()
-    const fileName = `${timestamp}-${sanitizedFileName}`
-    const filePath = `${user.id}/${projectId}/${fileName}`
+    const sanitizedFileName = sanitizeFileName(file.name);
+    const timestamp = new Date().getTime();
+    const fileName = `${timestamp}-${sanitizedFileName}`;
+    const filePath = `${user.id}/${projectId}/${fileName}`;
 
     // Upload file to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(filePath, file)
+    const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError);
       // Rollback transaction on error
-      await supabase.rpc('rollback_transaction')
-      return NextResponse.json(
-        { error: 'Failed to upload file to storage' },
-        { status: 500 }
-      )
+      await supabase.rpc('rollback_transaction');
+      return NextResponse.json({ error: 'Failed to upload file to storage' }, { status: 500 });
     }
 
     // Get the public URL of the uploaded file
-    const { data: { publicUrl } } = supabase.storage
-      .from('documents')
-      .getPublicUrl(filePath)
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('documents').getPublicUrl(filePath);
 
     // Create document record in the database
     const { data: document, error: dbError } = await supabase
@@ -156,60 +145,49 @@ export async function POST(request: NextRequest) {
         access_level: 'internal',
         processing_status: 'pending',
         custom_fields,
-        tags
+        tags,
       })
       .select()
-      .single()
+      .single();
 
     if (dbError) {
       console.error('Database error:', dbError);
       // Rollback transaction and delete the uploaded file
-      await supabase.rpc('rollback_transaction')
+      await supabase.rpc('rollback_transaction');
       // Compensating transaction: delete the uploaded file
-      await supabase.storage
-        .from('documents')
-        .remove([filePath])
-      return NextResponse.json(
-        { error: 'Failed to create document record' },
-        { status: 500 }
-      )
+      await supabase.storage.from('documents').remove([filePath]);
+      return NextResponse.json({ error: 'Failed to create document record' }, { status: 500 });
     }
 
     // Commit the transaction after successful operations
-    const { error: commitError } = await supabase.rpc('commit_transaction')
+    const { error: commitError } = await supabase.rpc('commit_transaction');
     if (commitError) {
-      console.error('Error committing transaction:', commitError)
+      console.error('Error committing transaction:', commitError);
       // Even if commit fails, we don't want to roll back at this point
       // as the operations were successful
     }
 
     return NextResponse.json({
       message: 'Document uploaded successfully',
-      document
-    })
-
+      document,
+    });
   } catch (error) {
-    console.error('Upload error:', error)
-    
+    console.error('Upload error:', error);
+
     try {
       // Attempt to rollback the transaction
-      const supabase = await createClient()
-      await supabase.rpc('rollback_transaction')
-      
+      const supabase = await createClient();
+      await supabase.rpc('rollback_transaction');
+
       // If we have a filePath defined, try to clean up the uploaded file
       let filePath: string | undefined;
       if (filePath) {
-        await supabase.storage
-          .from('documents')
-          .remove([filePath])
+        await supabase.storage.from('documents').remove([filePath]);
       }
     } catch (cleanupError) {
-      console.error('Error during error cleanup:', cleanupError)
+      console.error('Error during error cleanup:', cleanupError);
     }
-    
-    return NextResponse.json(
-      { error: 'Failed to upload document' },
-      { status: 500 }
-    )
+
+    return NextResponse.json({ error: 'Failed to upload document' }, { status: 500 });
   }
 }

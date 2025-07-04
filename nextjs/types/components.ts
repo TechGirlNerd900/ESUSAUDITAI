@@ -220,7 +220,9 @@ export interface PaginationInfo {
 // ===== EVENT HANDLER TYPES =====
 export interface EventHandlers {
   onClick?: (event: React.MouseEvent) => void;
-  onChange?: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+  onChange?: (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => void;
   onSubmit?: (event: React.FormEvent) => void;
   onKeyPress?: (event: React.KeyboardEvent) => void;
 }

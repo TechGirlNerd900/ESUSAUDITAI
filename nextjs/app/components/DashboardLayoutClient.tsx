@@ -1,16 +1,14 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Navbar from "./Navbar";
-import Sidebar from "./Sidebar";
+import { useState } from 'react';
+import Navbar from './Navbar';
+import Sidebar from './Sidebar';
 
 interface DashboardLayoutClientProps {
   children: React.ReactNode;
 }
 
-export default function DashboardLayoutClient({
-  children,
-}: DashboardLayoutClientProps) {
+export default function DashboardLayoutClient({ children }: DashboardLayoutClientProps) {
   const [open, setOpen] = useState(false);
 
   return (

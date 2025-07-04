@@ -93,8 +93,10 @@ export class Validator {
    */
   object(field: string, message: string = `${field} must be an object`): Validator {
     if (
-      this.data[field] !== undefined && 
-      (typeof this.data[field] !== 'object' || this.data[field] === null || Array.isArray(this.data[field]))
+      this.data[field] !== undefined &&
+      (typeof this.data[field] !== 'object' ||
+        this.data[field] === null ||
+        Array.isArray(this.data[field]))
     ) {
       this.errors[field] = message;
     }
@@ -109,8 +111,8 @@ export class Validator {
    */
   matches(field: string, pattern: RegExp, message: string): Validator {
     if (
-      this.data[field] !== undefined && 
-      typeof this.data[field] === 'string' && 
+      this.data[field] !== undefined &&
+      typeof this.data[field] === 'string' &&
       !pattern.test(this.data[field])
     ) {
       this.errors[field] = message;
@@ -134,10 +136,14 @@ export class Validator {
    * @param length - The minimum length
    * @param message - Custom error message
    */
-  minLength(field: string, length: number, message: string = `${field} must be at least ${length} characters`): Validator {
+  minLength(
+    field: string,
+    length: number,
+    message: string = `${field} must be at least ${length} characters`
+  ): Validator {
     if (
-      this.data[field] !== undefined && 
-      typeof this.data[field] === 'string' && 
+      this.data[field] !== undefined &&
+      typeof this.data[field] === 'string' &&
       this.data[field].length < length
     ) {
       this.errors[field] = message;
@@ -151,10 +157,14 @@ export class Validator {
    * @param length - The maximum length
    * @param message - Custom error message
    */
-  maxLength(field: string, length: number, message: string = `${field} must be at most ${length} characters`): Validator {
+  maxLength(
+    field: string,
+    length: number,
+    message: string = `${field} must be at most ${length} characters`
+  ): Validator {
     if (
-      this.data[field] !== undefined && 
-      typeof this.data[field] === 'string' && 
+      this.data[field] !== undefined &&
+      typeof this.data[field] === 'string' &&
       this.data[field].length > length
     ) {
       this.errors[field] = message;
@@ -168,11 +178,12 @@ export class Validator {
    * @param values - The allowed values
    * @param message - Custom error message
    */
-  oneOf(field: string, values: any[], message: string = `${field} must be one of: ${values.join(', ')}`): Validator {
-    if (
-      this.data[field] !== undefined && 
-      !values.includes(this.data[field])
-    ) {
+  oneOf(
+    field: string,
+    values: any[],
+    message: string = `${field} must be one of: ${values.join(', ')}`
+  ): Validator {
+    if (this.data[field] !== undefined && !values.includes(this.data[field])) {
       this.errors[field] = message;
     }
     return this;
@@ -194,10 +205,7 @@ export class Validator {
    * @param message - Custom error message
    */
   date(field: string, message: string = `${field} must be a valid date`): Validator {
-    if (
-      this.data[field] !== undefined && 
-      isNaN(Date.parse(this.data[field]))
-    ) {
+    if (this.data[field] !== undefined && isNaN(Date.parse(this.data[field]))) {
       this.errors[field] = message;
     }
     return this;
@@ -226,10 +234,7 @@ export class Validator {
    * @param message - Error message if validation fails
    */
   custom(field: string, validationFn: (value: any) => boolean, message: string): Validator {
-    if (
-      this.data[field] !== undefined && 
-      !validationFn(this.data[field])
-    ) {
+    if (this.data[field] !== undefined && !validationFn(this.data[field])) {
       this.errors[field] = message;
     }
     return this;
@@ -255,7 +260,7 @@ export class Validator {
   getResult(): ValidationResult {
     return {
       valid: this.isValid,
-      errors: this.errors
+      errors: this.errors,
     };
   }
 }

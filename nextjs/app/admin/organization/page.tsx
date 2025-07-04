@@ -1,114 +1,113 @@
-'use client'
+'use client';
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import LoadingSpinner from '@/app/components/LoadingSpinner'
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
 
 interface Organization {
-  id: string
-  name: string
-  logo_url?: string
-  created_at: string
-  updated_at: string
+  id: string;
+  name: string;
+  logo_url?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface User {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  role: 'admin' | 'auditor' | 'reviewer'
-  status: string
-  is_active: boolean
-  last_login_at?: string
-  created_at: string
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: 'admin' | 'auditor' | 'reviewer';
+  status: string;
+  is_active: boolean;
+  last_login_at?: string;
+  created_at: string;
 }
 
 interface Invitation {
-  token: string
-  email: string
-  role: string
-  firstName: string
-  lastName: string
-  organizationName: string
-  createdAt: string
-  expiresAt: string
+  token: string;
+  email: string;
+  role: string;
+  firstName: string;
+  lastName: string;
+  organizationName: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
 export default function OrganizationAdminPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [organization, setOrganization] = useState<Organization | null>(null)
-  const [users, setUsers] = useState<User[]>([])
-  const [invitations, setInvitations] = useState<Invitation[]>([])
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // Invite form state
-  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     firstName: '',
     lastName: '',
-    role: 'auditor'
-  })
-  const [inviteLoading, setInviteLoading] = useState(false)
+    role: 'auditor',
+  });
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   // Organization edit state
-  const [editingOrg, setEditingOrg] = useState(false)
+  const [editingOrg, setEditingOrg] = useState(false);
   const [orgForm, setOrgForm] = useState({
     name: '',
-    logo_url: ''
-  })
+    logo_url: '',
+  });
 
   useEffect(() => {
-    loadOrganizationData()
-  }, [])
+    loadOrganizationData();
+  }, []);
 
   const loadOrganizationData = async () => {
     try {
-      setLoading(true)
-      
+      setLoading(true);
+
       // Load organization details
-      const orgResponse = await fetch('/api/organizations')
+      const orgResponse = await fetch('/api/organizations');
       if (!orgResponse.ok) {
-        throw new Error('Failed to load organization')
+        throw new Error('Failed to load organization');
       }
-      const orgData = await orgResponse.json()
-      setOrganization(orgData.organization)
+      const orgData = await orgResponse.json();
+      setOrganization(orgData.organization);
       setOrgForm({
         name: orgData.organization.name,
-        logo_url: orgData.organization.logo_url || ''
-      })
+        logo_url: orgData.organization.logo_url || '',
+      });
 
       // Load organization users
-      const usersResponse = await fetch('/api/admin/users')
+      const usersResponse = await fetch('/api/admin/users');
       if (!usersResponse.ok) {
-        throw new Error('Failed to load users')
+        throw new Error('Failed to load users');
       }
-      const usersData = await usersResponse.json()
-      setUsers(usersData.users || [])
+      const usersData = await usersResponse.json();
+      setUsers(usersData.users || []);
 
       // Load pending invitations
-      const invitesResponse = await fetch('/api/organizations/invite')
+      const invitesResponse = await fetch('/api/organizations/invite');
       if (!invitesResponse.ok) {
-        throw new Error('Failed to load invitations')
+        throw new Error('Failed to load invitations');
       }
-      const invitesData = await invitesResponse.json()
-      setInvitations(invitesData.invitations || [])
-
+      const invitesData = await invitesResponse.json();
+      setInvitations(invitesData.invitations || []);
     } catch (error: any) {
-      setError(error.message)
+      setError(error.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleInviteUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setInviteLoading(true)
-    setError('')
-    setSuccess('')
+    e.preventDefault();
+    setInviteLoading(true);
+    setError('');
+    setSuccess('');
 
     try {
       const response = await fetch('/api/organizations/invite', {
@@ -117,37 +116,36 @@ export default function OrganizationAdminPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(inviteForm),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to send invitation')
+        throw new Error(data.error || 'Failed to send invitation');
       }
 
-      setSuccess(data.message)
-      setShowInviteModal(false)
+      setSuccess(data.message);
+      setShowInviteModal(false);
       setInviteForm({
         email: '',
         firstName: '',
         lastName: '',
-        role: 'auditor'
-      })
+        role: 'auditor',
+      });
 
       // Reload invitations
-      await loadOrganizationData()
-
+      await loadOrganizationData();
     } catch (error: any) {
-      setError(error.message)
+      setError(error.message);
     } finally {
-      setInviteLoading(false)
+      setInviteLoading(false);
     }
-  }
+  };
 
   const handleUpdateOrganization = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
     try {
       const response = await fetch('/api/organizations', {
@@ -156,22 +154,21 @@ export default function OrganizationAdminPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(orgForm),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update organization')
+        throw new Error(data.error || 'Failed to update organization');
       }
 
-      setOrganization(data.organization)
-      setEditingOrg(false)
-      setSuccess('Organization updated successfully')
-
+      setOrganization(data.organization);
+      setEditingOrg(false);
+      setSuccess('Organization updated successfully');
     } catch (error: any) {
-      setError(error.message)
+      setError(error.message);
     }
-  }
+  };
 
   const handleUserStatusToggle = async (userId: string, newStatus: boolean) => {
     try {
@@ -181,27 +178,26 @@ export default function OrganizationAdminPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ is_active: newStatus }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to update user status')
+        throw new Error('Failed to update user status');
       }
 
       // Reload users
-      await loadOrganizationData()
-      setSuccess(`User ${newStatus ? 'activated' : 'deactivated'} successfully`)
-
+      await loadOrganizationData();
+      setSuccess(`User ${newStatus ? 'activated' : 'deactivated'} successfully`);
     } catch (error: any) {
-      setError(error.message)
+      setError(error.message);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
       </div>
-    )
+    );
   }
 
   return (
@@ -212,10 +208,7 @@ export default function OrganizationAdminPage() {
           <h1 className="text-3xl font-bold text-gray-900">Organization Management</h1>
           <p className="text-gray-600 mt-1">Manage your organization settings and team members</p>
         </div>
-        <button
-          onClick={() => router.push('/admin')}
-          className="btn-secondary"
-        >
+        <button onClick={() => router.push('/admin')} className="btn-secondary">
           ← Back to Admin
         </button>
       </div>
@@ -238,10 +231,7 @@ export default function OrganizationAdminPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Organization Details</h2>
-            <button
-              onClick={() => setEditingOrg(!editingOrg)}
-              className="btn-secondary"
-            >
+            <button onClick={() => setEditingOrg(!editingOrg)} className="btn-secondary">
               {editingOrg ? 'Cancel' : 'Edit'}
             </button>
           </div>
@@ -257,7 +247,7 @@ export default function OrganizationAdminPage() {
                 <input
                   type="text"
                   value={orgForm.name}
-                  onChange={(e) => setOrgForm(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => setOrgForm((prev) => ({ ...prev, name: e.target.value }))}
                   className="input-field"
                   required
                 />
@@ -269,7 +259,7 @@ export default function OrganizationAdminPage() {
                 <input
                   type="url"
                   value={orgForm.logo_url}
-                  onChange={(e) => setOrgForm(prev => ({ ...prev, logo_url: e.target.value }))}
+                  onChange={(e) => setOrgForm((prev) => ({ ...prev, logo_url: e.target.value }))}
                   className="input-field"
                   placeholder="https://example.com/logo.png"
                 />
@@ -296,19 +286,21 @@ export default function OrganizationAdminPage() {
               {organization?.logo_url && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Logo</label>
-                  <img 
-                    src={organization.logo_url} 
-                    alt="Organization Logo" 
+                  <img
+                    src={organization.logo_url}
+                    alt="Organization Logo"
                     className="h-16 w-auto mt-1 rounded"
                   />
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                 <div>
-                  <strong>Created:</strong> {new Date(organization?.created_at || '').toLocaleDateString()}
+                  <strong>Created:</strong>{' '}
+                  {new Date(organization?.created_at || '').toLocaleDateString()}
                 </div>
                 <div>
-                  <strong>Last Updated:</strong> {new Date(organization?.updated_at || '').toLocaleDateString()}
+                  <strong>Last Updated:</strong>{' '}
+                  {new Date(organization?.updated_at || '').toLocaleDateString()}
                 </div>
               </div>
             </div>
@@ -321,10 +313,7 @@ export default function OrganizationAdminPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Team Members ({users.length})</h2>
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="btn-primary"
-            >
+            <button onClick={() => setShowInviteModal(true)} className="btn-primary">
               + Invite User
             </button>
           </div>
@@ -363,23 +352,31 @@ export default function OrganizationAdminPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                      user.role === 'auditor' ? 'bg-blue-100 text-blue-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        user.role === 'admin'
+                          ? 'bg-purple-100 text-purple-800'
+                          : user.role === 'auditor'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-green-100 text-green-800'
+                      }`}
+                    >
                       {user.role}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}
+                    >
                       {user.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
+                    {user.last_login_at
+                      ? new Date(user.last_login_at).toLocaleDateString()
+                      : 'Never'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
@@ -400,7 +397,9 @@ export default function OrganizationAdminPage() {
       {invitations.length > 0 && (
         <div className="bg-white rounded-lg shadow border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Pending Invitations ({invitations.length})</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Pending Invitations ({invitations.length})
+            </h2>
           </div>
 
           <div className="overflow-x-auto">
@@ -462,25 +461,25 @@ export default function OrganizationAdminPage() {
             <form onSubmit={handleInviteUser} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                   <input
                     type="text"
                     value={inviteForm.firstName}
-                    onChange={(e) => setInviteForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    onChange={(e) =>
+                      setInviteForm((prev) => ({ ...prev, firstName: e.target.value }))
+                    }
                     className="input-field"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                   <input
                     type="text"
                     value={inviteForm.lastName}
-                    onChange={(e) => setInviteForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    onChange={(e) =>
+                      setInviteForm((prev) => ({ ...prev, lastName: e.target.value }))
+                    }
                     className="input-field"
                     required
                   />
@@ -494,19 +493,17 @@ export default function OrganizationAdminPage() {
                 <input
                   type="email"
                   value={inviteForm.email}
-                  onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                  onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
                   className="input-field"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Role
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                 <select
                   value={inviteForm.role}
-                  onChange={(e) => setInviteForm(prev => ({ ...prev, role: e.target.value }))}
+                  onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))}
                   className="input-field"
                   required
                 >
@@ -536,5 +533,5 @@ export default function OrganizationAdminPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

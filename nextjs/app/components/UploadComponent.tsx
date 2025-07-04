@@ -1,81 +1,81 @@
-'use client'
+'use client';
 
-import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
-import LoadingSpinner from './LoadingSpinner'
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
+import LoadingSpinner from './LoadingSpinner';
 
 interface Props {
-  projectId: string
+  projectId: string;
 }
 
 export default function UploadComponent({ projectId }: Props) {
-  const [isDragging, setIsDragging] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
-  }, [])
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-  }, [])
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-  }, [])
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files)
-    await handleFiles(files)
-  }, [])
+    const files = Array.from(e.dataTransfer.files);
+    await handleFiles(files);
+  }, []);
 
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : []
-    await handleFiles(files)
-  }
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    await handleFiles(files);
+  };
 
   const handleFiles = async (files: File[]) => {
-    if (files.length === 0) return
+    if (files.length === 0) return;
 
-    setIsUploading(true)
+    setIsUploading(true);
     try {
       // Upload each file to Supabase storage
       for (const file of files) {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('projectId', projectId)
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('projectId', projectId);
 
         const response = await fetch('/api/documents/upload', {
           method: 'POST',
           body: formData,
-        })
+        });
 
         if (!response.ok) {
-          throw new Error('Upload failed')
+          throw new Error('Upload failed');
         }
       }
 
       // Refresh the page to show new documents
-      router.refresh()
+      router.refresh();
     } catch (error) {
-      console.error('Upload error:', error)
-      alert('Failed to upload documents. Please try again.')
+      console.error('Upload error:', error);
+      alert('Failed to upload documents. Please try again.');
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
     }
-  }
+  };
 
   return (
     <div
@@ -84,9 +84,7 @@ export default function UploadComponent({ projectId }: Props) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`border-2 border-dashed rounded-lg p-8 text-center ${
-        isDragging
-          ? 'border-blue-500 bg-blue-50'
-          : 'border-gray-300 hover:border-gray-400'
+        isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
       }`}
     >
       {isUploading ? (
@@ -124,13 +122,11 @@ export default function UploadComponent({ projectId }: Props) {
                   />
                 </label>
               </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Supports PDF, Word, and text files
-              </p>
+              <p className="text-sm text-gray-500 mt-1">Supports PDF, Word, and text files</p>
             </div>
           </div>
         </>
       )}
     </div>
-  )
+  );
 }

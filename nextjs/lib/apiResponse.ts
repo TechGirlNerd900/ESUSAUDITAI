@@ -12,7 +12,7 @@ export function successResponse(data: any, message: string = 'Success') {
   return NextResponse.json({
     success: true,
     message,
-    data
+    data,
   });
 }
 
@@ -20,11 +20,14 @@ export function successResponse(data: any, message: string = 'Success') {
  * Returns a 201 Created response
  */
 export function createdResponse(data: any, message: string = 'Resource created successfully') {
-  return NextResponse.json({
-    success: true,
-    message,
-    data
-  }, { status: 201 });
+  return NextResponse.json(
+    {
+      success: true,
+      message,
+      data,
+    },
+    { status: 201 }
+  );
 }
 
 /**
@@ -42,11 +45,14 @@ export function errorResponse(
   statusCode: number = 400,
   errors: any = null
 ) {
-  return NextResponse.json({
-    success: false,
-    message,
-    errors
-  }, { status: statusCode });
+  return NextResponse.json(
+    {
+      success: false,
+      message,
+      errors,
+    },
+    { status: statusCode }
+  );
 }
 
 /**
@@ -81,14 +87,17 @@ export function serverErrorResponse(message: string = 'Internal server error') {
  * Returns a 429 Too Many Requests response
  */
 export function rateLimitResponse(retryAfter: number = 60) {
-  return NextResponse.json({
-    success: false,
-    message: 'Too many requests, please try again later',
-    retryAfter
-  }, {
-    status: 429,
-    headers: {
-      'Retry-After': String(retryAfter)
+  return NextResponse.json(
+    {
+      success: false,
+      message: 'Too many requests, please try again later',
+      retryAfter,
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': String(retryAfter),
+      },
     }
-  });
+  );
 }

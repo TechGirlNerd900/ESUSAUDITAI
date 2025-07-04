@@ -1,17 +1,17 @@
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { ReactNode } from 'react'
-import ChatWidget from './components/ChatWidget' // Re-import ChatWidget
-import { WebSocketProvider } from './components/WebSocketProvider'
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { ReactNode } from 'react';
+import ChatWidget from './components/ChatWidget'; // Re-import ChatWidget
+import { WebSocketProvider } from './components/WebSocketProvider';
 
 const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+  subsets: ['latin'],
+  variable: '--font-inter',
 });
 
 export const metadata = {
-  title: "Esus Audit AI",
-  description: "AI-powered audit automation platform for finance and audit firms",
+  title: 'Esus Audit AI',
+  description: 'AI-powered audit automation platform for finance and audit firms',
 };
 
 interface RootLayoutProps {

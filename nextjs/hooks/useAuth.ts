@@ -16,8 +16,14 @@ interface AuthState {
 }
 
 interface AuthActions {
-  login: (email: string, password: string) => Promise<{ user: User | null; session: Session | null; error: Error | null }>;
-  signup: (email: string, password: string) => Promise<{ user: User | null; session: Session | null; error: Error | null }>; // Add signup
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ user: User | null; session: Session | null; error: Error | null }>;
+  signup: (
+    email: string,
+    password: string
+  ) => Promise<{ user: User | null; session: Session | null; error: Error | null }>; // Add signup
   logout: () => Promise<{ error: Error | null }>;
   refreshUser: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<{ user: User | null; error: Error | null }>; // Rename updateProfile to updateUser
@@ -39,12 +45,12 @@ export function useAuth(): AuthState & AuthActions {
 
   const loadUser = useCallback(async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
       const response = await fetch('/api/auth/profile');
       if (response.ok) {
         const { user, session } = await response.json(); // Destructure session
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user,
           session, // Set session
@@ -52,7 +58,7 @@ export function useAuth(): AuthState & AuthActions {
           isLoading: false,
         }));
       } else {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user: null,
           session: null, // Clear session
@@ -61,7 +67,7 @@ export function useAuth(): AuthState & AuthActions {
         }));
       }
     } catch (error) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Authentication failed',
         isLoading: false,
@@ -72,8 +78,8 @@ export function useAuth(): AuthState & AuthActions {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +88,7 @@ export function useAuth(): AuthState & AuthActions {
 
       if (response.ok) {
         const { user, session } = await response.json();
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user,
           session,
@@ -93,7 +99,7 @@ export function useAuth(): AuthState & AuthActions {
       } else {
         const errorData = await response.json();
         const error = new Error(errorData.error || 'Login failed');
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           error: error.message,
           isLoading: false,
@@ -102,19 +108,23 @@ export function useAuth(): AuthState & AuthActions {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: errorMessage,
         isLoading: false,
       }));
-      return { user: null, session: null, error: error instanceof Error ? error : new Error(errorMessage) };
+      return {
+        user: null,
+        session: null,
+        error: error instanceof Error ? error : new Error(errorMessage),
+      };
     }
   }, []); // Removed loadUser from dependency array as it's not needed after direct state update
 
   const signup = useCallback(async (email: string, password: string) => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,7 +133,7 @@ export function useAuth(): AuthState & AuthActions {
 
       if (response.ok) {
         const { user, session } = await response.json();
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user,
           session,
@@ -134,7 +144,7 @@ export function useAuth(): AuthState & AuthActions {
       } else {
         const errorData = await response.json();
         const error = new Error(errorData.error || 'Signup failed');
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           error: error.message,
           isLoading: false,
@@ -143,19 +153,23 @@ export function useAuth(): AuthState & AuthActions {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Signup failed';
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: errorMessage,
         isLoading: false,
       }));
-      return { user: null, session: null, error: error instanceof Error ? error : new Error(errorMessage) };
+      return {
+        user: null,
+        session: null,
+        error: error instanceof Error ? error : new Error(errorMessage),
+      };
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
       const response = await fetch('/api/auth/logout', { method: 'POST' });
 
       if (response.ok) {
@@ -172,7 +186,7 @@ export function useAuth(): AuthState & AuthActions {
       } else {
         const errorData = await response.json();
         const error = new Error(errorData.error || 'Logout failed');
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           error: error.message,
           isLoading: false,
@@ -181,7 +195,7 @@ export function useAuth(): AuthState & AuthActions {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Logout failed';
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: errorMessage,
         isLoading: false,
@@ -194,10 +208,11 @@ export function useAuth(): AuthState & AuthActions {
     await loadUser();
   }, [loadUser]);
 
-  const updateUser = useCallback(async (data: Partial<UserProfile>) => { // Renamed to updateUser
+  const updateUser = useCallback(async (data: Partial<UserProfile>) => {
+    // Renamed to updateUser
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
       const response = await fetch('/api/auth/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -206,7 +221,7 @@ export function useAuth(): AuthState & AuthActions {
 
       if (response.ok) {
         const updatedUser = await response.json();
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user: updatedUser,
           isLoading: false,
@@ -215,7 +230,7 @@ export function useAuth(): AuthState & AuthActions {
       } else {
         const errorData = await response.json();
         const error = new Error(errorData.error || 'User update failed');
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           error: error.message,
           isLoading: false,
@@ -224,7 +239,7 @@ export function useAuth(): AuthState & AuthActions {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'User update failed';
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: errorMessage,
         isLoading: false,

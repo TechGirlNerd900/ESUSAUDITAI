@@ -1,13 +1,13 @@
-'use client' // Error boundaries must be Client Components
+'use client'; // Error boundaries must be Client Components
 
-import { useEffect } from 'react'
+import { useEffect } from 'react';
 
 export default function GlobalError({
   error,
   reset,
 }: {
-  error: Error & { digest?: string }
-  reset: () => void
+  error: Error & { digest?: string };
+  reset: () => void;
 }) {
   useEffect(() => {
     // Log the critical error to an error reporting service
@@ -18,13 +18,13 @@ export default function GlobalError({
       timestamp: new Date().toISOString(),
       type: 'GLOBAL_ERROR',
       severity: 'CRITICAL',
-    })
+    });
 
     // Report to external error service if available
     if (typeof window !== 'undefined' && window.reportError) {
-      window.reportError(error)
+      window.reportError(error);
     }
-  }, [error])
+  }, [error]);
 
   return (
     <html>
@@ -50,10 +50,10 @@ export default function GlobalError({
             <div className="mt-6 text-center">
               <h1 className="text-xl font-semibold text-gray-900">Critical System Error</h1>
               <p className="mt-3 text-gray-600">
-                The application has encountered a critical error and needs to be restarted. 
-                Our technical team has been automatically notified.
+                The application has encountered a critical error and needs to be restarted. Our
+                technical team has been automatically notified.
               </p>
-              
+
               {process.env.NODE_ENV === 'development' && (
                 <details className="mt-6 text-left bg-gray-50 p-4 rounded-lg">
                   <summary className="font-medium text-gray-700 cursor-pointer mb-2">
@@ -88,7 +88,7 @@ export default function GlobalError({
                   Restart Application
                 </button>
                 <button
-                  onClick={() => window.location.href = '/'}
+                  onClick={() => (window.location.href = '/')}
                   className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-md transition-colors"
                 >
                   Return to Home
@@ -96,12 +96,13 @@ export default function GlobalError({
               </div>
 
               <div className="mt-6 text-xs text-gray-500">
-                Error ID: {error.digest || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`}
+                Error ID:{' '}
+                {error.digest || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`}
               </div>
             </div>
           </div>
         </div>
       </body>
     </html>
-  )
+  );
 }

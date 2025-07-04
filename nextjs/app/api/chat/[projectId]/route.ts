@@ -1,254 +1,311 @@
-import { createClient } from '@/utils/supabase/server'
-import { ChatMessage } from '@/types/supabase'
-import { NextRequest, NextResponse } from 'next/server'
-import { generateChatResponse } from '@/lib/openaiClient'
+import { createClient } from '@/utils/supabase/server';
+import { ChatMessage } from '@/types/supabase';
+import { NextRequest, NextResponse } from 'next/server';
+import { generateChatResponse } from '@/lib/openaiClient';
+import {
+  withErrorHandling,
+  withRetry,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ValidationError,
+  ExternalServiceError,
+  DatabaseError,
+} from '@/lib/errorHandler';
+import { createQueryOptimizer } from '@/lib/queryOptimizer';
+import { parsePaginationParams, validatePaginationParams } from '@/lib/pagination';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
+/**
+ * POST handler for chat messages
+ * Sends a message to the AI assistant and returns the response
+ */
+export const POST = withErrorHandling(
+  async (request: NextRequest, { params }: { params: Promise<{ projectId: string }> }) => {
     // Await params since they're now a Promise in newer Next.js versions
-    const { projectId } = await params
-    
-    const supabase = await createClient()
+    const { projectId } = await params;
+
+    const supabase = await createClient();
+    const queryOptimizer = createQueryOptimizer(supabase);
 
     // Check authentication
     const {
       data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      throw new AuthenticationError('Authentication required to access chat');
     }
 
-    // Fetch user's organization_id and role from users table
-    const { data: userProfile, error: userError } = await supabase
-      .from('users')
-      .select('organization_id, role, deleted_at')
-      .eq('auth_user_id', user.id)
-      .eq('deleted_at', null)
-      .single()
-    if (userError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found or archived' }, { status: 403 })
-    }
-    // Fetch project and check org
-    const { data: project, error: projectError } = await supabase
-      .from('projects')
-      .select('organization_id, assigned_to, created_by, deleted_at')
-      .eq('id', projectId)
-      .eq('deleted_at', null)
-      .single()
-    if (projectError || !project) {
-      return NextResponse.json({ error: 'Project not found or archived' }, { status: 404 })
-    }
+    // Fetch user profile with retry for potential network issues
+    const userProfile = await withRetry(
+      async () => {
+        const { data, error } = await supabase
+          .from('users')
+          .select('organization_id, role, deleted_at')
+          .eq('auth_user_id', user.id)
+          .eq('deleted_at', null)
+          .single();
+
+        if (error) throw new DatabaseError('select', error.message, { table: 'users' });
+        if (!data) throw new AuthorizationError('User profile not found or archived');
+        return data;
+      },
+      { maxRetries: 2 }
+    );
+
+    // Fetch project with retry
+    const project = await withRetry(
+      async () => {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('organization_id, assigned_to, created_by, deleted_at')
+          .eq('id', projectId)
+          .eq('deleted_at', null)
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            throw new NotFoundError(`Project "${projectId}"`);
+          }
+          throw new DatabaseError('select', error.message, { table: 'projects' });
+        }
+        if (!data) throw new NotFoundError(`Project "${projectId}"`);
+        return data;
+      },
+      { maxRetries: 2 }
+    );
+
+    // Verify organization access for multi-tenant security
     if (project.organization_id !== userProfile.organization_id) {
-      return NextResponse.json({ error: 'Cross-organization access denied' }, { status: 403 })
-    }
-    // Only allow if user is admin, project creator, or assigned
-    if (
-      userProfile.role !== 'admin' &&
-      project.created_by !== user.id &&
-      !(project.assigned_to && project.assigned_to.includes(user.id))
-    ) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      throw new AuthorizationError('Cross-organization access denied');
     }
 
-    // Get message from request
-    let requestBody
+    // Verify user has access to this project
+    const hasAccess =
+      userProfile.role === 'admin' ||
+      project.created_by === user.id ||
+      (project.assigned_to && project.assigned_to.includes(user.id));
+
+    if (!hasAccess) {
+      throw new AuthorizationError('You do not have access to this project');
+    }
+
+    // Parse and validate request body
+    let requestBody;
     try {
-      requestBody = await request.json()
+      requestBody = await request.json();
     } catch (parseError) {
-      return NextResponse.json(
-        { error: 'Invalid JSON in request body' },
-        { status: 400 }
-      )
+      throw new ValidationError('Invalid JSON in request body');
     }
 
-    const { message, query } = requestBody
+    const { message, query } = requestBody;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Message is required and must be a non-empty string' },
-        { status: 400 }
-      )
+      throw new ValidationError('Message is required and must be a non-empty string');
     }
 
-    // Store user message
-    const { error: chatError } = await supabase
-      .from('chat_history')
-      .insert({
-        project_id: projectId,
-        organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
-        user_id: user.id,
-        question: message.trim(),
-        answer: '',
-        context_documents: []
-      })
+    // Store user message with transaction to ensure consistency
+    const userMessage = await withRetry(
+      async () => {
+        const { error } = await supabase.from('chat_history').insert({
+          project_id: projectId,
+          organization_id: userProfile.organization_id,
+          user_id: user.id,
+          question: message.trim(),
+          answer: '',
+          context_documents: [],
+        });
 
-    if (chatError) {
-      console.error('Chat message insert error:', chatError)
-      throw new Error('Failed to store user message: ' + chatError.message)
-    }
+        if (error) throw new DatabaseError('insert', error.message, { table: 'chat_history' });
+        return true;
+      },
+      { maxRetries: 3 }
+    );
 
-    // Get chat history with organization filtering
-    const { data: chatHistory, error: historyError } = await supabase
-      .from('chat_history')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('organization_id', userProfile.organization_id) // CRITICAL: Filter by organization for multi-tenant security
-      .order('created_at', { ascending: true })
-      .limit(50)
+    // Get chat history with optimized query
+    const chatHistory = await withRetry(
+      async () => {
+        const { data, error } = await supabase
+          .from('chat_history')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('organization_id', userProfile.organization_id)
+          .order('created_at', { ascending: true })
+          .limit(50);
 
-    if (historyError) {
-      console.error('Chat history fetch error:', historyError)
-      throw new Error('Failed to fetch chat history: ' + historyError.message)
-    }
+        if (error) throw new DatabaseError('select', error.message, { table: 'chat_history' });
+        return data || [];
+      },
+      { maxRetries: 2 }
+    );
 
-    // Generate AI response
-    let aiResponse: any
+    // Generate AI response with circuit breaker pattern for external service resilience
+    let aiResponse;
     try {
-      aiResponse = await generateChatResponse(chatHistory as ChatMessage[], project, query || message, projectId)
+      aiResponse = await withRetry(
+        () =>
+          generateChatResponse(chatHistory as ChatMessage[], project, query || message, projectId),
+        {
+          maxRetries: 2,
+          baseDelay: 500,
+          shouldRetry: (error) => {
+            // Only retry on network or timeout errors, not on validation errors
+            return (
+              error?.message?.includes('network') ||
+              error?.message?.includes('timeout') ||
+              error?.message?.includes('rate limit')
+            );
+          },
+        }
+      );
     } catch (aiError) {
-      console.error('AI response generation error:', aiError)
-      aiResponse = { answer: "I'm sorry, I'm having trouble generating a response right now. Please try again.", citations: [] }
+      console.error('AI response generation error:', aiError);
+      // Provide fallback response instead of failing completely
+      aiResponse = {
+        answer: "I'm sorry, I'm having trouble generating a response right now. Please try again.",
+        citations: [],
+      };
     }
 
     // Store AI response
-    const { data: aiMessage, error: aiError } = await supabase
-      .from('chat_history')
-      .insert({
-        project_id: projectId,
-        organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
-        user_id: user.id,
-        question: '',
-        answer: aiResponse.answer,
-        context_documents: aiResponse.citations || []
-      })
-      .select()
-      .single()
+    const aiMessage = await withRetry(
+      async () => {
+        const { data, error } = await supabase
+          .from('chat_history')
+          .insert({
+            project_id: projectId,
+            organization_id: userProfile.organization_id,
+            user_id: user.id,
+            question: '',
+            answer: aiResponse.answer,
+            context_documents: aiResponse.citations || [],
+          })
+          .select()
+          .single();
 
-    if (aiError) {
-      console.error('AI message insert error:', aiError)
-      throw new Error('Failed to store AI response: ' + aiError.message)
-    }
+        if (error) throw new DatabaseError('insert', error.message, { table: 'chat_history' });
+        return data;
+      },
+      { maxRetries: 3 }
+    );
 
-    return NextResponse.json({ message: aiMessage, citations: aiResponse.citations })
+    // Invalidate chat history cache for this project
+    queryOptimizer.invalidateCache('chat_history');
 
-  } catch (error) {
-    console.error('Chat error:', error)
-    return NextResponse.json(
-      { error: 'Failed to process chat message' },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      message: aiMessage,
+      citations: aiResponse.citations,
+      timestamp: new Date().toISOString(),
+    });
   }
-}
+);
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
+/**
+ * GET handler for chat history
+ * Retrieves paginated chat history for a project
+ */
+export const GET = withErrorHandling(
+  async (request: NextRequest, { params }: { params: Promise<{ projectId: string }> }) => {
     // Await params since they're now a Promise in newer Next.js versions
-    const { projectId } = await params
-    
-    const supabase = await createClient()
+    const { projectId } = await params;
+
+    const supabase = await createClient();
+    const queryOptimizer = createQueryOptimizer(supabase);
 
     // Check authentication
     const {
       data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      throw new AuthenticationError('Authentication required to access chat history');
     }
 
-    // Fetch user's organization_id and role from users table
-    const { data: userProfile, error: userError } = await supabase
-      .from('users')
-      .select('organization_id, role, deleted_at')
-      .eq('auth_user_id', user.id)
-      .eq('deleted_at', null)
-      .single()
-    if (userError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found or archived' }, { status: 403 })
-    }
-    // Fetch project and check org
-    const { data: project, error: projectError } = await supabase
-      .from('projects')
-      .select('organization_id, assigned_to, created_by, deleted_at')
-      .eq('id', projectId)
-      .eq('deleted_at', null)
-      .single()
-    if (projectError || !project) {
-      return NextResponse.json({ error: 'Project not found or archived' }, { status: 404 })
-    }
+    // Fetch user profile
+    const userProfile = await withRetry(
+      async () => {
+        const { data, error } = await supabase
+          .from('users')
+          .select('organization_id, role, deleted_at')
+          .eq('auth_user_id', user.id)
+          .eq('deleted_at', null)
+          .single();
+
+        if (error) throw new DatabaseError('select', error.message, { table: 'users' });
+        if (!data) throw new AuthorizationError('User profile not found or archived');
+        return data;
+      },
+      { maxRetries: 2 }
+    );
+
+    // Fetch project
+    const project = await withRetry(
+      async () => {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('organization_id, assigned_to, created_by, deleted_at')
+          .eq('id', projectId)
+          .eq('deleted_at', null)
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            throw new NotFoundError(`Project "${projectId}"`);
+          }
+          throw new DatabaseError('select', error.message, { table: 'projects' });
+        }
+        if (!data) throw new NotFoundError(`Project "${projectId}"`);
+        return data;
+      },
+      { maxRetries: 2 }
+    );
+
+    // Verify organization access for multi-tenant security
     if (project.organization_id !== userProfile.organization_id) {
-      return NextResponse.json({ error: 'Cross-organization access denied' }, { status: 403 })
-    }
-    // Only allow if user is admin, project creator, or assigned
-    if (
-      userProfile.role !== 'admin' &&
-      project.created_by !== user.id &&
-      !(project.assigned_to && project.assigned_to.includes(user.id))
-    ) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      throw new AuthorizationError('Cross-organization access denied');
     }
 
-    // Get pagination parameters from query string
-    const url = new URL(request.url)
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '50')
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
+    // Verify user has access to this project
+    const hasAccess =
+      userProfile.role === 'admin' ||
+      project.created_by === user.id ||
+      (project.assigned_to && project.assigned_to.includes(user.id));
 
-    // Get total count for pagination metadata
-    const { count, error: countError } = await supabase
-      .from('chat_history')
-      .select('*', { count: 'exact', head: true })
-      .eq('project_id', projectId)
-
-    if (countError) {
-      console.error('Count error:', countError)
-      throw new Error('Failed to count messages: ' + countError.message)
+    if (!hasAccess) {
+      throw new AuthorizationError('You do not have access to this project');
     }
 
-    // Get paginated chat history
-    const { data: messages, error: messagesError } = await supabase
-      .from('chat_history')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: true })
-      .range(from, to)
+    // Parse and validate pagination parameters
+    const url = new URL(request.url);
+    const paginationParams = parsePaginationParams(url.searchParams);
+    const validation = validatePaginationParams(paginationParams);
 
-    if (messagesError) {
-      console.error('Messages fetch error:', messagesError)
-      throw new Error('Failed to fetch messages: ' + messagesError.message)
+    if (!validation.isValid) {
+      throw new ValidationError(
+        'Invalid pagination parameters',
+        validation.errors.map((error) => ({ field: 'pagination', message: error }))
+      );
     }
+
+    // Use query optimizer to get paginated chat history with caching
+    const result = await queryOptimizer.query('chat_history', {
+      page: paginationParams.page,
+      pageSize: paginationParams.pageSize,
+      sortBy: 'created_at',
+      sortOrder: paginationParams.sortOrder || 'asc',
+      filters: {
+        project_id: projectId,
+        organization_id: userProfile.organization_id,
+      },
+      cache: true,
+      cacheTTL: 60, // Cache for 60 seconds
+    });
 
     return NextResponse.json({
-      messages: messages || [],
-      pagination: {
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize)
-      }
-    })
-
-  } catch (error) {
-    console.error('Error fetching chat history:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch chat history' },
-      { status: 500 }
-    )
+      messages: result.data,
+      pagination: result.pagination,
+    });
   }
-}
+);

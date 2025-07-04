@@ -1,17 +1,17 @@
-import { createClient } from '@/utils/supabase/server'
-import { redirect } from 'next/navigation'
-import AdminPanel from '@/app/components/AdminPanel'
+import { createClient } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
+import AdminPanel from '@/app/components/AdminPanel';
 
 export default async function AdminDashboard() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   // Check if user is authenticated and is an admin
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login')
+    redirect('/login');
   }
 
   // Fetch user's role from correct table
@@ -19,11 +19,11 @@ export default async function AdminDashboard() {
     .from('users')
     .select('role, organization_id')
     .eq('auth_user_id', user.id)
-    .single()
+    .single();
 
   // Redirect non-admin users
   if (!profile || profile.role !== 'admin') {
-    redirect('/dashboard')
+    redirect('/dashboard');
   }
 
   return (
@@ -33,5 +33,5 @@ export default async function AdminDashboard() {
         <AdminPanel />
       </div>
     </div>
-  )
+  );
 }

@@ -1,13 +1,13 @@
-'use client' // Error boundaries must be Client Components
+'use client'; // Error boundaries must be Client Components
 
-import { useEffect } from 'react'
+import { useEffect } from 'react';
 
 export default function Error({
   error,
   reset,
 }: {
-  error: Error & { digest?: string }
-  reset: () => void
+  error: Error & { digest?: string };
+  reset: () => void;
 }) {
   useEffect(() => {
     // Log the error to an error reporting service
@@ -16,8 +16,8 @@ export default function Error({
       digest: error.digest,
       stack: error.stack,
       timestamp: new Date().toISOString(),
-    })
-  }, [error])
+    });
+  }, [error]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -41,7 +41,8 @@ export default function Error({
         <div className="mt-4 text-center">
           <h2 className="text-lg font-medium text-gray-900">Something went wrong!</h2>
           <p className="mt-2 text-sm text-gray-600">
-            We apologize for the inconvenience. Our team has been notified and is working to fix this issue.
+            We apologize for the inconvenience. Our team has been notified and is working to fix
+            this issue.
           </p>
           {process.env.NODE_ENV === 'development' && (
             <details className="mt-4 text-left">
@@ -65,5 +66,5 @@ export default function Error({
         </div>
       </div>
     </div>
-  )
+  );
 }

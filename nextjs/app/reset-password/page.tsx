@@ -1,40 +1,40 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
-import LoadingSpinner from '@/app/components/LoadingSpinner'
+import { useState } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
 
 export default function ResetPassword() {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  const supabase = createClient()
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setMessage(null)
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/api/auth/callback?next=/update-password`,
-      })
+      });
 
-      if (error) throw error
+      if (error) throw error;
 
       setMessage({
         type: 'success',
-        text: 'Check your email for the password reset link'
-      })
-      setEmail('')
+        text: 'Check your email for the password reset link',
+      });
+      setEmail('');
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error:', error);
       setMessage({
         type: 'error',
-        text: 'Failed to send reset password email. Please try again.'
-      })
+        text: 'Failed to send reset password email. Please try again.',
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -51,9 +51,11 @@ export default function ResetPassword() {
         </div>
 
         {message && (
-          <div className={`p-4 rounded-md ${
-            message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-          }`}>
+          <div
+            className={`p-4 rounded-md ${
+              message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            }`}
+          >
             {message.text}
           </div>
         )}
@@ -87,5 +89,5 @@ export default function ResetPassword() {
         </form>
       </div>
     </div>
-  )
+  );
 }

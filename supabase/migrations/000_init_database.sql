@@ -240,38 +240,74 @@ BEGIN
         updated_at = NOW();
 END;
 $$ LANGUAGE plpgsql;
+-- Check if all required tables exist before creating the materialized view
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'organizations'
+    ) AND EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'users'
+    ) AND EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'projects'
+    ) AND EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'documents'
+    ) AND EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'audit_reports'
+    ) THEN
+        -- Create materialized view only if all required tables exist
+        CREATE MATERIALIZED VIEW IF NOT EXISTS organization_stats AS
+        SELECT 
+            o.id as organization_id,
+            o.name as organization_name,
+            COUNT(DISTINCT u.id) FILTER (WHERE u.deleted_at IS NULL) as total_users,
+            COUNT(DISTINCT u.id) FILTER (WHERE u.role = 'admin' AND u.deleted_at IS NULL) as admin_count,
+            COUNT(DISTINCT u.id) FILTER (WHERE u.role = 'auditor' AND u.deleted_at IS NULL) as auditor_count,
+            COUNT(DISTINCT u.id) FILTER (WHERE u.role = 'reviewer' AND u.deleted_at IS NULL) as reviewer_count,
+            COUNT(DISTINCT p.id) FILTER (WHERE p.deleted_at IS NULL) as total_projects,
+            COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'active' AND p.deleted_at IS NULL) as active_projects,
+            COUNT(DISTINCT d.id) FILTER (WHERE d.deleted_at IS NULL) as total_documents,
+            COUNT(DISTINCT ar.id) FILTER (WHERE ar.deleted_at IS NULL) as total_reports,
+            o.created_at as org_created_at,
+            NOW() as stats_updated_at
+        FROM organizations o
+        LEFT JOIN users u ON o.id = u.organization_id
+        LEFT JOIN projects p ON o.id = p.organization_id
+        LEFT JOIN documents d ON o.id = d.organization_id
+        LEFT JOIN audit_reports ar ON o.id = ar.organization_id
+        WHERE o.deleted_at IS NULL
+        GROUP BY o.id, o.name, o.created_at;
 
--- Create materialized view for organization statistics
-CREATE MATERIALIZED VIEW IF NOT EXISTS organization_stats AS
-SELECT 
-    o.id as organization_id,
-    o.name as organization_name,
-    COUNT(DISTINCT u.id) FILTER (WHERE u.deleted_at IS NULL) as total_users,
-    COUNT(DISTINCT u.id) FILTER (WHERE u.role = 'admin' AND u.deleted_at IS NULL) as admin_count,
-    COUNT(DISTINCT u.id) FILTER (WHERE u.role = 'auditor' AND u.deleted_at IS NULL) as auditor_count,
-    COUNT(DISTINCT u.id) FILTER (WHERE u.role = 'reviewer' AND u.deleted_at IS NULL) as reviewer_count,
-    COUNT(DISTINCT p.id) FILTER (WHERE p.deleted_at IS NULL) as total_projects,
-    COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'active' AND p.deleted_at IS NULL) as active_projects,
-    COUNT(DISTINCT d.id) FILTER (WHERE d.deleted_at IS NULL) as total_documents,
-    COUNT(DISTINCT ar.id) FILTER (WHERE ar.deleted_at IS NULL) as total_reports,
-    o.created_at as org_created_at,
-    NOW() as stats_updated_at
-FROM organizations o
-LEFT JOIN users u ON o.id = u.organization_id
-LEFT JOIN projects p ON o.id = p.organization_id
-LEFT JOIN documents d ON o.id = d.organization_id
-LEFT JOIN audit_reports ar ON o.id = ar.organization_id
-WHERE o.deleted_at IS NULL
-GROUP BY o.id, o.name, o.created_at;
-
--- Create unique index on the materialized view
-CREATE UNIQUE INDEX IF NOT EXISTS idx_organization_stats_org_id ON organization_stats(organization_id);
+        -- Create unique index on the materialized view
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_organization_stats_org_id ON organization_stats(organization_id);
+    ELSE
+        RAISE NOTICE 'Skipping organization_stats materialized view creation - required tables not found';
+    END IF;
+END $$;
 
 -- Create function to refresh organization statistics
 CREATE OR REPLACE FUNCTION refresh_organization_stats()
 RETURNS VOID AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY organization_stats;
+    -- Check if the materialized view exists before refreshing
+    IF EXISTS (
+        SELECT FROM pg_matviews
+        WHERE schemaname = 'public'
+        AND matviewname = 'organization_stats'
+    ) THEN
+        REFRESH MATERIALIZED VIEW CONCURRENTLY organization_stats;
+    ELSE
+        RAISE NOTICE 'Skipping refresh - organization_stats materialized view does not exist';
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -291,15 +327,22 @@ BEGIN
     -- Detect anomalous login patterns
     PERFORM detect_anomalous_logins();
     
-    -- Refresh organization statistics
+    -- Refresh organization statistics (if view exists)
+    -- This function has its own existence check
     PERFORM refresh_organization_stats();
     
-    -- Log maintenance completion
-    INSERT INTO system_health_logs (
-        service_name, metric_name, message, severity
-    ) VALUES (
-        'maintenance', 'scheduled_tasks', 'Maintenance tasks completed successfully', 'info'
-    );
+    -- Log maintenance completion (only if table exists)
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'system_health_logs'
+    ) THEN
+        INSERT INTO system_health_logs (
+            service_name, metric_name, message, severity
+        ) VALUES (
+            'maintenance', 'scheduled_tasks', 'Maintenance tasks completed successfully', 'info'
+        );
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -434,12 +477,21 @@ INSERT INTO database_documentation (table_name, documentation) VALUES
 ('audit_reports', 'Generated reports with approval workflows, distribution tracking, and access controls.')
 ON CONFLICT (table_name, column_name) DO NOTHING;
 
--- Log successful initialization
-INSERT INTO system_health_logs (
-    service_name, metric_name, message, severity
-) VALUES (
-    'database', 'initialization', 'Database schema initialized successfully', 'info'
-);
+-- Log successful initialization (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'system_health_logs'
+    ) THEN
+        INSERT INTO system_health_logs (
+            service_name, metric_name, message, severity
+        ) VALUES (
+            'database', 'initialization', 'Database schema initialized successfully', 'info'
+        );
+    END IF;
+END $$;
 
 -- Output completion message
 DO $$

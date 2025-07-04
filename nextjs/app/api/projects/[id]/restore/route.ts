@@ -1,13 +1,10 @@
-import { createClient } from '@/utils/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/utils/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/apiAuth';
 import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler';
 
 export const POST = withErrorHandling(
-  async (
-    request: NextRequest,
-    context: { params: { id: string } }
-  ) => {
+  async (request: NextRequest, context: { params: { id: string } }) => {
     const projectId = context.params.id;
 
     // Authenticate request
@@ -53,13 +50,15 @@ export const POST = withErrorHandling(
     }
 
     // Create audit log entry
-    await supabase.from('audit_logs').insert([{
-      user_id: auth.user.id,
-      action: 'project_restored',
-      resource_type: 'project',
-      resource_id: projectId,
-      details: {}
-    }]);
+    await supabase.from('audit_logs').insert([
+      {
+        user_id: auth.user.id,
+        action: 'project_restored',
+        resource_type: 'project',
+        resource_id: projectId,
+        details: {},
+      },
+    ]);
 
     return NextResponse.json({ message: 'Project restored successfully' });
   }

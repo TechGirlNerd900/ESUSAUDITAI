@@ -1,6 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
+} from 'react';
 
 interface WebSocketContextType {
   ws: WebSocket | null;
@@ -16,7 +23,10 @@ interface WebSocketProviderProps {
   url?: string; // Optional WebSocket URL, defaults to localhost:8080
 }
 
-export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, url = 'ws://localhost:8080' }) => {
+export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
+  children,
+  url = 'ws://localhost:8080',
+}) => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Event | null>(null);
@@ -53,7 +63,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
       setIsConnected(false);
       setWs(null); // Clear the WebSocket instance
       // Attempt to reconnect after a delay
-      setTimeout(connect, 5000); 
+      setTimeout(connect, 5000);
     };
 
     setWs(newWs); // Set the new WebSocket instance even if not yet open
@@ -70,13 +80,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
     };
   }, [connect]);
 
-  const sendMessage = useCallback((message: any) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket is not connected. Message not sent:', message);
-    }
-  }, [ws]);
+  const sendMessage = useCallback(
+    (message: any) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+      } else {
+        console.warn('WebSocket is not connected. Message not sent:', message);
+      }
+    },
+    [ws]
+  );
 
   return (
     <WebSocketContext.Provider value={{ ws, isConnected, sendMessage, error }}>

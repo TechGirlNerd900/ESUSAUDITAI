@@ -13,7 +13,7 @@ import {
   BuildingOfficeIcon,
   UserPlusIcon,
   EyeIcon,
-  EyeSlashIcon
+  EyeSlashIcon,
 } from '@heroicons/react/24/outline';
 
 export default function AdminSignup() {
@@ -36,11 +36,13 @@ export default function AdminSignup() {
     const adminKey = formData.get('adminKey') as string;
 
     // Client-side validation to match API requirements
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(password)) {
-      setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character')
-      setLoading(false)
-      return
+      setError(
+        'Password must be at least 8 characters and include uppercase, lowercase, number, and special character'
+      );
+      setLoading(false);
+      return;
     }
 
     try {
@@ -55,7 +57,7 @@ export default function AdminSignup() {
           firstName,
           lastName,
           organizationName,
-          adminKey: adminKey || undefined
+          adminKey: adminKey || undefined,
         }),
       });
 
@@ -66,8 +68,9 @@ export default function AdminSignup() {
       }
 
       // Redirect to login with success message
-      router.push('/login?message=Organization+created+successfully.+Please+check+your+email+to+verify+your+account.');
-
+      router.push(
+        '/login?message=Organization+created+successfully.+Please+check+your+email+to+verify+your+account.'
+      );
     } catch (error: any) {
       console.error('Admin signup error:', error);
       setError(error.message || 'An error occurred during organization creation.');
@@ -95,9 +98,7 @@ export default function AdminSignup() {
               <h1 className="text-4xl font-bold">Esus</h1>
               <span className="text-2xl font-light ml-2">AuditAI</span>
             </div>
-            <p className="text-blue-100 text-lg">
-              Create Your Organization
-            </p>
+            <p className="text-blue-100 text-lg">Create Your Organization</p>
           </div>
 
           {/* Features */}
@@ -106,7 +107,9 @@ export default function AdminSignup() {
               <BuildingOfficeIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
               <div>
                 <h3 className="font-semibold">Multi-Tenant Architecture</h3>
-                <p className="text-sm text-blue-100">Complete data isolation for your organization</p>
+                <p className="text-sm text-blue-100">
+                  Complete data isolation for your organization
+                </p>
               </div>
             </div>
             <div className="flex items-center text-left">
@@ -120,7 +123,9 @@ export default function AdminSignup() {
               <ShieldCheckIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
               <div>
                 <h3 className="font-semibold">Enterprise Security</h3>
-                <p className="text-sm text-blue-100">Bank-grade security with comprehensive audit trails</p>
+                <p className="text-sm text-blue-100">
+                  Bank-grade security with comprehensive audit trails
+                </p>
               </div>
             </div>
           </div>
@@ -140,15 +145,11 @@ export default function AdminSignup() {
               <h1 className="text-3xl font-bold text-gray-900">Esus</h1>
               <span className="text-xl font-light text-gray-600 ml-2">AuditAI</span>
             </div>
-            <p className="text-gray-600">
-              Create Your Organization
-            </p>
+            <p className="text-gray-600">Create Your Organization</p>
           </div>
 
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Create Organization
-            </h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Organization</h2>
             <p className="text-gray-600 mb-8">
               Set up your organization and become the first admin
             </p>
@@ -160,7 +161,11 @@ export default function AdminSignup() {
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </div>
                   <div className="ml-3">
@@ -172,7 +177,10 @@ export default function AdminSignup() {
 
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
-                <label htmlFor="organizationName" className="block text-sm font-semibold text-gray-700 mb-2">
+                <label
+                  htmlFor="organizationName"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
                   Organization Name
                 </label>
                 <input
@@ -187,7 +195,10 @@ export default function AdminSignup() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label
+                    htmlFor="firstName"
+                    className="block text-sm font-semibold text-gray-700 mb-2"
+                  >
                     First Name
                   </label>
                   <input
@@ -200,7 +211,10 @@ export default function AdminSignup() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="lastName" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label
+                    htmlFor="lastName"
+                    className="block text-sm font-semibold text-gray-700 mb-2"
+                  >
                     Last Name
                   </label>
                   <input
@@ -230,14 +244,17 @@ export default function AdminSignup() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
                   Password
                 </label>
                 <div className="relative">
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     required
                     placeholder="Create a strong password"
@@ -261,7 +278,10 @@ export default function AdminSignup() {
               </div>
 
               <div>
-                <label htmlFor="adminKey" className="block text-sm font-semibold text-gray-700 mb-2">
+                <label
+                  htmlFor="adminKey"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
                   Admin Key <span className="text-gray-400 font-normal">(if required)</span>
                 </label>
                 <input

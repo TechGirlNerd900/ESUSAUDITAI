@@ -1,0 +1,1454 @@
+openapi: 3.0.3
+info:
+  title: ESUS Audit AI API
+  description: |
+    API documentation for the ESUS Audit AI platform.
+    
+    This API provides endpoints for managing projects, documents, analysis, and chat functionality.
+  version: 1.0.0
+  contact:
+    name: ESUS Audit AI Support
+    email: support@example.com
+  license:
+    name: Proprietary
+servers:
+  - url: https://api.example.com/api
+    description: Production server
+  - url: https://staging.example.com/api
+    description: Staging server
+  - url: http://localhost:3000/api
+    description: Local development server
+tags:
+  - name: Authentication
+    description: Authentication endpoints
+  - name: Projects
+    description: Project management endpoints
+  - name: Documents
+    description: Document management endpoints
+  - name: Analysis
+    description: Document analysis endpoints
+  - name: Chat
+    description: Chat and AI assistant endpoints
+  - name: Users
+    description: User management endpoints
+  - name: Admin
+    description: Admin-only endpoints
+  - name: Health
+    description: Health check endpoints
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Log in a user
+      description: Authenticates a user and returns a session token
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Log out a user
+      description: Invalidates the current session token
+      operationId: logoutUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful logout
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects:
+    get:
+      tags:
+        - Projects
+      summary: Get all projects
+      description: Returns a list of projects for the authenticated user
+      operationId: getProjects
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          description: Filter by project status
+          schema:
+            type: string
+            enum: [active, completed, archived]
+        - name: search
+          in: query
+          description: Search term for project name or description
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            default: created_at
+            enum: [created_at, name, status, client_name]
+        - name: sortOrder
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            default: desc
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      description: Creates a new project for the authenticated user
+      operationId: createProject
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - client_name
+              properties:
+                name:
+                  type: string
+                  example: Q2 2023 Audit
+                description:
+                  type: string
+                  example: Quarterly audit for Q2 2023
+                client_name:
+                  type: string
+                  example: Acme Corp
+                client_email:
+                  type: string
+                  format: email
+                  example: client@acmecorp.com
+                start_date:
+                  type: string
+                  format: date
+                  example: 2023-04-01
+                end_date:
+                  type: string
+                  format: date
+                  example: 2023-06-30
+                assigned_to:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                status:
+                  type: string
+                  enum: [active, completed, archived]
+                  default: active
+                project_type:
+                  type: string
+                  enum: [general, financial, compliance, operational]
+                  default: general
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Project created successfully
+                  data:
+                    $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}:
+    get:
+      tags:
+        - Projects
+      summary: Get a project by ID
+      description: Returns a project by ID
+      operationId: getProjectById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Project ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Projects
+      summary: Update a project
+      description: Updates a project by ID
+      operationId: updateProject
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Project ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                client_name:
+                  type: string
+                client_email:
+                  type: string
+                  format: email
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+                assigned_to:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                status:
+                  type: string
+                  enum: [active, completed, archived]
+                project_type:
+                  type: string
+                  enum: [general, financial, compliance, operational]
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Project updated successfully
+                  data:
+                    $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Projects
+      summary: Delete a project
+      description: Deletes a project by ID (soft delete)
+      operationId: deleteProject
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Project ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Project deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /documents:
+    get:
+      tags:
+        - Documents
+      summary: Get all documents
+      description: Returns a list of documents for a project
+      operationId: getDocuments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: query
+          description: Project ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          description: Filter by document status
+          schema:
+            type: string
+            enum: [pending, queued, processing, analyzed, error]
+        - name: search
+          in: query
+          description: Search term for document name or description
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            default: created_at
+            enum: [created_at, name, status, file_size]
+        - name: sortOrder
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            default: desc
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Document'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /documents/upload:
+    post:
+      tags:
+        - Documents
+      summary: Upload a document
+      description: Uploads a document to a project
+      operationId: uploadDocument
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - project_id
+              properties:
+                file:
+                  type: string
+                  format: binary
+                project_id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Document uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Document uploaded successfully
+                  data:
+                    $ref: '#/components/schemas/Document'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /documents/process:
+    post:
+      tags:
+        - Documents
+      summary: Process a document
+      description: Queues a document for processing
+      operationId: processDocument
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - documentId
+              properties:
+                documentId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Document queued for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Document queued for processing
+                  status:
+                    type: string
+                    example: queued
+                  documentId:
+                    type: string
+                    format: uuid
+                  jobId:
+                    type: string
+                  priority:
+                    type: string
+                    enum: [LOW, NORMAL, HIGH, CRITICAL]
+                  estimatedProcessingTime:
+                    type: string
+                    example: 30-60 seconds
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - Documents
+      summary: Get document processing status
+      description: Returns the status of a document processing job
+      operationId: getDocumentProcessingStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: documentId
+          in: query
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documentId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [pending, queued, processing, analyzed, error]
+                  lastUpdated:
+                    type: string
+                    format: date-time
+                  analysisResults:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      createdAt:
+                        type: string
+                        format: date-time
+                      confidenceScore:
+                        type: number
+                        format: float
+                        minimum: 0
+                        maximum: 1
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /documents/{id}:
+    get:
+      tags:
+        - Documents
+      summary: Get a document by ID
+      description: Returns a document by ID
+      operationId: getDocumentById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Documents
+      summary: Delete a document
+      description: Deletes a document by ID (soft delete)
+      operationId: deleteDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Document deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Document deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /analysis/document/{id}:
+    get:
+      tags:
+        - Analysis
+      summary: Get document analysis results
+      description: Returns analysis results for a document
+      operationId: getDocumentAnalysis
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Analysis not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /chat/{projectId}:
+    get:
+      tags:
+        - Chat
+      summary: Get chat history
+      description: Returns chat history for a project
+      operationId: getChatHistory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          description: Project ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChatMessage'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Chat
+      summary: Send a chat message
+      description: Sends a message to the AI assistant
+      operationId: sendChatMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          description: Project ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  example: What are the key findings in this audit?
+                query:
+                  type: string
+                  description: Optional search query to focus the AI response
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: '#/components/schemas/ChatMessage'
+                  citations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        text:
+                          type: string
+                        source:
+                          type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user
+      description: Returns the current user's profile
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Users
+      summary: Update current user
+      description: Updates the current user's profile
+      operationId: updateCurrentUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                company:
+                  type: string
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User updated successfully
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: Get all users
+      description: Returns a list of all users (admin only)
+      operationId: getUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: role
+          in: query
+          description: Filter by user role
+          schema:
+            type: string
+            enum: [user, auditor, admin, super_admin]
+        - name: search
+          in: query
+          description: Search term for user name or email
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/users/{id}:
+    put:
+      tags:
+        - Admin
+      summary: Update a user
+      description: Updates a user by ID (admin only)
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: User ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                role:
+                  type: string
+                  enum: [user, auditor, admin]
+                company:
+                  type: string
+                organization_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User updated successfully
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the health status of the API
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, degraded, error]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                  environment:
+                    type: string
+                  services:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          enum: [ok, degraded, error]
+                        responseTime:
+                          type: integer
+                        message:
+                          type: string
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: System metrics
+      description: Returns system metrics (admin only)
+      operationId: getMetrics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  responseTime:
+                    type: integer
+                  jobs:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      pending:
+                        type: integer
+                      processing:
+                        type: integer
+                      completed:
+                        type: integer
+                      failed:
+                        type: integer
+                  database:
+                    type: object
+                    properties:
+                      tables:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                  users:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      active:
+                        type: integer
+                  documents:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      recent:
+                        type: integer
+                  system:
+                    type: object
+                    properties:
+                      memory:
+                        type: object
+                        properties:
+                          rss:
+                            type: integer
+                          heapTotal:
+                            type: integer
+                          heapUsed:
+                            type: integer
+                      uptime:
+                        type: object
+                        properties:
+                          seconds:
+                            type: integer
+                          minutes:
+                            type: integer
+                          hours:
+                            type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        auth_user_id:
+          type: string
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role:
+          type: string
+          enum: [user, auditor, admin, super_admin]
+        company:
+          type: string
+        organization_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        client_name:
+          type: string
+        client_email:
+          type: string
+          format: email
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, completed, archived]
+        project_type:
+          type: string
+          enum: [general, financial, compliance, operational]
+        created_by:
+          type: string
+          format: uuid
+        assigned_to:
+          type: array
+          items:
+            type: string
+            format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              status:
+                type: string
+                enum: [pending, queued, processing, analyzed, error]
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        file_type:
+          type: string
+        file_size:
+          type: integer
+        blob_url:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [pending, queued, processing, analyzed, error]
+        uploaded_by:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AnalysisResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_id:
+          type: string
+          format: uuid
+        extracted_data:
+          type: object
+          properties:
+            content:
+              type: string
+            tables:
+              type: array
+              items:
+                type: object
+            keyValuePairs:
+              type: object
+              additionalProperties:
+                type: string
+        ai_summary:
+          type: string
+        red_flags:
+          type: array
+          items:
+            type: string
+        highlights:
+          type: array
+          items:
+            type: string
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        processing_time_ms:
+          type: integer
+        organization_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        question:
+          type: string
+        answer:
+          type: string
+        context_documents:
+          type: array
+          items:
+            type: object
+        organization_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        type:
+          type: string
+          enum: [VALIDATION, AUTHENTICATION, AUTHORIZATION, NOT_FOUND, CONFLICT, EXTERNAL_SERVICE, DATABASE, RATE_LIMIT, INTERNAL]
+        details:
+          type: object
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

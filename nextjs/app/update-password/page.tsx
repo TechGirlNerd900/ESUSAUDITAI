@@ -1,64 +1,64 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
-import { useRouter } from 'next/navigation'
-import LoadingSpinner from '@/app/components/LoadingSpinner'
+import { useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
 
 export default function UpdatePassword() {
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  const router = useRouter()
-  const supabase = createClient()
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
     // Check if we have a session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
-        router.push('/login')
+        router.push('/login');
       }
-    })
-  }, [])
+    });
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setMessage(null)
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
 
     // Client-side password validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(password)) {
       setMessage({
         type: 'error',
-        text: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character'
-      })
-      setLoading(false)
-      return
+        text: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
+      });
+      setLoading(false);
+      return;
     }
 
     try {
       const { error } = await supabase.auth.updateUser({
-        password: password
-      })
+        password: password,
+      });
 
-      if (error) throw error
+      if (error) throw error;
 
       setMessage({
         type: 'success',
-        text: 'Password updated successfully!'
-      })
-      
+        text: 'Password updated successfully!',
+      });
+
       // Redirect to dashboard after successful password update
-      setTimeout(() => router.push('/dashboard'), 2000)
+      setTimeout(() => router.push('/dashboard'), 2000);
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error:', error);
       setMessage({
         type: 'error',
-        text: 'Failed to update password. Please try again.'
-      })
+        text: 'Failed to update password. Please try again.',
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -69,15 +69,15 @@ export default function UpdatePassword() {
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
             Update your password
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your new password below
-          </p>
+          <p className="mt-2 text-center text-sm text-gray-600">Enter your new password below</p>
         </div>
 
         {message && (
-          <div className={`p-4 rounded-md ${
-            message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-          }`}>
+          <div
+            className={`p-4 rounded-md ${
+              message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            }`}
+          >
             {message.text}
           </div>
         )}
@@ -112,5 +112,5 @@ export default function UpdatePassword() {
         </form>
       </div>
     </div>
-  )
+  );
 }

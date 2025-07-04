@@ -1,5 +1,4 @@
 -- Audit Logs and Security Monitoring Schema
--- Implements comprehensive audit logging for sensitive operations
 
 -- Audit logs table - captures all sensitive operations for security monitoring
 CREATE TABLE audit_logs (
@@ -22,20 +21,27 @@ CREATE TABLE audit_logs (
     error_message TEXT, -- Error details for failed operations
     duration_ms INTEGER, -- Operation duration in milliseconds
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Add partition key for efficient querying
-    partition_date DATE GENERATED ALWAYS AS (DATE(created_at)) STORED
+    partition_date DATE -- Regular column, will be set by trigger
 );
 
--- Create indexes for audit_logs (optimized for common queries)
-CREATE INDEX idx_audit_logs_organization_id ON audit_logs(organization_id, created_at DESC);
-CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id, created_at DESC);
-CREATE INDEX idx_audit_logs_action ON audit_logs(action, organization_id, created_at DESC);
-CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id, organization_id);
-CREATE INDEX idx_audit_logs_severity ON audit_logs(severity, organization_id, created_at DESC);
-CREATE INDEX idx_audit_logs_ip_address ON audit_logs(ip_address, created_at DESC);
-CREATE INDEX idx_audit_logs_partition_date ON audit_logs(partition_date);
-CREATE INDEX idx_audit_logs_request_id ON audit_logs(request_id) WHERE request_id IS NOT NULL;
+-- Data access logs table - track access to sensitive data
+CREATE TABLE data_access_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    resource_type VARCHAR(50) NOT NULL, -- document, project, user_profile, etc.
+    resource_id UUID NOT NULL,
+    access_type VARCHAR(20) NOT NULL CHECK (access_type IN ('read', 'write', 'delete', 'download', 'export')),
+    data_classification VARCHAR(20) DEFAULT 'internal' CHECK (data_classification IN ('public', 'internal', 'confidential', 'restricted')),
+    ip_address INET,
+    user_agent TEXT,
+    request_path TEXT,
+    query_parameters JSONB,
+    response_status INTEGER,
+    bytes_transferred BIGINT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    partition_date DATE -- Regular column, will be set by trigger
+);
 
 -- Security events table - specific table for security-related events
 CREATE TABLE security_events (
@@ -59,15 +65,6 @@ CREATE TABLE security_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create indexes for security_events
-CREATE INDEX idx_security_events_organization_id ON security_events(organization_id, created_at DESC);
-CREATE INDEX idx_security_events_user_id ON security_events(user_id, created_at DESC);
-CREATE INDEX idx_security_events_type ON security_events(event_type, severity, created_at DESC);
-CREATE INDEX idx_security_events_severity ON security_events(severity, created_at DESC);
-CREATE INDEX idx_security_events_ip_address ON security_events(ip_address, created_at DESC);
-CREATE INDEX idx_security_events_unmitigated ON security_events(mitigated, severity, created_at DESC) 
-    WHERE mitigated = FALSE;
-
 -- Login attempts table - detailed tracking of authentication attempts
 CREATE TABLE login_attempts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -87,44 +84,6 @@ CREATE TABLE login_attempts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create indexes for login_attempts
-CREATE INDEX idx_login_attempts_organization_id ON login_attempts(organization_id, created_at DESC);
-CREATE INDEX idx_login_attempts_user_id ON login_attempts(user_id, created_at DESC);
-CREATE INDEX idx_login_attempts_email ON login_attempts(email, created_at DESC);
-CREATE INDEX idx_login_attempts_ip_address ON login_attempts(ip_address, created_at DESC);
-CREATE INDEX idx_login_attempts_success ON login_attempts(success, created_at DESC);
-CREATE INDEX idx_login_attempts_failures ON login_attempts(success, email, ip_address, created_at DESC) 
-    WHERE success = FALSE;
-
--- Data access logs table - track access to sensitive data
-CREATE TABLE data_access_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    resource_type VARCHAR(50) NOT NULL, -- document, project, user_profile, etc.
-    resource_id UUID NOT NULL,
-    access_type VARCHAR(20) NOT NULL CHECK (access_type IN ('read', 'write', 'delete', 'download', 'export')),
-    data_classification VARCHAR(20) DEFAULT 'internal' CHECK (data_classification IN ('public', 'internal', 'confidential', 'restricted')),
-    ip_address INET,
-    user_agent TEXT,
-    request_path TEXT,
-    query_parameters JSONB,
-    response_status INTEGER,
-    bytes_transferred BIGINT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Add partition key for efficient querying
-    partition_date DATE GENERATED ALWAYS AS (DATE(created_at)) STORED
-);
-
--- Create indexes for data_access_logs
-CREATE INDEX idx_data_access_logs_organization_id ON data_access_logs(organization_id, created_at DESC);
-CREATE INDEX idx_data_access_logs_user_id ON data_access_logs(user_id, created_at DESC);
-CREATE INDEX idx_data_access_logs_resource ON data_access_logs(resource_type, resource_id, created_at DESC);
-CREATE INDEX idx_data_access_logs_access_type ON data_access_logs(access_type, organization_id, created_at DESC);
-CREATE INDEX idx_data_access_logs_classification ON data_access_logs(data_classification, created_at DESC);
-CREATE INDEX idx_data_access_logs_partition_date ON data_access_logs(partition_date);
-
 -- System health logs table - monitor system performance and errors
 CREATE TABLE system_health_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -138,6 +97,70 @@ CREATE TABLE system_health_logs (
     stack_trace TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Create trigger functions for partition_date
+CREATE OR REPLACE FUNCTION set_audit_logs_partition_date()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.partition_date := DATE(NEW.created_at);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION set_data_access_logs_partition_date()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.partition_date := DATE(NEW.created_at);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers (now that tables exist)
+CREATE TRIGGER set_audit_logs_partition_date_trigger
+BEFORE INSERT ON audit_logs
+FOR EACH ROW
+EXECUTE FUNCTION set_audit_logs_partition_date();
+
+CREATE TRIGGER set_data_access_logs_partition_date_trigger
+BEFORE INSERT ON data_access_logs
+FOR EACH ROW
+EXECUTE FUNCTION set_data_access_logs_partition_date();
+
+-- Create indexes for audit_logs (optimized for common queries)
+CREATE INDEX idx_audit_logs_organization_id ON audit_logs(organization_id, created_at DESC);
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id, created_at DESC);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action, organization_id, created_at DESC);
+CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id, organization_id);
+CREATE INDEX idx_audit_logs_severity ON audit_logs(severity, organization_id, created_at DESC);
+CREATE INDEX idx_audit_logs_ip_address ON audit_logs(ip_address, created_at DESC);
+CREATE INDEX idx_audit_logs_partition_date ON audit_logs(partition_date);
+CREATE INDEX idx_audit_logs_request_id ON audit_logs(request_id) WHERE request_id IS NOT NULL;
+
+-- Create indexes for security_events
+CREATE INDEX idx_security_events_organization_id ON security_events(organization_id, created_at DESC);
+CREATE INDEX idx_security_events_user_id ON security_events(user_id, created_at DESC);
+CREATE INDEX idx_security_events_type ON security_events(event_type, severity, created_at DESC);
+CREATE INDEX idx_security_events_severity ON security_events(severity, created_at DESC);
+CREATE INDEX idx_security_events_ip_address ON security_events(ip_address, created_at DESC);
+CREATE INDEX idx_security_events_unmitigated ON security_events(mitigated, severity, created_at DESC) 
+    WHERE mitigated = FALSE;
+
+-- Create indexes for login_attempts
+CREATE INDEX idx_login_attempts_organization_id ON login_attempts(organization_id, created_at DESC);
+CREATE INDEX idx_login_attempts_user_id ON login_attempts(user_id, created_at DESC);
+CREATE INDEX idx_login_attempts_email ON login_attempts(email, created_at DESC);
+CREATE INDEX idx_login_attempts_ip_address ON login_attempts(ip_address, created_at DESC);
+CREATE INDEX idx_login_attempts_success ON login_attempts(success, created_at DESC);
+CREATE INDEX idx_login_attempts_failures ON login_attempts(success, email, ip_address, created_at DESC) 
+    WHERE success = FALSE;
+
+-- Create indexes for data_access_logs
+CREATE INDEX idx_data_access_logs_organization_id ON data_access_logs(organization_id, created_at DESC);
+CREATE INDEX idx_data_access_logs_user_id ON data_access_logs(user_id, created_at DESC);
+CREATE INDEX idx_data_access_logs_resource ON data_access_logs(resource_type, resource_id, created_at DESC);
+CREATE INDEX idx_data_access_logs_access_type ON data_access_logs(access_type, organization_id, created_at DESC);
+CREATE INDEX idx_data_access_logs_classification ON data_access_logs(data_classification, created_at DESC);
+CREATE INDEX idx_data_access_logs_partition_date ON data_access_logs(partition_date);
 
 -- Create indexes for system_health_logs
 CREATE INDEX idx_system_health_logs_service ON system_health_logs(service_name, metric_name, created_at DESC);

@@ -63,16 +63,19 @@ export function useSupabaseAuth(): AuthState & AuthActions {
 
   const getSession = useCallback(async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+
       if (error) throw error;
-      
+
       if (session?.user) {
         await loadUserProfile(session.user);
       } else {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user: null,
           supabaseUser: null,
@@ -81,7 +84,7 @@ export function useSupabaseAuth(): AuthState & AuthActions {
         }));
       }
     } catch (error) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Session error',
         isLoading: false,
@@ -94,16 +97,18 @@ export function useSupabaseAuth(): AuthState & AuthActions {
       // Get user profile from our custom users table (multi-tenant)
       const { data: userProfile, error } = await supabase
         .from('users')
-        .select(`
+        .select(
+          `
           *,
           organization:organizations(*)
-        `)
+        `
+        )
         .eq('auth_user_id', supabaseUser.id)
         .single();
 
       if (error) throw error;
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         user: userProfile,
         supabaseUser,
@@ -113,7 +118,7 @@ export function useSupabaseAuth(): AuthState & AuthActions {
         error: null,
       }));
     } catch (error) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Profile load error',
         isLoading: false,
@@ -121,38 +126,41 @@ export function useSupabaseAuth(): AuthState & AuthActions {
     }
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      try {
+        setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      if (error) throw error;
-      
-      if (data.user) {
-        await loadUserProfile(data.user);
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          await loadUserProfile(data.user);
+        }
+      } catch (error) {
+        setState((prev) => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'Sign in failed',
+          isLoading: false,
+        }));
+        throw error;
       }
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Sign in failed',
-        isLoading: false,
-      }));
-      throw error;
-    }
-  }, [loadUserProfile]);
+    },
+    [loadUserProfile]
+  );
 
   const signOut = useCallback(async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) throw error;
-      
+
       setState({
         user: null,
         supabaseUser: null,
@@ -162,7 +170,7 @@ export function useSupabaseAuth(): AuthState & AuthActions {
         organizationId: null,
       });
     } catch (error) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Sign out failed',
         isLoading: false,
@@ -174,37 +182,40 @@ export function useSupabaseAuth(): AuthState & AuthActions {
     await getSession();
   }, [getSession]);
 
-  const updateProfile = useCallback(async (data: Partial<UserProfile>) => {
-    try {
-      if (!state.user) throw new Error('No user logged in');
-      
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
-      // Update in our custom users table (with organization context)
-      const { data: updatedUser, error } = await supabase
-        .from('users')
-        .update(data)
-        .eq('auth_user_id', state.supabaseUser?.id)
-        .eq('organization_id', state.organizationId) // Multi-tenant safety
-        .select()
-        .single();
+  const updateProfile = useCallback(
+    async (data: Partial<UserProfile>) => {
+      try {
+        if (!state.user) throw new Error('No user logged in');
 
-      if (error) throw error;
-      
-      setState(prev => ({
-        ...prev,
-        user: updatedUser,
-        isLoading: false,
-      }));
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Profile update failed',
-        isLoading: false,
-      }));
-      throw error;
-    }
-  }, [state.user, state.supabaseUser, state.organizationId]);
+        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+        // Update in our custom users table (with organization context)
+        const { data: updatedUser, error } = await supabase
+          .from('users')
+          .update(data)
+          .eq('auth_user_id', state.supabaseUser?.id)
+          .eq('organization_id', state.organizationId) // Multi-tenant safety
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setState((prev) => ({
+          ...prev,
+          user: updatedUser,
+          isLoading: false,
+        }));
+      } catch (error) {
+        setState((prev) => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'Profile update failed',
+          isLoading: false,
+        }));
+        throw error;
+      }
+    },
+    [state.user, state.supabaseUser, state.organizationId]
+  );
 
   return {
     ...state,

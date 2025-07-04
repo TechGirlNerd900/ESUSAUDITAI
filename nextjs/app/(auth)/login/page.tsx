@@ -13,7 +13,7 @@ import {
   DocumentTextIcon,
   ChartBarIcon,
   EyeIcon,
-  EyeSlashIcon
+  EyeSlashIcon,
 } from '@heroicons/react/24/outline';
 
 export default function Login() {
@@ -28,7 +28,7 @@ export default function Login() {
     // Check for success message from URL params
     const urlMessage = searchParams.get('message');
     const urlError = searchParams.get('error');
-    
+
     if (urlMessage) {
       setMessage(urlMessage);
     }
@@ -50,7 +50,7 @@ export default function Login() {
 
     try {
       console.log('🔄 Attempting login for:', email);
-      
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -64,13 +64,16 @@ export default function Login() {
       }
 
       if (data.session) {
-        console.log('✅ Login successful, session created:', data.session.access_token.substring(0, 10) + '...');
+        console.log(
+          '✅ Login successful, session created:',
+          data.session.access_token.substring(0, 10) + '...'
+        );
         console.log('🍪 Session expires at:', new Date(data.session.expires_at! * 1000));
-        
+
         // Check if session is immediately available
         const { data: sessionCheck } = await supabase.auth.getSession();
         console.log('🔍 Immediate session check:', sessionCheck);
-        
+
         // Force a hard navigation to trigger middleware
         console.log('🚀 Redirecting to dashboard...');
         router.push('/dashboard');
@@ -78,7 +81,6 @@ export default function Login() {
         console.warn('⚠️ Login succeeded but no session returned');
         setError('Login succeeded but session was not created');
       }
-
     } catch (error: any) {
       console.error('💥 Login exception:', error);
       setError(error.message || 'An error occurred during login. Please check your credentials.');
@@ -107,9 +109,7 @@ export default function Login() {
               <h1 className="text-4xl font-bold">Esus</h1>
               <span className="text-2xl font-light ml-2">AuditAI</span>
             </div>
-            <p className="text-blue-100 text-lg">
-              Intelligent Audit Automation Platform
-            </p>
+            <p className="text-blue-100 text-lg">Intelligent Audit Automation Platform</p>
           </div>
 
           {/* Features */}
@@ -118,21 +118,27 @@ export default function Login() {
               <DocumentTextIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
               <div>
                 <h3 className="font-semibold">AI-Powered Document Analysis</h3>
-                <p className="text-sm text-blue-100">Extract insights from financial documents automatically</p>
+                <p className="text-sm text-blue-100">
+                  Extract insights from financial documents automatically
+                </p>
               </div>
             </div>
             <div className="flex items-center text-left">
               <ChartBarIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
               <div>
                 <h3 className="font-semibold">Intelligent Reporting</h3>
-                <p className="text-sm text-blue-100">Generate comprehensive audit reports with AI assistance</p>
+                <p className="text-sm text-blue-100">
+                  Generate comprehensive audit reports with AI assistance
+                </p>
               </div>
             </div>
             <div className="flex items-center text-left">
               <ShieldCheckIcon className="h-8 w-8 text-blue-200 mr-4 flex-shrink-0" />
               <div>
                 <h3 className="font-semibold">Enterprise Security</h3>
-                <p className="text-sm text-blue-100">Bank-grade security with comprehensive audit trails</p>
+                <p className="text-sm text-blue-100">
+                  Bank-grade security with comprehensive audit trails
+                </p>
               </div>
             </div>
           </div>
@@ -152,18 +158,12 @@ export default function Login() {
               <h1 className="text-3xl font-bold text-gray-900">Esus</h1>
               <span className="text-xl font-light text-gray-600 ml-2">AuditAI</span>
             </div>
-            <p className="text-gray-600">
-              Intelligent Audit Automation Platform
-            </p>
+            <p className="text-gray-600">Intelligent Audit Automation Platform</p>
           </div>
 
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome back
-            </h2>
-            <p className="text-gray-600 mb-8">
-              Sign in to access your audit workspace
-            </p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome back</h2>
+            <p className="text-gray-600 mb-8">Sign in to access your audit workspace</p>
           </div>
 
           <div className="bg-white py-8 px-6 shadow-xl rounded-2xl border border-gray-100">
@@ -172,7 +172,11 @@ export default function Login() {
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </div>
                   <div className="ml-3">
@@ -187,7 +191,11 @@ export default function Login() {
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </div>
                   <div className="ml-3">
@@ -214,14 +222,17 @@ export default function Login() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
                   Password
                 </label>
                 <div className="relative">
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     required
                     placeholder="Enter your password"

@@ -17,7 +17,7 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
     start_date: '',
     end_date: '',
     custom_fields: '{}',
-    tags: ''
+    tags: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -36,7 +36,12 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
       const body = {
         ...formData,
         custom_fields: formData.custom_fields ? JSON.parse(formData.custom_fields) : {},
-        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+        tags: formData.tags
+          ? formData.tags
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [],
       };
 
       const response = await fetch('/api/projects', {
@@ -63,7 +68,7 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
         start_date: '',
         end_date: '',
         custom_fields: '{}',
-        tags: ''
+        tags: '',
       });
     } catch (error) {
       setError(error.message);
@@ -75,7 +80,7 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
@@ -96,7 +101,7 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
                   <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                     Create New Project
                   </h3>
-                  
+
                   {error && (
                     <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                       {error}
@@ -121,7 +126,10 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
                     </div>
 
                     <div>
-                      <label htmlFor="client_name" className="block text-sm font-medium text-gray-700">
+                      <label
+                        htmlFor="client_name"
+                        className="block text-sm font-medium text-gray-700"
+                      >
                         Client Name *
                       </label>
                       <input
@@ -137,7 +145,10 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
                     </div>
 
                     <div>
-                      <label htmlFor="client_email" className="block text-sm font-medium text-gray-700">
+                      <label
+                        htmlFor="client_email"
+                        className="block text-sm font-medium text-gray-700"
+                      >
                         Client Email
                       </label>
                       <input
@@ -152,7 +163,10 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
                     </div>
 
                     <div>
-                      <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                      <label
+                        htmlFor="description"
+                        className="block text-sm font-medium text-gray-700"
+                      >
                         Description
                       </label>
                       <textarea
@@ -168,7 +182,10 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
+                        <label
+                          htmlFor="start_date"
+                          className="block text-sm font-medium text-gray-700"
+                        >
                           Start Date
                         </label>
                         <input
@@ -182,7 +199,10 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
                       </div>
 
                       <div>
-                        <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
+                        <label
+                          htmlFor="end_date"
+                          className="block text-sm font-medium text-gray-700"
+                        >
                           End Date
                         </label>
                         <input
@@ -197,7 +217,10 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
                     </div>
 
                     <div>
-                      <label htmlFor="custom_fields" className="block text-sm font-medium text-gray-700">
+                      <label
+                        htmlFor="custom_fields"
+                        className="block text-sm font-medium text-gray-700"
+                      >
                         Custom Fields (JSON)
                       </label>
                       <textarea

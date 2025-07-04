@@ -1,43 +1,48 @@
 // Shared API Authentication Middleware
 // Consolidates the repeated auth logic across 15+ API routes
 
-import { createClient } from '@/utils/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
-import { v4 as uuidv4 } from 'uuid' // Add UUID for better ID handling
+import { createClient } from '@/utils/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid'; // Add UUID for better ID handling
 
 export interface AuthUser {
-  id: string
-  email?: string | null
-  user_metadata: Record<string, any>
+  id: string;
+  email?: string | null;
+  email_confirmed_at?: string | null;
+  last_sign_in_at?: string | null;
+  user_metadata: Record<string, any>;
   app_metadata: {
-    provider_id: string
-    role: string
+    provider_id: string;
+    role: string;
     providers: Array<{
-      domain: string | null
-      provider_id: string
-      provider_type: string
-    }>
-  }
+      domain: string | null;
+      provider_id: string;
+      provider_type: string;
+    }>;
+  };
 }
 
 // Add more specific error types
 export interface AuthError {
-  code: string
-  message: string
-  status: number
+  code: string;
+  message: string;
+  status: number;
 }
 
 export interface UserProfile {
-  id: string
-  auth_user_id: string
-  email: string
-  first_name: string
-  last_name: string
-  role: 'admin' | 'auditor' | 'reviewer'
-  organization_id: string
-  status: string
-  is_active: boolean
-  deleted_at?: string | null
+  id: string;
+  auth_user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: 'admin' | 'auditor' | 'reviewer';
+  organization_id: string;
+  status: string;
+  is_active: boolean;
+  company?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  deleted_at?: string | null;
 }
 
 export interface AuthSuccess {
@@ -55,7 +60,7 @@ export interface AuthFailure {
   };
 }
 
-export type AuthResult = AuthSuccess | AuthFailure
+export type AuthResult = AuthSuccess | AuthFailure;
 
 /**
  * Centralized API authentication middleware
@@ -64,41 +69,41 @@ export type AuthResult = AuthSuccess | AuthFailure
 export async function authenticateApiRequest(
   request: NextRequest,
   options: {
-    requireRole?: 'admin' | 'auditor' | 'reviewer'
-    allowSelf?: boolean // For user-specific endpoints like /api/users/[id]
-    targetUserId?: string // For self-access validation
-    rateLimit?: number // Requests per minute, if not provided, no rate limiting is applied
+    requireRole?: 'admin' | 'auditor' | 'reviewer';
+    allowSelf?: boolean; // For user-specific endpoints like /api/users/[id]
+    targetUserId?: string; // For self-access validation
+    rateLimit?: number; // Requests per minute, if not provided, no rate limiting is applied
   } = {}
 ): Promise<AuthResult> {
   try {
     // Apply rate limiting if configured
     if (options.rateLimit) {
-      const rateLimiter = createRateLimitCheck(options.rateLimit)
-      const rateLimitResponse = await rateLimiter(request)
-      
+      const rateLimiter = createRateLimitCheck(options.rateLimit);
+      const rateLimitResponse = await rateLimiter(request);
+
       if (rateLimitResponse) {
         return {
           success: false,
-          response: rateLimitResponse
-        }
+          response: rateLimitResponse,
+        };
       }
     }
-    
+
     // Use the Supabase middleware client
-    const client = await createClient()
-    
+    const client = await createClient();
+
     // Check if user is authenticated
     const {
       data: { user },
-      error: authError
-    } = await client.auth.getUser()
+      error: authError,
+    } = await client.auth.getUser();
 
     if (authError || !user) {
       console.error('Authentication error:', authError);
       return {
         success: false,
-        response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
+        response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      };
     }
 
     // Transform the Supabase User object into AuthUser
@@ -109,8 +114,13 @@ export async function authenticateApiRequest(
       app_metadata: {
         provider_id: (user.app_metadata?.provider as string) || '', // Use 'provider' from Supabase app_metadata
         role: (user.app_metadata?.role as string) || 'auditor', // Assume 'role' is a custom claim in app_metadata
-        providers: (user.app_metadata?.providers as Array<{ domain: string | null; provider_id: string; provider_type: string; }>) || [], // Assume 'providers' is a custom claim
-      }
+        providers:
+          (user.app_metadata?.providers as Array<{
+            domain: string | null;
+            provider_id: string;
+            provider_type: string;
+          }>) || [], // Assume 'providers' is a custom claim
+      },
     };
 
     // Fetch user profile with organization_id for multi-tenant security
@@ -119,10 +129,13 @@ export async function authenticateApiRequest(
       .select('*')
       .eq('auth_user_id', user.id)
       .eq('deleted_at', null)
-      .single()
-    
+      .single();
+
     if (profileError || !userProfile) {
-      console.error(profileError ? 'Profile fetch error:' : 'User profile not found:', profileError || user.id);
+      console.error(
+        profileError ? 'Profile fetch error:' : 'User profile not found:',
+        profileError || user.id
+      );
       // If we have an auth user but no profile, create a default one
       try {
         const { data: newUserProfile, error: createError } = await client
@@ -135,70 +148,72 @@ export async function authenticateApiRequest(
             role: user.user_metadata?.role || 'auditor',
             organization_id: user.user_metadata?.organization_id || null,
             is_active: true,
-            status: 'active'
+            status: 'active',
           })
           .select()
-          .single()
-        
+          .single();
+
         if (createError) {
-          throw createError
+          throw createError;
         }
-        
+
         return {
           success: true,
           user: authUser, // Use the transformed authUser
-          profile: newUserProfile
-        }
+          profile: newUserProfile,
+        };
       } catch (profileError) {
         console.error('Failed to create default profile:', profileError);
         return {
           success: false,
-          response: NextResponse.json({ error: 'User profile not found' }, { status: 403 })
-        }
+          response: NextResponse.json({ error: 'User profile not found' }, { status: 403 }),
+        };
       }
     }
 
     // Validate organization access - CRITICAL for multi-tenant security
     if (options.requireRole && userProfile.role !== options.requireRole) {
-      console.error(`Required role ${options.requireRole} does not match user role ${userProfile.role}`);
+      console.error(
+        `Required role ${options.requireRole} does not match user role ${userProfile.role}`
+      );
       return {
         success: false,
-        response: NextResponse.json({ error: `Forbidden: ${options.requireRole} access required` }, { status: 403 })
-      }
+        response: NextResponse.json(
+          { error: `Forbidden: ${options.requireRole} access required` },
+          { status: 403 }
+        ),
+      };
     }
 
     // Self-access validation for user-specific endpoints
     if (options.allowSelf && options.targetUserId) {
-      const canAccess = userProfile.role === 'admin' || 
-                       userProfile.auth_user_id === options.targetUserId ||
-                       userProfile.id === options.targetUserId
-      
+      const canAccess =
+        userProfile.role === 'admin' ||
+        userProfile.auth_user_id === options.targetUserId ||
+        userProfile.id === options.targetUserId;
+
       if (!canAccess) {
         return {
           success: false,
           response: NextResponse.json(
-            { error: 'Access denied. You can only access your own resources.' }, 
+            { error: 'Access denied. You can only access your own resources.' },
             { status: 403 }
-          )
-        }
+          ),
+        };
       }
     }
 
     return {
       success: true,
       user: authUser, // Use the transformed authUser
-      profile: userProfile as UserProfile
-    }
-
+      profile: userProfile as UserProfile,
+    };
   } catch (error) {
-    console.error('Authentication error:', error)
+    console.error('Authentication error:', error);
     return {
       success: false,
-      response: NextResponse.json(
-        { error: 'Internal authentication error' }, 
-        { status: 500 }
-      )
-    }
+      response: NextResponse.json({ error: 'Internal authentication error' }, { status: 500 }),
+    };
   }
 }
 
@@ -231,7 +246,7 @@ export async function checkOrganizationAccess(
       .single();
 
     if (orgError || !orgData) {
-      console.error('Error checking organization hierarchy:', orgError)
+      console.error('Error checking organization hierarchy:', orgError);
       return false;
     }
 
@@ -243,7 +258,7 @@ export async function checkOrganizationAccess(
     // Check direct parent relationship
     return orgData.parent_organization_id === userProfile.organization_id;
   } catch (error) {
-    console.error('Error in organization access check:', error)
+    console.error('Error in organization access check:', error);
     // Fail closed - deny access on error
     return false;
   }
@@ -253,26 +268,16 @@ export async function checkOrganizationAccess(
  * Rate limiting helper using Redis
  * Uses the Upstash Redis client for serverless-friendly rate limiting
  */
-import { Ratelimit } from '@upstash/ratelimit'
-import { Redis } from '@upstash/redis'
+import { Ratelimit } from '@upstash/ratelimit';
+import { createRedisClient } from '@/lib/env';
 
-// Only initialize Redis client if environment variables are available
-let redis: Redis | null = null;
-try {
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-  }
-} catch (error) {
-  console.warn('Rate limiting disabled: Redis client initialization failed', error);
-}
+// Initialize Redis client using unified approach
+const redis = createRedisClient();
 
 export function createRateLimitCheck(requestsPerMinute: number = 60) {
   // Create a sliding window rate limiter if Redis is available
   let ratelimit: Ratelimit | null = null;
-  
+
   if (redis) {
     try {
       ratelimit = new Ratelimit({
@@ -291,37 +296,38 @@ export function createRateLimitCheck(requestsPerMinute: number = 60) {
     if (!ratelimit) {
       return null;
     }
-    
-    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 
-                    request.headers.get('x-real-ip') || 
-                    'unknown';
-    
+
+    const clientIP =
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+
     // Add some entropy to prevent IP spoofing
     const identifier = `${clientIP}:${request.nextUrl.pathname}`;
-    
+
     try {
       const { success, limit, remaining, reset } = await ratelimit.limit(identifier);
-      
+
       if (!success) {
         const resetTime = Math.ceil((reset - Date.now()) / 1000);
-        
+
         return NextResponse.json(
-          { 
+          {
             error: 'Too many requests. Please try again later.',
-            retryAfter: resetTime
+            retryAfter: resetTime,
           },
-          { 
+          {
             status: 429,
             headers: {
               'Retry-After': String(resetTime),
               'X-RateLimit-Limit': String(limit),
               'X-RateLimit-Remaining': String(remaining),
-              'X-RateLimit-Reset': String(reset)
-            }
+              'X-RateLimit-Reset': String(reset),
+            },
           }
         );
       }
-      
+
       return null;
     } catch (error) {
       console.error('Rate limiting error:', error);

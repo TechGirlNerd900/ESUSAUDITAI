@@ -1,73 +1,73 @@
-import { NextRequest } from 'next/server'
-import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/apiAuth'
-import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler'
-import { createClient } from '@/utils/supabase/server'
-import { successResponse } from '@/lib/apiResponse'
+import { NextRequest } from 'next/server';
+import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/apiAuth';
+import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler';
+import { createClient } from '@/utils/supabase/server';
+import { successResponse } from '@/lib/apiResponse';
 
 export const GET = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
-    const { id } = context.params
-    
+    const { id } = context.params;
+
     // Authenticate request with rate limiting
-    const auth = await authenticateApiRequest(request, { 
-      allowSelf: true, 
+    const auth = await authenticateApiRequest(request, {
+      allowSelf: true,
       targetUserId: id,
-      rateLimit: 60 
-    })
-    
+      rateLimit: 60,
+    });
+
     if (!auth.success) {
-      return (auth as import('@/lib/apiAuth').AuthFailure).response
+      return (auth as import('@/lib/apiAuth').AuthFailure).response;
     }
 
-    const supabase = await createClient()
-    
+    const supabase = await createClient();
+
     // Get target user
     const { data: targetUser, error } = await supabase
       .from('users')
       .select('*')
       .eq('id', id)
       .eq('deleted_at', null)
-      .single()
-      
+      .single();
+
     if (error || !targetUser) {
-      throw new NotFoundError('User')
+      throw new NotFoundError('User');
     }
-    
+
     // Check organization access for non-self requests
     if (auth.user.id !== targetUser.auth_user_id) {
       const hasAccess = await checkOrganizationAccess(
         supabase,
         auth.profile,
         targetUser.organization_id
-      )
-      
+      );
+
       if (!hasAccess || auth.profile.role !== 'admin') {
-        throw new AuthorizationError('You do not have permission to access this user')
+        throw new AuthorizationError('You do not have permission to access this user');
       }
     }
-    
-    return successResponse({ user: targetUser })
+
+    return successResponse({ user: targetUser });
   }
-)
+);
 
 export const PUT = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
-    const { id } = context.params
-    
+    const { id } = context.params;
+
     // Authenticate request with rate limiting
-    const auth = await authenticateApiRequest(request, { 
-      allowSelf: true, 
+    const auth = await authenticateApiRequest(request, {
+      allowSelf: true,
       targetUserId: id,
-      rateLimit: 20 
-    })
-    
+      rateLimit: 20,
+    });
+
     if (!auth.success) {
-      return (auth as import('@/lib/apiAuth').AuthFailure).response
+      return (auth as import('@/lib/apiAuth').AuthFailure).response;
     }
 
-    const supabase = await createClient()
-    const body = await request.json()
-    const { first_name, last_name, company, custom_fields } = body
+    const supabase = await createClient();
+    const body = await request.json();
+    const { first_name, last_name, company, custom_fields } = body;
 
     // Get target user to check organization access
     const { data: targetUser, error: targetError } = await supabase
@@ -75,25 +75,25 @@ export const PUT = withErrorHandling(
       .select('organization_id, auth_user_id')
       .eq('id', id)
       .eq('deleted_at', null)
-      .single()
-      
+      .single();
+
     if (targetError || !targetUser) {
-      throw new NotFoundError('User')
+      throw new NotFoundError('User');
     }
-    
+
     // Check organization access for non-self requests
     if (auth.user.id !== targetUser.auth_user_id) {
       const hasAccess = await checkOrganizationAccess(
         supabase,
         auth.profile,
         targetUser.organization_id
-      )
-      
+      );
+
       if (!hasAccess || auth.profile.role !== 'admin') {
-        throw new AuthorizationError('You do not have permission to update this user')
+        throw new AuthorizationError('You do not have permission to update this user');
       }
     }
-    
+
     // Update user
     const { data: updatedUser, error } = await supabase
       .from('users')
@@ -107,63 +107,63 @@ export const PUT = withErrorHandling(
       .eq('id', id)
       .eq('deleted_at', null)
       .select()
-      .single()
-      
+      .single();
+
     if (error || !updatedUser) {
-      throw new Error(`Failed to update user: ${error?.message}`)
+      throw new Error(`Failed to update user: ${error?.message}`);
     }
-    
-    return successResponse({ user: updatedUser }, 'User updated successfully')
+
+    return successResponse({ user: updatedUser }, 'User updated successfully');
   }
-)
+);
 
 export const DELETE = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
-    const { id } = context.params
-    
+    const { id } = context.params;
+
     // Authenticate request with admin role requirement
-    const auth = await authenticateApiRequest(request, { 
+    const auth = await authenticateApiRequest(request, {
       rateLimit: 10,
-      requireRole: 'admin'
-    })
-    
+      requireRole: 'admin',
+    });
+
     if (!auth.success) {
-      return (auth as import('@/lib/apiAuth').AuthFailure).response
+      return (auth as import('@/lib/apiAuth').AuthFailure).response;
     }
 
-    const supabase = await createClient()
-    
+    const supabase = await createClient();
+
     // Get target user
     const { data: targetUser, error: targetError } = await supabase
       .from('users')
       .select('organization_id')
       .eq('id', id)
-      .single()
-      
+      .single();
+
     if (targetError || !targetUser) {
-      throw new NotFoundError('User')
+      throw new NotFoundError('User');
     }
-    
+
     // Check organization access
     const hasAccess = await checkOrganizationAccess(
       supabase,
       auth.profile,
       targetUser.organization_id
-    )
-    
+    );
+
     if (!hasAccess) {
-      throw new AuthorizationError('You do not have permission to delete this user')
+      throw new AuthorizationError('You do not have permission to delete this user');
     }
-    
+
     try {
       // Try soft delete RPC function
       const { error: softDeleteError } = await supabase.rpc('soft_delete', {
         table_name: 'users',
         row_id: id,
         org_id: targetUser.organization_id,
-        user_id: auth.user.id
-      })
-      
+        user_id: auth.user.id,
+      });
+
       if (softDeleteError) {
         // Fall back to manual soft delete
         const { error: updateError } = await supabase
@@ -171,29 +171,31 @@ export const DELETE = withErrorHandling(
           .update({
             deleted_at: new Date().toISOString(),
             is_active: false,
-            status: 'deleted'
+            status: 'deleted',
           })
-          .eq('id', id)
-        
+          .eq('id', id);
+
         if (updateError) {
-          throw new Error(`Failed to delete user: ${updateError.message}`)
+          throw new Error(`Failed to delete user: ${updateError.message}`);
         }
       }
-      
+
       // Create audit log entry
-      await supabase.from('audit_logs').insert([{
-        user_id: auth.user.id,
-        action: 'user_deleted',
-        resource_type: 'user',
-        resource_id: id,
-        details: {
-          deleted_at: new Date().toISOString()
-        }
-      }])
-      
-      return successResponse({ message: 'User deleted successfully' })
+      await supabase.from('audit_logs').insert([
+        {
+          user_id: auth.user.id,
+          action: 'user_deleted',
+          resource_type: 'user',
+          resource_id: id,
+          details: {
+            deleted_at: new Date().toISOString(),
+          },
+        },
+      ]);
+
+      return successResponse({ message: 'User deleted successfully' });
     } catch (error) {
-      throw new Error(`Failed to delete user: ${error.message}`)
+      throw new Error(`Failed to delete user: ${error.message}`);
     }
   }
-) 
+);

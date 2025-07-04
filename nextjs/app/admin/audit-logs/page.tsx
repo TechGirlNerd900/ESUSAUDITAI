@@ -62,7 +62,7 @@ const AuditLogViewer: React.FC = () => {
         try {
           const message = JSON.parse(event.data);
           if (message.type === 'audit_log_created') {
-            setLogs(prevLogs => [message.payload, ...prevLogs].slice(0, pageSize)); // Add new log and maintain page size
+            setLogs((prevLogs) => [message.payload, ...prevLogs].slice(0, pageSize)); // Add new log and maintain page size
           }
         } catch (e) {
           console.error('Failed to parse WebSocket message:', e);
@@ -72,11 +72,11 @@ const AuditLogViewer: React.FC = () => {
   }, [isConnected, pageSize, sendMessage]);
 
   const handleNextPage = () => {
-    setPage(prevPage => Math.min(prevPage + 1, totalPages));
+    setPage((prevPage) => Math.min(prevPage + 1, totalPages));
   };
 
   const handlePrevPage = () => {
-    setPage(prevPage => Math.max(prevPage - 1, 1));
+    setPage((prevPage) => Math.max(prevPage - 1, 1));
   };
 
   if (error) {
@@ -85,7 +85,9 @@ const AuditLogViewer: React.FC = () => {
         <ErrorBoundary fallback={() => <p>Error loading audit logs: {error.message}</p>}>
           {/* Render fallback component or simple error message */}
           <div className="text-red-600">Error: {error.message}</div>
-          <button onClick={() => fetchAuditLogs(page)} className="btn-primary mt-4">Retry</button>
+          <button onClick={() => fetchAuditLogs(page)} className="btn-primary mt-4">
+            Retry
+          </button>
         </ErrorBoundary>
       </div>
     );
@@ -100,8 +102,17 @@ const AuditLogViewer: React.FC = () => {
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-md">
           <div className="flex">
             <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fillRule="evenodd" d="M8.485 2.495c.673-1.166 2.364-1.166 3.037 0L13.939 5.86c.582 1.007-.163 2.364-1.396 2.364H7.457c-1.233 0-1.978-1.357-1.396-2.364L8.485 2.495zM10 10a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 10zm0 5.25a.75.75 0 100 1.5.75.75 0 000-1.5z" clipRule="evenodd" />
+              <svg
+                className="h-5 w-5 text-yellow-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.485 2.495c.673-1.166 2.364-1.166 3.037 0L13.939 5.86c.582 1.007-.163 2.364-1.396 2.364H7.457c-1.233 0-1.978-1.357-1.396-2.364L8.485 2.495zM10 10a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 10zm0 5.25a.75.75 0 100 1.5.75.75 0 000-1.5z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
             <div className="ml-3">
@@ -117,19 +128,34 @@ const AuditLogViewer: React.FC = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Timestamp
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 User ID
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Action
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Details
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 IP Address
               </th>
             </tr>
@@ -177,7 +203,10 @@ const AuditLogViewer: React.FC = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                <td
+                  colSpan={5}
+                  className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500"
+                >
                   No audit logs found.
                 </td>
               </tr>

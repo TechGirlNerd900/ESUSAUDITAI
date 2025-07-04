@@ -1,19 +1,15 @@
-import { createClient } from '@/utils/supabase/server'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
 
-export default async function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const supabase = await createClient()
+export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (user) {
-    redirect('/dashboard')
+    redirect('/dashboard');
   }
 
   return (
@@ -22,5 +18,5 @@ export default async function AuthLayout({
         {children}
       </div>
     </div>
-  )
+  );
 }
