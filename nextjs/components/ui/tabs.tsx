@@ -29,17 +29,13 @@ export interface TabsProps {
 const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
   ({ className, children, defaultValue, value, onValueChange, ...props }, ref) => {
     const [internalValue, setInternalValue] = React.useState(defaultValue || '');
-    
+
     const currentValue = value !== undefined ? value : internalValue;
     const handleValueChange = onValueChange || setInternalValue;
 
     return (
       <TabsContext.Provider value={{ value: currentValue, onValueChange: handleValueChange }}>
-        <div
-          ref={ref}
-          className={cn('w-full', className)}
-          {...props}
-        >
+        <div ref={ref} className={cn('w-full', className)} {...props}>
           {children}
         </div>
       </TabsContext.Provider>

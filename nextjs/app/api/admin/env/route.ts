@@ -145,12 +145,12 @@ export const PUT = withErrorHandling(async (request: NextRequest) => {
     userId: user.id,
     organizationId: userProfile.organization_id,
   };
-  
+
   // Only add description if it's defined
   if (body.description !== undefined) {
     options.description = body.description;
   }
-  
+
   const result = await configManager.setConfig(body.key, body.value, options);
 
   return NextResponse.json(result);

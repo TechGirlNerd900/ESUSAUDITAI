@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import NodeCache from 'node-cache';
 import { withRetry } from './errorHandler';
 
@@ -79,7 +78,7 @@ export class QueryOptimizer {
 
     // Check cache first if enabled
     if (cacheKey && queryCache.has(cacheKey)) {
-      return queryCache.get(cacheKey) as PaginatedResponse<T>;
+      return queryCache.get(cacheKey) as QueryOptimizerResponse<T>;
     }
 
     // Execute query with retry logic
@@ -371,6 +370,3 @@ export class QueryOptimizer {
 export function createQueryOptimizer(supabaseClient: any): QueryOptimizer {
   return new QueryOptimizer(supabaseClient);
 }
-
-
-

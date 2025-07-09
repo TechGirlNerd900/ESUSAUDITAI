@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
 
 // Import the icons
@@ -131,7 +130,7 @@ export default function AdminSignup() {
           </div>
 
           <div className="mt-12 text-sm text-blue-200">
-            "Start your audit automation journey today"
+            Start your audit automation journey today
           </div>
         </div>
       </div>

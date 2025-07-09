@@ -6,7 +6,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { registerDocumentAnalysisProcessor, JobStatus } from './jobQueue';
+import { registerDocumentAnalysisProcessor } from './jobQueue';
 import { withRetry, DatabaseError, ExternalServiceError } from './errorHandler';
 import { CircuitBreaker } from './errorHandler';
 
@@ -27,7 +27,7 @@ const openaiCircuitBreaker = new CircuitBreaker(3, 60000, 2);
 export function initDocumentProcessor(): void {
   // Register the document analysis processor
   registerDocumentAnalysisProcessor(async (job) => {
-    const { documentId, userId } = job.data;
+    const { documentId } = job.data;
 
     try {
       // Update document status to processing
@@ -328,6 +328,4 @@ if (require.main === module) {
   initDocumentProcessor();
 }
 
-export default {
-  initDocumentProcessor,
-};
+export default initDocumentProcessor;

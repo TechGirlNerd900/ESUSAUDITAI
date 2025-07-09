@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useWebSocket } from '@/app/components/WebSocketProvider';
 import SkeletonLoader from '@/app/components/SkeletonLoader';
 import ErrorBoundary from '@/app/components/ErrorBoundary';
@@ -17,7 +17,7 @@ interface AuditLog {
 }
 
 const AuditLogViewer: React.FC = () => {
-  const { isConnected, sendMessage } = useWebSocket();
+  const { ws, isConnected, sendMessage } = useWebSocket();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -25,51 +25,58 @@ const AuditLogViewer: React.FC = () => {
   const [pageSize] = useState(10); // Number of logs per page
   const [totalPages, setTotalPages] = useState(1);
 
-  const fetchAuditLogs = async (currentPage: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Fetch audit logs from your API
-      const response = await fetch(`/api/audit-logs?page=${currentPage}&pageSize=${pageSize}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch audit logs');
+  const fetchAuditLogs = useCallback(
+    async (currentPage: number) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        // Fetch audit logs from your API
+        const response = await fetch(`/api/audit-logs?page=${currentPage}&pageSize=${pageSize}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch audit logs');
+        }
+        const data = await response.json();
+        setLogs(data.logs || []);
+        setTotalPages(data.totalPages || 1);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setIsLoading(false);
       }
-      const data = await response.json();
-      setLogs(data.logs || []);
-      setTotalPages(data.totalPages || 1);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [pageSize]
+  );
 
   useEffect(() => {
     fetchAuditLogs(page);
-  }, [page]);
+  }, [page, fetchAuditLogs]);
 
   // Example of receiving real-time updates (if implemented on server)
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !ws) return;
 
     // You might want to send an auth message to the websocket server here
     // sendMessage({ type: 'auth', payload: { userId: 'some-user-id', role: 'admin' } });
 
     // Listen for 'audit_log_created' events from the WebSocket
-    // This is a placeholder for how you might handle incoming messages
-    if (useWebSocket().ws) {
-      useWebSocket().ws?.addEventListener('message', (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          if (message.type === 'audit_log_created') {
-            setLogs((prevLogs) => [message.payload, ...prevLogs].slice(0, pageSize)); // Add new log and maintain page size
-          }
-        } catch (e) {
-          console.error('Failed to parse WebSocket message:', e);
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === 'audit_log_created') {
+          setLogs((prevLogs) => [message.payload, ...prevLogs].slice(0, pageSize)); // Add new log and maintain page size
         }
-      });
-    }
-  }, [isConnected, pageSize, sendMessage]);
+      } catch (e) {
+        console.error('Failed to parse WebSocket message:', e);
+      }
+    };
+
+    ws.addEventListener('message', handleMessage);
+
+    // Cleanup event listener on unmount or dependency change
+    return () => {
+      ws.removeEventListener('message', handleMessage);
+    };
+  }, [isConnected, ws, pageSize, sendMessage]);
 
   const handleNextPage = () => {
     setPage((prevPage) => Math.min(prevPage + 1, totalPages));
@@ -85,8 +92,11 @@ const AuditLogViewer: React.FC = () => {
         <ErrorBoundary fallback={() => <p>Error loading audit logs: {error.message}</p>}>
           {/* Render fallback component or simple error message */}
           <div className="text-red-600">Error: {error.message}</div>
-          <button onClick={() => fetchAuditLogs(page)} className="btn-primary mt-4">
-            Retry
+          <button
+            onClick={() => fetchAuditLogs(page)}
+            className={clsx('btn-primary mt-4', isLoading && 'opacity-50 cursor-wait')}
+          >
+            {isLoading ? 'Loading...' : 'Retry'}
           </button>
         </ErrorBoundary>
       </div>
@@ -219,7 +229,10 @@ const AuditLogViewer: React.FC = () => {
         <button
           onClick={handlePrevPage}
           disabled={page === 1 || isLoading}
-          className="btn-secondary"
+          className={clsx(
+            'btn-secondary',
+            (page === 1 || isLoading) && 'opacity-50 cursor-not-allowed'
+          )}
         >
           Previous
         </button>
@@ -229,7 +242,10 @@ const AuditLogViewer: React.FC = () => {
         <button
           onClick={handleNextPage}
           disabled={page === totalPages || isLoading}
-          className="btn-secondary"
+          className={clsx(
+            'btn-secondary',
+            (page === totalPages || isLoading) && 'opacity-50 cursor-not-allowed'
+          )}
         >
           Next
         </button>

@@ -4,7 +4,7 @@
 -- Create app_settings table for environment variables
 CREATE TABLE IF NOT EXISTS public.app_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    key TEXT NOT NULL UNIQUE,
+    setting_key TEXT NOT NULL UNIQUE,
     value TEXT NOT NULL,
     description TEXT,
     category TEXT NOT NULL,
@@ -15,13 +15,22 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
-
 -- Add missing columns if they don't exist
 DO $$
 BEGIN
-    -- Add key column if it doesn't exist
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'key') THEN
-        ALTER TABLE public.app_settings ADD COLUMN key TEXT;
+    -- Add setting_key column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'setting_key') THEN
+        ALTER TABLE public.app_settings ADD COLUMN setting_key TEXT;
+    END IF;
+    
+    -- Add value column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'value') THEN
+        ALTER TABLE public.app_settings ADD COLUMN value TEXT;
+    END IF;
+
+    -- Add description column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'description') THEN
+        ALTER TABLE public.app_settings ADD COLUMN description TEXT;
     END IF;
     
     -- Add category column if it doesn't exist
@@ -32,16 +41,6 @@ BEGIN
     -- Add sensitive column if it doesn't exist
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'sensitive') THEN
         ALTER TABLE public.app_settings ADD COLUMN sensitive BOOLEAN NOT NULL DEFAULT FALSE;
-    END IF;
-    
-    -- Add value column if it doesn't exist
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'value') THEN
-        ALTER TABLE public.app_settings ADD COLUMN value TEXT;
-    END IF;
-    
-    -- Add description column if it doesn't exist
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'description') THEN
-        ALTER TABLE public.app_settings ADD COLUMN description TEXT;
     END IF;
     
     -- Add created_by column if it doesn't exist
@@ -56,20 +55,20 @@ BEGIN
 END
 $$;
 
--- Make key column unique if it exists and has data
+-- Make setting_key column unique if it exists and doesn't already have the constraint
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'key') THEN
-        -- Only add unique constraint if key column exists and doesn't already have the constraint
-        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints tc 
-                      JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name 
-                      WHERE tc.table_schema = 'public' AND tc.table_name = 'app_settings' 
-                      AND kcu.column_name = 'key' AND tc.constraint_type = 'UNIQUE') THEN
-            ALTER TABLE public.app_settings ADD CONSTRAINT app_settings_key_unique UNIQUE (key);
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'setting_key') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints tc
+                      JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+                      WHERE tc.table_schema = 'public' AND tc.table_name = 'app_settings'
+                      AND kcu.column_name = 'setting_key' AND tc.constraint_type = 'UNIQUE') THEN
+            ALTER TABLE public.app_settings ADD CONSTRAINT app_settings_setting_key_unique UNIQUE (setting_key);
         END IF;
     END IF;
 END
 $$;
+
 
 -- Create api_integrations table for API integrations
 CREATE TABLE IF NOT EXISTS public.api_integrations (
@@ -94,8 +93,19 @@ CREATE TABLE IF NOT EXISTS public.health_check (
     details JSONB DEFAULT '{}'::jsonb
 );
 
+-- Add missing category column if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_schema = 'public' 
+                   AND table_name = 'app_settings' 
+                   AND column_name = 'category') THEN
+        ALTER TABLE public.app_settings ADD COLUMN category TEXT NOT NULL DEFAULT 'general';
+    END IF;
+END $$;
+
 -- Add indexes
-CREATE INDEX IF NOT EXISTS idx_app_settings_key ON public.app_settings(key);
+CREATE INDEX IF NOT EXISTS idx_app_settings_setting_key ON public.app_settings(setting_key);
 CREATE INDEX IF NOT EXISTS idx_app_settings_category ON public.app_settings(category);
 CREATE INDEX IF NOT EXISTS idx_app_settings_organization_id ON public.app_settings(organization_id);
 CREATE INDEX IF NOT EXISTS idx_api_integrations_type ON public.api_integrations(type);
@@ -222,11 +232,11 @@ VALUES ('00000000-0000-0000-0000-000000000000', now(), 'healthy', '{"initialSetu
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert default app settings
-INSERT INTO public.app_settings (key, value, description, category, sensitive)
-VALUES 
-    ('APP_VERSION', '1.0.0', 'Application version', 'custom', FALSE),
-    ('LOG_LEVEL', 'info', 'Logging level', 'monitoring', FALSE),
-    ('MAX_UPLOAD_SIZE', '10485760', 'Maximum upload size in bytes (10MB)', 'custom', FALSE),
-    ('DOCUMENT_RETENTION_DAYS', '90', 'Number of days to retain documents', 'custom', FALSE),
-    ('ENABLE_AUDIT_LOGGING', 'true', 'Enable audit logging', 'security', FALSE)
-ON CONFLICT (key) DO NOTHING;
+INSERT INTO public.app_settings (setting_key, setting_value, description, category, sensitive)
+VALUES
+    ('APP_VERSION', '"1.0.0"'::jsonb, 'Application version', 'custom', FALSE),
+    ('LOG_LEVEL', '"info"'::jsonb, 'Logging level', 'monitoring', FALSE),
+    ('MAX_UPLOAD_SIZE', '10485760'::jsonb, 'Maximum upload size in bytes (10MB)', 'custom', FALSE),
+    ('DOCUMENT_RETENTION_DAYS', '90'::jsonb, 'Number of days to retain documents', 'custom', FALSE),
+    ('ENABLE_AUDIT_LOGGING', 'true'::jsonb, 'Enable audit logging', 'security', FALSE)
+ON CONFLICT (organization_id, setting_key) DO NOTHING;

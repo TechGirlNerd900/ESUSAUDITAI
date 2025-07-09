@@ -82,7 +82,7 @@ export function createPaginatedResponse<T>(
   params: PaginationParams,
   totalCount?: number
 ): PaginatedResponse<T> {
-  const { page, pageSize } = params;
+  const { page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
   const hasNextPage = data.length === pageSize;
   const hasPreviousPage = page > 1;
 
@@ -108,18 +108,32 @@ export function createPaginatedResponse<T>(
     }
   }
 
+  const paginationData: PaginatedResponse<T>['pagination'] = {
+    page,
+    pageSize,
+    hasNextPage,
+    hasPreviousPage,
+  };
+
+  if (totalCount !== undefined) {
+    paginationData.totalCount = totalCount;
+  }
+
+  if (totalPages !== undefined) {
+    paginationData.totalPages = totalPages;
+  }
+
+  if (nextCursor !== undefined) {
+    paginationData.nextCursor = nextCursor;
+  }
+
+  if (previousCursor !== undefined) {
+    paginationData.previousCursor = previousCursor;
+  }
+
   return {
     data,
-    pagination: {
-      page,
-      pageSize,
-      totalCount,
-      totalPages,
-      hasNextPage,
-      hasPreviousPage,
-      nextCursor,
-      previousCursor,
-    },
+    pagination: paginationData,
   };
 }
 
@@ -147,7 +161,7 @@ export function buildPaginatedQuery(
       } else {
         query = query.gt(safeSortBy, decodedCursor);
       }
-    } catch (error) {
+    } catch {
       console.warn('Invalid cursor provided:', cursor);
     }
   }
@@ -175,7 +189,7 @@ export function addSearchFilters(
     const sanitizedSearch = searchTerm.replace(/[%_\\]/g, '\\$&');
 
     // Build OR conditions for searchable fields
-    const searchConditions = Object.entries(searchableFields).flatMap(([table, fields]) =>
+    const searchConditions = Object.entries(searchableFields).flatMap(([, fields]) =>
       fields.map((field) => `${field}.ilike.%${sanitizedSearch}%`)
     );
 

@@ -70,7 +70,15 @@ export async function POST(request: NextRequest) {
         invited_by: auth.profile.id,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
       })
-      .select()
+      .select(
+        `
+        id,
+        email,
+        role,
+        expires_at,
+        token
+      `
+      )
       .single();
 
     if (inviteError) {
@@ -129,6 +137,7 @@ export async function POST(request: NextRequest) {
         email: invitation.email,
         role: invitation.role,
         expires_at: invitation.expires_at,
+        // Note: token is explicitly excluded from response for security
       },
     });
   } catch (error) {
@@ -182,7 +191,10 @@ export async function GET(request: NextRequest) {
       status: inv.status,
       createdAt: inv.created_at,
       expiresAt: inv.expires_at,
-      invitedBy: inv.users && Array.isArray(inv.users) && inv.users[0] ? `${inv.users[0].first_name} ${inv.users[0].last_name}` : 'Unknown',
+      invitedBy:
+        inv.users && Array.isArray(inv.users) && inv.users[0]
+          ? `${inv.users[0].first_name} ${inv.users[0].last_name}`
+          : 'Unknown',
       isExpired: new Date(inv.expires_at) < new Date(),
     }));
 

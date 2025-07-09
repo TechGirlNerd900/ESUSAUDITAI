@@ -248,7 +248,11 @@ export class SecurityService {
    * @returns {string} - The generated CSRF token
    */
   generateCsrfToken(sessionId: string): string {
-    const csrfSecret = (process.env.CSRF_SECRET || 'default-csrf-secret-for-development-only-please-change') as string;
+    const csrfSecret = process.env.CSRF_SECRET;
+    if (!csrfSecret) {
+      throw new Error('CSRF_SECRET environment variable is required for security operations');
+    }
+
     const hmac = crypto.createHmac('sha256', csrfSecret);
     hmac.update(sessionId);
     return hmac.digest('hex');
@@ -272,7 +276,11 @@ export class SecurityService {
    */
   encryptData(data: string): string {
     const algorithm = 'aes-256-cbc';
-    const encryptionKey = (process.env.ENCRYPTION_KEY || 'default-encryption-key-32-chars-long-for-dev') as string;
+    const encryptionKey = process.env.ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required for security operations');
+    }
+
     const key = Buffer.from(encryptionKey, 'utf8');
     const iv = crypto.randomBytes(16);
 
@@ -290,7 +298,11 @@ export class SecurityService {
    */
   decryptData(encryptedData: string): string {
     const algorithm = 'aes-256-cbc';
-    const encryptionKey = (process.env.ENCRYPTION_KEY || 'default-encryption-key-32-chars-long-for-dev') as string;
+    const encryptionKey = process.env.ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required for security operations');
+    }
+
     const key = Buffer.from(encryptionKey, 'utf8');
 
     const parts = encryptedData.split(':');

@@ -49,7 +49,6 @@ const Dashboard: React.FC = () => {
   const [projectsVisible, setProjectsVisible] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [news, setNews] = useState<NewsArticle[]>([]);
@@ -109,7 +108,7 @@ const Dashboard: React.FC = () => {
       setError(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsLoading(false);
-      setInitialLoad(false);
+      // Initial load complete
     }
   };
 
@@ -132,16 +131,16 @@ const Dashboard: React.FC = () => {
       // Add delay to respect rate limits
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const params = {
-        api_token: process.env.NEXT_PUBLIC_NEWS_API_TOKEN || '',
-        categories: 'business',
-        search: 'finance,sec,regulation',
-        limit: '3', // Reduced to minimize API usage
-      };
+const params: Record<string, string> = {
+  api_token: process.env.NEXT_PUBLIC_NEWS_API_TOKEN || '',
+  categories: 'business',
+  search: 'finance,sec,regulation',
+  limit: '3',
+};
 
       const esc = encodeURIComponent;
       const query = Object.keys(params)
-        .map((k) => esc(k) + '=' + esc((params as Record<string, string>)[k])) // Explicitly cast to Record<string, string>
+        .map((k) => esc(k) + '=' + esc(params[k] as string))
         .join('&');
 
       const response = await fetch(`https://api.thenewsapi.com/v1/news/all?${query}`);
@@ -248,7 +247,7 @@ const Dashboard: React.FC = () => {
       icon: (props: React.SVGProps<SVGSVGElement>) => (
         <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path
-            strokeLinecap="round"
+            strokeLinecap='round'
             strokeLinejoin="round"
             d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
           />
@@ -789,7 +788,7 @@ const Dashboard: React.FC = () => {
                   <>
                     {filteredProjects.length > 0 ? (
                       <div className="grid grid-cols-1 gap-6">
-                        {filteredProjects.slice(0, 4).map((project, index) => (
+                        {filteredProjects.slice(0, 4).map((project, _index) => (
                           <Link
                             key={project.id}
                             href={`/projects/${project.id}`}
@@ -985,6 +984,15 @@ const Dashboard: React.FC = () => {
                               article.url !== '#' &&
                               window.open(article.url, '_blank')
                             }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                article.url &&
+                                article.url !== '#' &&
+                                window.open(article.url, '_blank');
+                              }
+                            }}
+                            tabIndex={0}
+                            role="button"
                           >
                             <p className="text-sm font-medium text-gray-900 leading-tight mb-1">
                               {article.title?.length > 60
@@ -1043,9 +1051,9 @@ const Dashboard: React.FC = () => {
                         👋 Ready to help with your audit needs! Try asking:
                       </p>
                       <div className="space-y-2 text-xs text-gray-600">
-                        <p>• "What documents do I need for a financial audit?"</p>
-                        <p>• "Show me compliance requirements for my industry"</p>
-                        <p>• "Generate a risk assessment checklist"</p>
+                        <p>• &quot;What documents do I need for a financial audit?&quot;</p>
+                        <p>• &quot;Show me compliance requirements for my industry&quot;</p>
+                        <p>• &quot;Generate a risk assessment checklist&quot;</p>
                       </div>
                     </div>
                     <button className="w-full btn-primary text-sm">Start Chat</button>

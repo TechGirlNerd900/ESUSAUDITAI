@@ -1,4 +1,5 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
+import { waitFor } from '@testing-library/dom';
 import { useAuth } from '../useAuth';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';

@@ -83,16 +83,19 @@ export class Database {
           .single();
 
         if (error) {
-          throw new DatabaseError('insert', error.message, { table: 'users', email: userData.email });
+          throw new DatabaseError('insert', error.message, {
+            table: 'users',
+            email: userData.email,
+          });
         }
         return data;
       },
-      { 
+      {
         maxRetries: 3,
         shouldRetry: (error) => {
           // Don't retry on constraint violations or validation errors
           return !error.message?.includes('duplicate') && !error.message?.includes('constraint');
-        }
+        },
       }
     );
   }
@@ -135,7 +138,10 @@ export class Database {
         throw error;
       }
       console.error('Error getting user:', error);
-      throw new DatabaseError('select', error instanceof Error ? error.message : String(error), { table: 'users', userId });
+      throw new DatabaseError('select', error instanceof Error ? error.message : String(error), {
+        table: 'users',
+        userId,
+      });
     }
   }
 
@@ -160,7 +166,10 @@ export class Database {
         throw error;
       }
       console.error('Error getting user by email:', error);
-      throw new DatabaseError('select', error instanceof Error ? error.message : String(error), { table: 'users', email });
+      throw new DatabaseError('select', error instanceof Error ? error.message : String(error), {
+        table: 'users',
+        email,
+      });
     }
   }
 
@@ -182,12 +191,12 @@ export class Database {
         }
         return data;
       },
-      { 
+      {
         maxRetries: 3,
         shouldRetry: (error) => {
           // Don't retry on not found or constraint violations
           return !(error instanceof NotFoundError) && !error.message?.includes('constraint');
-        }
+        },
       }
     );
   }
@@ -227,16 +236,19 @@ export class Database {
           .single();
 
         if (error) {
-          throw new DatabaseError('insert', error.message, { table: 'projects', name: projectData.name });
+          throw new DatabaseError('insert', error.message, {
+            table: 'projects',
+            name: projectData.name,
+          });
         }
         return data;
       },
-      { 
+      {
         maxRetries: 3,
         shouldRetry: (error) => {
           // Don't retry on constraint violations or validation errors
           return !error.message?.includes('duplicate') && !error.message?.includes('constraint');
-        }
+        },
       }
     );
   }
@@ -276,12 +288,12 @@ export class Database {
 
         return data;
       },
-      { 
+      {
         maxRetries: 2,
         shouldRetry: (error) => {
           // Don't retry on not found or access denied errors
           return !(error instanceof NotFoundError);
-        }
+        },
       }
     );
   }
@@ -315,7 +327,7 @@ export class Database {
 
       // Define searchable fields for projects
       const projectSearchableFields = {
-        projects: ['name', 'description', 'client_name']
+        projects: ['name', 'description', 'client_name'],
       };
 
       // Create URLSearchParams object for unified search filtering
@@ -338,7 +350,7 @@ export class Database {
       if (error) throw error;
 
       // Calculate total pages
-      const totalPages = Math.ceil(count / pageSize);
+      const totalPages = Math.ceil((count as number) / pageSize);
 
       return {
         data,

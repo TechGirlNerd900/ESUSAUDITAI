@@ -19,6 +19,7 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+  // FIX: Renamed state variable from `project` to `projects` to correctly represent an array.
   const [projects, setProjects] = useState<Project[]>([]);
   const [tagFilter, setTagFilter] = useState('');
   const [customFieldFilter, setCustomFieldFilter] = useState('');
@@ -64,19 +65,19 @@ export default function ProjectsPage() {
     setError(null);
     try {
       const endpoint = project.deleted_at
-        ? `/api/projects/${project.id}/restore` // You may need to implement this endpoint
+        ? `/api/projects/${project.id}/restore`
         : `/api/projects/${project.id}/archive`;
       const res = await fetch(endpoint, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to update project');
       // Optimistically update UI
-      setProjects((projects) =>
-        projects.map((p) =>
+      setProjects((currentProjects) =>
+        currentProjects.map((p) =>
           p.id === project.id
             ? { ...p, deleted_at: project.deleted_at ? null : new Date().toISOString() }
             : p
         )
       );
-    } catch (e) {
+    } catch (_e) {
       setError('Failed to update project. Please try again.');
     } finally {
       setLoadingId(null);
@@ -109,7 +110,7 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredProjects.map((project, index) => (
+          {filteredProjects.map((project, _index) => (
             <div
               key={project.id}
               className={`card-gradient p-4 rounded-lg shadow relative ${project.deleted_at ? 'opacity-60' : ''}`}

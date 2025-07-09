@@ -3,7 +3,6 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid'; // Add UUID for better ID handling
 
 export interface AuthUser {
   id: string;
@@ -78,7 +77,7 @@ export async function authenticateApiRequest(
   try {
     // Apply rate limiting if configured
     if (options.rateLimit) {
-      const rateLimiter = createRateLimitCheck(options.rateLimit);
+      const rateLimiter = await createRateLimitCheck(options.rateLimit);
       const rateLimitResponse = await rateLimiter(request);
 
       if (rateLimitResponse) {
@@ -109,7 +108,7 @@ export async function authenticateApiRequest(
     // Transform the Supabase User object into AuthUser
     const authUser: AuthUser = {
       id: user.id,
-      email: user.email,
+      email: user.email ?? null,
       user_metadata: user.user_metadata || {},
       app_metadata: {
         provider_id: (user.app_metadata?.provider as string) || '', // Use 'provider' from Supabase app_metadata
@@ -136,39 +135,18 @@ export async function authenticateApiRequest(
         profileError ? 'Profile fetch error:' : 'User profile not found:',
         profileError || user.id
       );
-      // If we have an auth user but no profile, create a default one
-      try {
-        const { data: newUserProfile, error: createError } = await client
-          .from('users')
-          .insert({
-            auth_user_id: user.id,
-            email: user.email,
-            first_name: user.user_metadata?.first_name || user.email.split('@')[0],
-            last_name: user.user_metadata?.last_name || 'User',
-            role: user.user_metadata?.role || 'auditor',
-            organization_id: user.user_metadata?.organization_id || null,
-            is_active: true,
-            status: 'active',
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          throw createError;
-        }
-
-        return {
-          success: true,
-          user: authUser, // Use the transformed authUser
-          profile: newUserProfile,
-        };
-      } catch (profileError) {
-        console.error('Failed to create default profile:', profileError);
-        return {
-          success: false,
-          response: NextResponse.json({ error: 'User profile not found' }, { status: 403 }),
-        };
-      }
+      // SECURITY: Do not auto-create profiles from unvalidated metadata
+      // Profile creation should only happen through proper signup flow
+      console.error('Profile creation attempted without proper validation - blocking for security');
+      return {
+        success: false,
+        response: NextResponse.json(
+          {
+            error: 'User profile not found. Please complete proper signup process.',
+          },
+          { status: 403 }
+        ),
+      };
     }
 
     // Validate organization access - CRITICAL for multi-tenant security
@@ -271,24 +249,24 @@ export async function checkOrganizationAccess(
 import { Ratelimit } from '@upstash/ratelimit';
 import { createRedisClient } from '@/lib/env';
 
-// Initialize Redis client using unified approach
-const redis = createRedisClient();
-
-export function createRateLimitCheck(requestsPerMinute: number = 60) {
+export async function createRateLimitCheck(requestsPerMinute: number = 60) {
   // Create a sliding window rate limiter if Redis is available
   let ratelimit: Ratelimit | null = null;
 
-  if (redis) {
-    try {
+  try {
+    const redis = await createRedisClient();
+    if (redis) {
       ratelimit = new Ratelimit({
         redis,
         limiter: Ratelimit.slidingWindow(requestsPerMinute, '1 m'),
         analytics: true,
         prefix: 'api_ratelimit',
       });
-    } catch (error) {
-      console.warn('Rate limiting disabled: Ratelimit initialization failed', error);
+    } else {
+      console.warn('Rate limiting disabled: Redis not available');
     }
+  } catch (error) {
+    console.warn('Rate limiting disabled: Ratelimit initialization failed', error);
   }
 
   return async (request: NextRequest): Promise<NextResponse | null> => {

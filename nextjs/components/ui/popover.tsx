@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 interface PopoverContextValue {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  triggerRef: React.RefObject<HTMLElement>;
+  triggerRef: React.RefObject<HTMLElement | null>;
 }
 
 const PopoverContext = React.createContext<PopoverContextValue | undefined>(undefined);
@@ -26,15 +26,10 @@ export interface PopoverProps {
   defaultOpen?: boolean;
 }
 
-const Popover: React.FC<PopoverProps> = ({ 
-  children, 
-  open, 
-  onOpenChange, 
-  defaultOpen = false 
-}) => {
+const Popover: React.FC<PopoverProps> = ({ children, open, onOpenChange, defaultOpen = false }) => {
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
   const triggerRef = React.useRef<HTMLElement>(null);
-  
+
   const currentOpen = open !== undefined ? open : internalOpen;
   const handleOpenChange = onOpenChange || setInternalOpen;
 
@@ -70,11 +65,13 @@ const Popover: React.FC<PopoverProps> = ({
   }, [currentOpen, handleOpenChange]);
 
   return (
-    <PopoverContext.Provider value={{ 
-      open: currentOpen, 
-      onOpenChange: handleOpenChange, 
-      triggerRef 
-    }}>
+    <PopoverContext.Provider
+      value={{
+        open: currentOpen,
+        onOpenChange: handleOpenChange,
+        triggerRef,
+      }}
+    >
       {children}
     </PopoverContext.Provider>
   );
@@ -104,14 +101,14 @@ const PopoverTrigger = React.forwardRef<HTMLButtonElement, PopoverTriggerProps>(
 
     // If asChild, clone the child element with event handlers
     if (asChild && React.isValidElement(children)) {
-      return React.cloneElement(children, {
-        ref: (node: HTMLElement) => {
+      return React.cloneElement(children as React.ReactElement<any>, {
+        ref: (node: HTMLElement | null) => {
           // Handle both callback refs and object refs
-          if (typeof ref === 'function') ref(node);
-          else if (ref) ref.current = node;
-          
+          if (typeof ref === 'function') ref(node as HTMLButtonElement);
+          else if (ref) ref.current = node as HTMLButtonElement;
+
           triggerRef.current = node;
-          
+
           // Preserve original ref if it exists
           const originalRef = (children as any).ref;
           if (typeof originalRef === 'function') originalRef(node);
@@ -167,15 +164,18 @@ export interface PopoverContentProps {
 }
 
 const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
-  ({ 
-    className, 
-    children, 
-    align = 'center', 
-    side = 'bottom', 
-    sideOffset = 4, 
-    alignOffset = 0,
-    ...props 
-  }, ref) => {
+  (
+    {
+      className,
+      children,
+      align = 'center',
+      side = 'bottom',
+      sideOffset = 4,
+      alignOffset = 0,
+      ...props
+    },
+    ref
+  ) => {
     const { open, triggerRef } = usePopoverContext();
     const [position, setPosition] = React.useState({ top: 0, left: 0 });
 
@@ -183,10 +183,6 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
     React.useLayoutEffect(() => {
       if (open && triggerRef.current) {
         const triggerRect = triggerRef.current.getBoundingClientRect();
-        const viewport = {
-          width: window.innerWidth,
-          height: window.innerHeight,
-        };
 
         let top = 0;
         let left = 0;
@@ -236,7 +232,7 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
 
         setPosition({ top, left });
       }
-    }, [open, side, align, sideOffset, alignOffset]);
+    }, [open, side, align, sideOffset, alignOffset, triggerRef]);
 
     if (!open) {
       return null;
@@ -256,15 +252,16 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
           position: 'fixed',
           top: position.top,
           left: position.left,
-          transform: align === 'center' 
-            ? side === 'top' || side === 'bottom' 
-              ? 'translateX(-50%)' 
-              : 'translateY(-50%)'
-            : align === 'end'
-            ? side === 'top' || side === 'bottom'
-              ? 'translateX(-100%)'
-              : 'translateY(-100%)'
-            : undefined,
+          transform:
+            align === 'center'
+              ? side === 'top' || side === 'bottom'
+                ? 'translateX(-50%)'
+                : 'translateY(-50%)'
+              : align === 'end'
+                ? side === 'top' || side === 'bottom'
+                  ? 'translateX(-100%)'
+                  : 'translateY(-100%)'
+                : undefined,
         }}
         {...props}
       >

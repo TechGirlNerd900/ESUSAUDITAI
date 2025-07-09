@@ -11,7 +11,7 @@ interface DialogProps {
 
 const Dialog: React.FC<DialogProps> = ({ children, open, onOpenChange, defaultOpen = false }) => {
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
-  
+
   const isOpen = open !== undefined ? open : internalOpen;
   const setOpen = onOpenChange || setInternalOpen;
 
@@ -46,14 +46,9 @@ const Dialog: React.FC<DialogProps> = ({ children, open, onOpenChange, defaultOp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50"
-        onClick={() => setOpen(false)}
-      />
+      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setOpen(false)} />
       {/* Content Container */}
-      <div className="relative z-50">
-        {children}
-      </div>
+      <div className="relative z-50">{children}</div>
     </div>
   );
 };

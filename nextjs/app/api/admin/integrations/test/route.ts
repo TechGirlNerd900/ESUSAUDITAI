@@ -66,18 +66,16 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
 
   // Log test result
   try {
-    await supabase
-      .from('audit_logs')
-      .insert({
-        user_id: user.id,
-        action: 'test',
-        resource_type: 'api_integration',
-        resource_id: body.id,
-        details: {
-          success: testResult.success,
-          timestamp: new Date().toISOString(),
-        },
-      });
+    await supabase.from('audit_logs').insert({
+      user_id: user.id,
+      action: 'test',
+      resource_type: 'api_integration',
+      resource_id: body.id,
+      details: {
+        success: testResult.success,
+        timestamp: new Date().toISOString(),
+      },
+    });
   } catch (error: any) {
     console.error('Failed to log audit event', error);
   }

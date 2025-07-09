@@ -63,7 +63,7 @@ export function generateUUID() {
 
 export function sanitizeFilename(filename: string) {
   return filename
-    .replace(/[^a-zA-Z0-9\.\-_]/g, '_')
+    .replace(/[^a-zA-Z0-9.-_]/g, '_')
     .replace(/_{2,}/g, '_')
     .substring(0, 255);
 }

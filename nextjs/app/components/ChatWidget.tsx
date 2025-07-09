@@ -25,7 +25,7 @@ export default function ChatWidget({ projectId }: { projectId?: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsApiKey, setNeedsApiKey] = useState(false);
-  const chatRef = useRef(null);
+  const chatRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages are added
   useEffect(() => {
@@ -54,6 +54,12 @@ export default function ChatWidget({ projectId }: { projectId?: string }) {
       // Use project-specific chat if projectId is provided, otherwise use general chat
       const endpoint = projectId ? `/api/chat/${projectId}` : '/api/chat/general';
 
+      // Add null check for projectId
+      if (!projectId) {
+        console.error('Project ID is required for project-specific chat');
+        throw new Error('Project ID is required');
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,18 +87,33 @@ export default function ChatWidget({ projectId }: { projectId?: string }) {
 
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (error) {
-      console.error('Chat error:', error);
-      setError(error.message);
-      // Add error message to chat
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `Sorry, I encountered an error: ${error.message}`,
-          timestamp: new Date().toISOString(),
-          isError: true,
-        },
-      ]);
+      if (error instanceof Error) {
+        console.error('Chat error:', error);
+        setError(error.message);
+        // Add error message to chat
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `Sorry, I encountered an error: ${error.message}`,
+            timestamp: new Date().toISOString(),
+            isError: true,
+          },
+        ]);
+      } else {
+        console.error('Unknown error:', error);
+        setError('An unknown error occurred');
+        // Add error message to chat
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: 'Sorry, I encountered an unknown error.',
+            timestamp: new Date().toISOString(),
+            isError: true,
+          },
+        ]);
+      }
     } finally {
       setLoading(false);
     }

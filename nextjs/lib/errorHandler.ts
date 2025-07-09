@@ -111,8 +111,8 @@ export async function withRetry<T>(
   const {
     maxRetries = 3,
     baseDelay = 300,
-    shouldRetry = (error) => true,
-    onRetry = (error, attempt) => {},
+    shouldRetry = (_error) => true,
+    onRetry = (_error, _attempt) => {},
   } = options;
 
   let lastError: any;

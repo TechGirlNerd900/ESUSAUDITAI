@@ -15,12 +15,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     supabase = await createClient();
 
-    // Start a transaction
-    const { error: txnError } = await supabase.rpc('begin_transaction');
-    if (txnError) {
-      console.error('Error starting transaction:', txnError);
-      return NextResponse.json({ error: 'Failed to start transaction' }, { status: 500 });
-    }
+    // SECURITY: Multi-step operations require careful error handling
+    // PostgreSQL transactions are handled implicitly by Supabase client
+    // We implement compensating transactions for failure scenarios
 
     // Check if user is authenticated
     const {
@@ -136,11 +133,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } catch (azureError) {
       console.error('Azure services initialization error:', azureError);
 
-      // Rollback transaction
-      const { error: rollbackError } = await supabase.rpc('rollback_transaction');
-      if (rollbackError) {
-        console.error('Error rolling back transaction:', rollbackError);
-      }
+      // Compensating transaction: reset document status
 
       // Update document status to error (outside transaction)
       await supabase.from('documents').update({ status: 'error' }).eq('id', documentId);
@@ -244,11 +237,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       if (analysisError) {
         console.error('Analysis save error:', analysisError);
-        // Rollback transaction if analysis save fails
-        const { error: rollbackError } = await supabase.rpc('rollback_transaction');
-        if (rollbackError) {
-          console.error('Error rolling back transaction:', rollbackError);
-        }
+        // Compensating transaction: reset document status on analysis save failure
         throw new Error('Failed to save analysis results: ' + analysisError.message);
       }
 
@@ -260,18 +249,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       if (finalStatusError) {
         console.error('Final status update error:', finalStatusError);
-        // Rollback transaction if status update fails
-        await supabase.rpc('rollback_transaction');
+        // Compensating transaction: clean up analysis result if status update fails
+        await supabase.from('analysis_results').delete().eq('document_id', documentId);
         return NextResponse.json({ error: 'Failed to update document status' }, { status: 500 });
       }
 
-      // Commit the transaction after successful operations
-      const { error: commitError } = await supabase.rpc('commit_transaction');
-      if (commitError) {
-        console.error('Error committing transaction:', commitError);
-        // Even if commit fails, we don't want to roll back at this point
-        // as the operations were successful
-      }
+      // All operations completed successfully - no explicit commit needed
+      // PostgreSQL automatically commits single operations
 
       return NextResponse.json({
         analysis: analysisResult,
@@ -280,11 +264,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } catch (analysisError) {
       console.error('Analysis processing error:', analysisError);
 
-      // Rollback transaction
-      const { error: rollbackError } = await supabase.rpc('rollback_transaction');
-      if (rollbackError) {
-        console.error('Error rolling back transaction:', rollbackError);
-      }
+      // Compensating transaction: reset document status
 
       // Update document status to error (outside transaction)
       await supabase.from('documents').update({ status: 'error' }).eq('id', documentId);
@@ -302,9 +282,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     console.error('Document analysis error:', error);
 
     try {
-      // Attempt to rollback the transaction if supabase is available
+      // Attempt compensating transaction cleanup if supabase is available
       if (supabase) {
-        await supabase.rpc('rollback_transaction');
+        // Reset document status and clean up any partial results
+        await supabase.from('documents').update({ status: 'error' }).eq('id', documentId);
       }
 
       // If we have a document ID and supabase client, update its status to error

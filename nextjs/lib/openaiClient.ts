@@ -71,7 +71,7 @@ export async function generateChatResponse(
     const context = contextChunks
       .map((c) => `Source: ${c.sourceDocument}, Content: ${c.textContent}`)
       .join('\n---\n');
-    systemPrompt = `You are a precise audit assistant. Answer the user's query based ONLY on the provided context below.\nDo not make assumptions or use any external knowledge.\nIf the provided context does not contain the information needed to answer the query, you MUST respond with:\n\"I cannot answer this question based on the provided documents.\"\n\nCONTEXT:\n${context}\n\nUSER QUERY:\n${query}\n\nANSWER:`;
+    systemPrompt = `You are a precise audit assistant. Answer the user's query based ONLY on the provided context below.\nDo not make assumptions or use any external knowledge.\nIf the provided context does not contain the information needed to answer the query, you MUST respond with:\n"I cannot answer this question based on the provided documents."\n\nCONTEXT:\n${context}\n\nUSER QUERY:\n${query}\n\nANSWER:`;
   }
   const messages = chatHistory.map((msg) => ({
     role: msg.role,

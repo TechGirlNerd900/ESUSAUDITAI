@@ -5,9 +5,7 @@
  * making it easier to manage and test services.
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/utils/supabase/server';
-import { createQueryOptimizer } from './queryOptimizer';
 import logger, { getLogger } from './logger';
 import { CircuitBreaker } from './errorHandler';
 
@@ -514,7 +512,7 @@ class DocumentProcessingService implements DocumentService {
     const filePath = `${projectId}/${fileName}`;
 
     // Upload file to storage
-    const { data: uploadData, error: uploadError } = await this.supabase.storage
+    const { data: _uploadData, error: uploadError } = await this.supabase.storage
       .from('documents')
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,

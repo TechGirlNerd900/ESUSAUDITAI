@@ -66,8 +66,8 @@ export function sanitizeForLogging(obj: Record<string, any>): Record<string, any
  * Sanitizes filenames to prevent path traversal attacks
  */
 export function sanitizeFileName(fileName: string): string {
-  const name = fileName.replace(/^.*[\\\/]/, '');
-  return name.replace(/[^a-zA-Z0-9\.\-\_]/g, '_');
+  const name = fileName.replace(/^.*[\\/]/, '');
+  return name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
 }
 
 /**

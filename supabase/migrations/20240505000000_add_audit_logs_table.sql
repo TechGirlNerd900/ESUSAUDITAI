@@ -1,49 +1,8 @@
 -- Migration to add audit logs table
 -- This enables comprehensive audit logging for security and compliance
 
--- Create audit_logs table if it doesn't exist
-CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID,
-    action TEXT NOT NULL,
-    resource_type TEXT NOT NULL,
-    resource_id UUID NOT NULL,
-    details JSONB DEFAULT '{}'::jsonb,
-    ip_address TEXT,
-    user_agent TEXT,
-    organization_id UUID REFERENCES public.organizations(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON public.audit_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs(action);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_type ON public.audit_logs(resource_type);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_id ON public.audit_logs(resource_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_organization_id ON public.audit_logs(organization_id);
-
--- Enable RLS on audit_logs table
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
-
--- Create RLS policies for audit_logs
-CREATE POLICY audit_logs_insert_policy ON public.audit_logs
-    FOR INSERT
-    WITH CHECK (
-        -- Any authenticated user can create audit logs
-        auth.uid() IS NOT NULL
-        -- Users can only create audit logs for their organization
-        AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
-    );
-
-CREATE POLICY audit_logs_select_policy ON public.audit_logs
-    FOR SELECT
-    USING (
-        -- Only admins can view audit logs
-        (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) IN ('admin', 'super_admin')
-        -- Users can only view audit logs for their organization
-        AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
-    );
+-- This migration file now only contains functions and triggers related to audit logs,
+-- as the audit_logs table definition and core RLS policies are managed in 100_rbac_multitenant_schema.sql.
 
 -- Create function to log actions
 CREATE OR REPLACE FUNCTION public.log_action(
@@ -186,8 +145,8 @@ CREATE TRIGGER audit_documents_trigger
 AFTER INSERT OR UPDATE OR DELETE ON public.documents
 FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
 
-CREATE TRIGGER audit_analysis_results_trigger
-AFTER INSERT OR UPDATE OR DELETE ON public.analysis_results
+CREATE TRIGGER audit_document_analysis_results_trigger
+AFTER INSERT OR UPDATE OR DELETE ON public.document_analysis_results
 FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
 
 CREATE TRIGGER audit_users_trigger

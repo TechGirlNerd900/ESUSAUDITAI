@@ -9,10 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -24,72 +21,78 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 // Simple modal components
-const Dialog = ({ open, onOpenChange, children }: { open: boolean; onOpenChange: (open: boolean) => void; children: React.ReactNode }) => {
+const Dialog = ({
+  open,
+  onOpenChange,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: React.ReactNode;
+}) => {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => onOpenChange(false)}>
-      <div onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      onClick={() => onOpenChange(false)}
+      role="dialog"
+      onKeyDown={(e) => e.key === 'Escape' && onOpenChange(false)}
+      tabIndex={0}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="dialog"
+        tabIndex={-1}
+      >
         {children}
       </div>
     </div>
   );
 };
 
-const DialogContent = ({ className, children }: { className?: string; children: React.ReactNode }) => (
-  <div className={`bg-white rounded-lg shadow-lg p-6 ${className || ''}`}>
-    {children}
-  </div>
-);
+const DialogContent = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) => <div className={`bg-white rounded-lg shadow-lg p-6 ${className || ''}`}>{children}</div>;
 
 const DialogHeader = ({ children }: { children: React.ReactNode }) => (
-  <div className="mb-4">
-    {children}
-  </div>
+  <div className="mb-4">{children}</div>
 );
 
 const DialogTitle = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="text-lg font-semibold">
-    {children}
-  </h2>
+  <h2 className="text-lg font-semibold">{children}</h2>
 );
 
 const DialogDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600">
-    {children}
-  </p>
+  <p className="text-sm text-gray-600">{children}</p>
 );
 
-const DialogFooter = ({ className, children }: { className?: string; children: React.ReactNode }) => (
-  <div className={`mt-6 ${className || ''}`}>
-    {children}
-  </div>
-);
+const DialogFooter = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) => <div className={`mt-6 ${className || ''}`}>{children}</div>;
+
 import { toast } from '@/components/ui/use-toast';
 // Icon components - using simple HTML entities
-const Loader2 = ({ className }: { className?: string }) => (
-  <span className={className}>⟳</span>
-);
-const RefreshCw = ({ className }: { className?: string }) => (
-  <span className={className}>🔄</span>
-);
+const Loader2 = ({ className }: { className?: string }) => <span className={className}>⟳</span>;
+const RefreshCw = ({ className }: { className?: string }) => <span className={className}>🔄</span>;
 const AlertTriangle = ({ className }: { className?: string }) => (
   <span className={className}>⚠️</span>
 );
 const CheckCircle = ({ className }: { className?: string }) => (
   <span className={className}>✅</span>
 );
-const XCircle = ({ className }: { className?: string }) => (
-  <span className={className}>❌</span>
-);
-const Clock = ({ className }: { className?: string }) => (
-  <span className={className}>🕐</span>
-);
-const Play = ({ className }: { className?: string }) => (
-  <span className={className}>▶️</span>
-);
-const Trash2 = ({ className }: { className?: string }) => (
-  <span className={className}>🗑️</span>
-);
+const XCircle = ({ className }: { className?: string }) => <span className={className}>❌</span>;
+const Clock = ({ className }: { className?: string }) => <span className={className}>🕐</span>;
+const Play = ({ className }: { className?: string }) => <span className={className}>▶️</span>;
+const Trash2 = ({ className }: { className?: string }) => <span className={className}>🗑️</span>;
 import { JobStatus, JobPriority } from '@/lib/jobQueue';
 import { createClient } from '@/utils/supabase/client';
 
@@ -503,6 +506,10 @@ export default function JobsPage() {
                     key={job.id}
                     className="cursor-pointer hover:bg-gray-50"
                     onClick={() => viewJobDetails(job)}
+                    onKeyDown={(e) => e.key === 'Enter' && viewJobDetails(job)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View details for job ${job.id}`}
                   >
                     <TableCell className="font-mono text-xs">{job.id.substring(0, 8)}...</TableCell>
                     <TableCell>{job.type}</TableCell>
@@ -517,6 +524,9 @@ export default function JobsPage() {
                       <div
                         className="flex justify-end space-x-2"
                         onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        role="group"
+                        aria-label="Job actions"
                       >
                         {job.status === 'failed' && (
                           <Button variant="outline" size="sm" onClick={() => retryJob(job.id)}>

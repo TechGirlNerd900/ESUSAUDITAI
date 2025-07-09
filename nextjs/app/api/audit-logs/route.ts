@@ -4,7 +4,7 @@ import { withErrorHandling } from '@/lib/errorHandler';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 // Function to insert an audit log (can be called internally or via a POST endpoint)
-export async function insertAuditLog(
+async function insertAuditLog(
   supabase: SupabaseClient,
   logData: {
     user_id: string;

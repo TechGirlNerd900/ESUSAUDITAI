@@ -1,7 +1,14 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { authRateLimiter } from '@/lib/rateLimiter';
 
 export async function POST(request: NextRequest) {
+  // Apply rate limiting for password update attempts
+  const rateLimitResponse = await authRateLimiter(request);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     const { password } = await request.json();
 

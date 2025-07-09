@@ -144,7 +144,7 @@ export default function Login() {
           </div>
 
           <div className="mt-12 text-sm text-blue-200">
-            "Transforming audit workflows with the power of AI"
+            Transforming audit workflows with the power of AI
           </div>
         </div>
       </div>

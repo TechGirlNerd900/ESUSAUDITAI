@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { createRedisClient } from '@/lib/env';
 
-const redis = createRedisClient();
+const redisPromise = createRedisClient();
 
 function getKey(request: NextRequest): string {
   // Use IP address as the key, with fallback to a generic key
@@ -23,23 +23,59 @@ function createRateLimiter({
   message: string;
 }) {
   // Skip rate limiting if Redis is not available
-  if (!redis) {
+  if (!redisPromise) {
     console.warn(`⚠️  Rate limiter "${message}" disabled - Redis not configured`);
-    return async (request: NextRequest) => null; // Always allow requests
+    return async (_request: NextRequest) => null; // Always allow requests
   }
 
-  const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(max, `${windowSec} s`),
-    analytics: true,
-  });
-  
   return async (request: NextRequest) => {
+    const redis = await redisPromise;
+    if (!redis) {
+      // This case should ideally be caught by the initial check, but as a safeguard
+      console.warn(`⚠️  Rate limiter "${message}" disabled - Redis not available at runtime`);
+      return null;
+    }
+
+    const ratelimit = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(max, `${windowSec} s`),
+      analytics: true,
+    });
+
     try {
       const key = getKey(request);
       const { success, reset, remaining } = await ratelimit.limit(key);
       if (!success) {
         const retryAfter = Math.ceil((reset * 1000 - Date.now()) / 1000);
+        const identifier = getKey(request);
+
+        console.warn(`Rate limit exceeded for ${identifier}: ${remaining} requests remaining`);
+
+        // Log rate limit violation for security monitoring
+        try {
+          const { createClient } = await import('@/utils/supabase/server');
+          const supabase = await createClient();
+
+          await supabase.from('security_events').insert({
+            event_type: 'rate_limit_exceeded',
+            severity: 'medium',
+            details: {
+              endpoint: request.nextUrl.pathname,
+              identifier,
+              limit: max,
+              window_seconds: windowSec,
+              remaining,
+              reset_time: Math.ceil(reset),
+              user_agent: request.headers.get('user-agent') || 'unknown',
+            },
+            ip_address: identifier,
+            user_agent: request.headers.get('user-agent'),
+            timestamp: new Date().toISOString(),
+          });
+        } catch (logError) {
+          console.error('Failed to log rate limit violation:', logError);
+        }
+
         return NextResponse.json(
           {
             error: message,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -14,14 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -39,7 +32,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2, Plus, Trash2, RefreshCw, Check, X, AlertTriangle } from 'lucide-react';
@@ -82,7 +74,7 @@ interface TestResult {
 }
 
 export default function ConfigPage() {
-  const router = useRouter();
+  // const router = useRouter(); // Uncomment if navigation is needed in the future
   const [activeTab, setActiveTab] = useState('env');
   const [envVars, setEnvVars] = useState<EnvVar[]>([]);
   const [integrations, setIntegrations] = useState<ApiIntegration[]>([]);
@@ -115,13 +107,38 @@ export default function ConfigPage() {
     enabled: true,
   });
 
-  // Load data on component mount
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Load environment variables
+  const loadEnvVars = useCallback(async () => {
+    const response = await fetch(
+      `/api/admin/env${selectedCategory ? `?category=${selectedCategory}` : ''}`
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to load environment variables');
+    }
+
+    const data = await response.json();
+    setEnvVars(data);
+  }, [selectedCategory]);
+
+  // Load API integrations
+  const loadIntegrations = useCallback(async () => {
+    const response = await fetch(
+      `/api/admin/integrations${selectedIntegrationType ? `?type=${selectedIntegrationType}` : ''}`
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to load API integrations');
+    }
+
+    const data = await response.json();
+    setIntegrations(data);
+  }, [selectedIntegrationType]);
 
   // Load data based on active tab
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -143,37 +160,12 @@ export default function ConfigPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, loadEnvVars, loadIntegrations]);
 
-  // Load environment variables
-  const loadEnvVars = async () => {
-    const response = await fetch(
-      `/api/admin/env${selectedCategory ? `?category=${selectedCategory}` : ''}`
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to load environment variables');
-    }
-
-    const data = await response.json();
-    setEnvVars(data);
-  };
-
-  // Load API integrations
-  const loadIntegrations = async () => {
-    const response = await fetch(
-      `/api/admin/integrations${selectedIntegrationType ? `?type=${selectedIntegrationType}` : ''}`
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to load API integrations');
-    }
-
-    const data = await response.json();
-    setIntegrations(data);
-  };
+  // Load data on component mount
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Save environment variable
   const saveEnvVar = async () => {
@@ -884,7 +876,7 @@ export default function ConfigPage() {
                       try {
                         const config = JSON.parse(e.target.value);
                         setNewIntegration({ ...newIntegration, config });
-                      } catch (err) {
+                      } catch {
                         // Allow invalid JSON during editing
                       }
                     }}

@@ -112,7 +112,7 @@ export class StructuredLogger implements Logger {
     this.context = options.defaultContext || {};
     this.serviceName = options.serviceName || 'esusauditai';
     this.environment = options.environment || process.env.NODE_ENV || 'development';
-    
+
     // Handle optional correlationIdProvider with proper type checking
     if (options.correlationIdProvider !== undefined) {
       this.correlationIdProvider = options.correlationIdProvider;
@@ -219,12 +219,12 @@ export class StructuredLogger implements Logger {
   withUser(userId: string, organizationId?: string): Logger {
     const newLogger = this.clone();
     newLogger.userId = userId;
-    
+
     // Only set organizationId if it's defined
     if (organizationId !== undefined) {
       newLogger.organizationId = organizationId;
     }
-    
+
     return newLogger;
   }
 
@@ -237,12 +237,12 @@ export class StructuredLogger implements Logger {
   withRequest(requestId: string, requestPath?: string): Logger {
     const newLogger = this.clone();
     newLogger.requestId = requestId;
-    
+
     // Only set requestPath if it's defined
     if (requestPath !== undefined) {
       newLogger.requestPath = requestPath;
     }
-    
+
     return newLogger;
   }
 
@@ -279,32 +279,13 @@ export class StructuredLogger implements Logger {
         service: this.serviceName,
         environment: this.environment,
       },
+      ...(correlationId !== undefined && { correlationId }),
+      ...(this.component !== undefined && { component: this.component }),
+      ...(this.userId !== undefined && { userId: this.userId }),
+      ...(this.organizationId !== undefined && { organizationId: this.organizationId }),
+      ...(this.requestId !== undefined && { requestId: this.requestId }),
+      ...(this.requestPath !== undefined && { requestPath: this.requestPath }),
     };
-    
-    // Add optional fields only if they're defined
-    if (correlationId !== undefined) {
-      entry.correlationId = correlationId;
-    }
-    
-    if (this.component !== undefined) {
-      entry.component = this.component;
-    }
-    
-    if (this.userId !== undefined) {
-      entry.userId = this.userId;
-    }
-    
-    if (this.organizationId !== undefined) {
-      entry.organizationId = this.organizationId;
-    }
-    
-    if (this.requestId !== undefined) {
-      entry.requestId = this.requestId;
-    }
-    
-    if (this.requestPath !== undefined) {
-      entry.requestPath = this.requestPath;
-    }
 
     // Add error information if provided
     if (error) {
@@ -348,13 +329,11 @@ export class StructuredLogger implements Logger {
       defaultContext: { ...this.context },
       serviceName: this.serviceName,
       environment: this.environment,
+      ...(this.correlationIdProvider !== undefined && {
+        correlationIdProvider: this.correlationIdProvider,
+      }),
     };
-    
-    // Only add correlationIdProvider if it's defined
-    if (this.correlationIdProvider !== undefined) {
-      options.correlationIdProvider = this.correlationIdProvider;
-    }
-    
+
     const newLogger = new StructuredLogger(options);
 
     newLogger.transports = [...this.transports];
