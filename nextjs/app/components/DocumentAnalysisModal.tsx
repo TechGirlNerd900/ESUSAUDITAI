@@ -142,8 +142,9 @@ export default function DocumentAnalysisModal({ document, onClose, projectId }: 
                   className="space-y-4"
                 >
                   <div>
-                    <label className="block text-xs font-medium mb-1">Custom Fields (JSON)</label>
+                    <label htmlFor="custom-fields" className="block text-xs font-medium mb-1">Custom Fields (JSON)</label>
                     <textarea
+                      id="custom-fields"
                       className="w-full p-2 border rounded text-xs"
                       rows={4}
                       value={JSON.stringify(customFields, null, 2)}
@@ -158,8 +159,9 @@ export default function DocumentAnalysisModal({ document, onClose, projectId }: 
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1">Tags (comma separated)</label>
+                    <label htmlFor="tags-input" className="block text-xs font-medium mb-1">Tags (comma separated)</label>
                     <input
+                      id="tags-input"
                       className="w-full p-2 border rounded text-xs"
                       value={tags.join(', ')}
                       onChange={(e) =>

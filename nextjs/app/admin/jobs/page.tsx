@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback} from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -35,15 +35,16 @@ const Dialog = ({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       onClick={() => onOpenChange(false)}
-      role="dialog"
       onKeyDown={(e) => e.key === 'Escape' && onOpenChange(false)}
-      tabIndex={0}
+      role="presentation"
+      tabIndex={-1}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
+        className="focus:outline-none"
         role="dialog"
-        tabIndex={-1}
+        aria-modal="true"
       >
         {children}
       </div>
@@ -127,22 +128,8 @@ export default function JobsPage() {
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
   const supabase = createClient();
 
-  // Load jobs on component mount
-  useEffect(() => {
-    loadJobs();
-
-    // Set up refresh interval
-    const interval = setInterval(() => {
-      if (refreshInterval) {
-        loadJobs();
-      }
-    }, refreshInterval || 10000);
-
-    return () => clearInterval(interval);
-  }, [selectedStatus, selectedType, refreshInterval]);
-
   // Load jobs from the database
-  const loadJobs = async () => {
+  const loadJobs = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -182,7 +169,22 @@ export default function JobsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedStatus, selectedType, supabase]);
+
+  // Load jobs on component mount
+  useEffect(() => {
+    loadJobs();
+
+    // Set up refresh interval
+    const interval = setInterval(() => {
+      if (refreshInterval) {
+        loadJobs();
+      }
+    }, refreshInterval || 10000);
+
+    return () => clearInterval(interval);
+  }, [refreshInterval, loadJobs]);
+
 
   // Retry a failed job
   const retryJob = async (jobId: string) => {
@@ -525,8 +527,6 @@ export default function JobsPage() {
                         className="flex justify-end space-x-2"
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
-                        role="group"
-                        aria-label="Job actions"
                       >
                         {job.status === 'failed' && (
                           <Button variant="outline" size="sm" onClick={() => retryJob(job.id)}>

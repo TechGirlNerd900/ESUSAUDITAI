@@ -93,17 +93,7 @@ const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
           style={index === lines - 1 ? { width: '80%' } : {}} // Last line often shorter
         ></div>
       ))}
-      {/* Add keyframes for shimmer effect */}
-      <style jsx global>{`
-        @keyframes shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
-        }
-      `}</style>
+      {/* Shimmer animation is handled via Tailwind CSS classes */}
     </div>
   );
 };

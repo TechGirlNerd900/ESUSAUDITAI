@@ -78,7 +78,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         ws.close();
       }
     };
-  }, [connect]);
+  }, [connect, ws]);
 
   const sendMessage = useCallback(
     (message: any) => {

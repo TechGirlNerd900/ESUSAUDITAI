@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import clsx from 'clsx';
+import Image from 'next/image';
 
 interface ChatRAGProps {
   projectId: string;
@@ -139,9 +140,11 @@ export default function ChatRAG({ projectId, user }: ChatRAGProps) {
               )}
             </div>
             {msg.role === 'user' && (
-              <img
+              <Image
                 src="https://placehold.co/32x32/E2E8F0/1E293B?text=U"
                 alt="User Avatar"
+                width={32}
+                height={32}
                 className="w-8 h-8 rounded-full flex-shrink-0"
               />
             )}
@@ -216,7 +219,7 @@ export default function ChatRAG({ projectId, user }: ChatRAGProps) {
           </div>
         </div>
       )}
-      <style jsx>{`
+      <style>{`
         .loader {
           width: 18px;
           height: 18px;

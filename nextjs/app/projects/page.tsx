@@ -89,14 +89,14 @@ export default function ProjectsPage() {
       <div className="flex gap-4 mb-4">
         <input
           type="text"
-          placeholder="Filter by tag"
+          placeholder='Filter by tag'
           value={tagFilter}
           onChange={(e) => setTagFilter(e.target.value)}
           className="input input-modern"
         />
         <input
           type="text"
-          placeholder="Filter by custom field value"
+          placeholder='Filter by custom field value'
           value={customFieldFilter}
           onChange={(e) => setCustomFieldFilter(e.target.value)}
           className="input input-modern"

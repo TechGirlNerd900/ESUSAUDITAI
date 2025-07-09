@@ -46,7 +46,13 @@ const Dialog: React.FC<DialogProps> = ({ children, open, onOpenChange, defaultOp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setOpen(false)} />
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50"
+        onClick={() => setOpen(false)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen(false); }}
+      />
       {/* Content Container */}
       <div className="relative z-50">{children}</div>
     </div>
@@ -75,6 +81,8 @@ const DialogContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTML
         className
       )}
       onClick={(e) => e.stopPropagation()} // Prevent closing when clicking content
+      role="dialog"
+      aria-modal="true"
       {...props}
     />
   )

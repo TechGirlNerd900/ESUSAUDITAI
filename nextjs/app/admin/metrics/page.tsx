@@ -27,9 +27,7 @@ import {
   Server,
   Users,
   FileText,
-  Database,
   Activity,
-  Clock,
 } from 'lucide-react';
 
 // Metrics interface

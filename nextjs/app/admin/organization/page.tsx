@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
 
 interface Organization {
@@ -241,10 +242,11 @@ export default function OrganizationAdminPage() {
           {editingOrg ? (
             <form onSubmit={handleUpdateOrganization} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="org-name" className="block text-sm font-medium text-gray-700 mb-1">
                   Organization Name
                 </label>
                 <input
+                  id="org-name"
                   type="text"
                   value={orgForm.name}
                   onChange={(e) => setOrgForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -253,10 +255,11 @@ export default function OrganizationAdminPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="org-logo-url" className="block text-sm font-medium text-gray-700 mb-1">
                   Logo URL (Optional)
                 </label>
                 <input
+                  id="org-logo-url"
                   type="url"
                   value={orgForm.logo_url}
                   onChange={(e) => setOrgForm((prev) => ({ ...prev, logo_url: e.target.value }))}
@@ -280,15 +283,17 @@ export default function OrganizationAdminPage() {
           ) : (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Organization Name</label>
+                <span className="block text-sm font-medium text-gray-700">Organization Name</span>
                 <p className="text-lg text-gray-900 mt-1">{organization?.name}</p>
               </div>
               {organization?.logo_url && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Logo</label>
-                  <img
+                  <span className="block text-sm font-medium text-gray-700">Logo</span>
+                  <Image
                     src={organization.logo_url}
                     alt="Organization Logo"
+                    width={64}
+                    height={64}
                     className="h-16 w-auto mt-1 rounded"
                   />
                 </div>
@@ -461,8 +466,9 @@ export default function OrganizationAdminPage() {
             <form onSubmit={handleInviteUser} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <label htmlFor="invite-first-name" className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                   <input
+                    id="invite-first-name"
                     type="text"
                     value={inviteForm.firstName}
                     onChange={(e) =>
@@ -473,8 +479,9 @@ export default function OrganizationAdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <label htmlFor="invite-last-name" className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                   <input
+                    id="invite-last-name"
                     type="text"
                     value={inviteForm.lastName}
                     onChange={(e) =>
@@ -487,10 +494,11 @@ export default function OrganizationAdminPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="invite-email" className="block text-sm font-medium text-gray-700 mb-1">
                   Email Address
                 </label>
                 <input
+                  id="invite-email"
                   type="email"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
@@ -500,8 +508,9 @@ export default function OrganizationAdminPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <label htmlFor="invite-role" className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                 <select
+                  id="invite-role"
                   value={inviteForm.role}
                   onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))}
                   className="input-field"

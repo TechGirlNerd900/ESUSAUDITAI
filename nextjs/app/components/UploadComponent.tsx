@@ -32,20 +32,6 @@ export default function UploadComponent({ projectId }: Props) {
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    await handleFiles(files);
-  }, []);
-
-  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    await handleFiles(files);
-  };
-
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
 
@@ -75,6 +61,20 @@ export default function UploadComponent({ projectId }: Props) {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    await handleFiles(files);
+  }, [handleFiles]);
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    await handleFiles(files);
   };
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import LoadingSpinner from './LoadingSpinner';
 
 interface DashboardStats {
@@ -87,9 +88,11 @@ export default function AdminPanel() {
             </p>
           </div>
           {organization?.logo_url && (
-            <img
+            <Image
               src={organization.logo_url}
               alt="Organization Logo"
+              width={64}
+              height={64}
               className="h-16 w-auto rounded-lg shadow-sm"
             />
           )}

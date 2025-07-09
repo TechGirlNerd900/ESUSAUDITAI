@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Fragment } from 'react';
+import React, { Fragment, JSX } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -145,9 +145,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
         </div>
       </div>
       <nav className="flex flex-1 flex-col">
-        <ul role="list" className="flex flex-1 flex-col gap-y-7">
+        <ul className="flex flex-1 flex-col gap-y-7">
           <li>
-            <ul role="list" className="-mx-2 space-y-2">
+            <ul className="-mx-2 space-y-2">
               {navigation.map((item) => {
                 const isActive = pathname === item.href;
                 return (
