@@ -986,9 +986,9 @@ const params: Record<string, string> = {
                             }
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
-                                article.url &&
-                                article.url !== '#' &&
-                                window.open(article.url, '_blank');
+                                if (article.url && article.url !== '#') {
+                                  window.open(article.url, '_blank');
+                                }
                               }
                             }}
                             tabIndex={0}

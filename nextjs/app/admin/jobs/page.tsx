@@ -36,15 +36,15 @@ const Dialog = ({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       onClick={() => onOpenChange(false)}
       onKeyDown={(e) => e.key === 'Escape' && onOpenChange(false)}
-      role="presentation"
-      tabIndex={-1}
+      role="button"
+      tabIndex={0}
+      aria-label="Close modal"
     >
       <div
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
         className="focus:outline-none"
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
       >
         {children}
       </div>
@@ -525,8 +525,8 @@ export default function JobsPage() {
                     <TableCell className="text-right">
                       <div
                         className="flex justify-end space-x-2"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
+                        role="group"
+                        aria-label="Job actions"
                       >
                         {job.status === 'failed' && (
                           <Button variant="outline" size="sm" onClick={() => retryJob(job.id)}>

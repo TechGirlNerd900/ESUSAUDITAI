@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
@@ -15,11 +15,7 @@ export default function Settings() {
   const router = useRouter();
   const supabase = createClient();
 
-  useEffect(() => {
-    checkUser();
-  }, []);
-
-  async function checkUser() {
+  const checkUser = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -34,7 +30,11 @@ export default function Settings() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [supabase.auth, router]);
+
+  useEffect(() => {
+    checkUser();
+  }, [checkUser]);
 
   async function updateProfile(event: React.FormEvent) {
     event.preventDefault();

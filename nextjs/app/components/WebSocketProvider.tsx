@@ -36,37 +36,52 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       return; // Already connected or connecting
     }
 
+    // Skip WebSocket connection in development if server is not available
+    if (process.env.NODE_ENV === 'development') {
+      console.log('WebSocket connection skipped in development mode');
+      return;
+    }
+
     console.log('Attempting to connect to WebSocket...');
-    const newWs = new WebSocket(url);
+    try {
+      const newWs = new WebSocket(url);
 
-    newWs.onopen = () => {
-      console.log('WebSocket connected');
-      setWs(newWs);
-      setIsConnected(true);
-      setError(null);
-    };
+      newWs.onopen = () => {
+        console.log('WebSocket connected');
+        setWs(newWs);
+        setIsConnected(true);
+        setError(null);
+      };
 
-    newWs.onmessage = (event) => {
-      console.log('WebSocket message received:', event.data);
-      // You might want to dispatch this to a global state manager or use a callback
-      // For now, just log.
-    };
+      newWs.onmessage = (event) => {
+        console.log('WebSocket message received:', event.data);
+        // You might want to dispatch this to a global state manager or use a callback
+        // For now, just log.
+      };
 
-    newWs.onerror = (event) => {
-      console.error('WebSocket error:', event);
-      setError(event);
+      newWs.onerror = (event) => {
+        console.warn('WebSocket error (connection optional):', event);
+        setError(event);
+        setIsConnected(false);
+      };
+
+      newWs.onclose = (event) => {
+        console.log('WebSocket disconnected:', event);
+        setIsConnected(false);
+        setWs(null); // Clear the WebSocket instance
+        
+        // Only attempt to reconnect in production or if explicitly enabled
+        if (process.env.NODE_ENV === 'production' || process.env.ENABLE_WEBSOCKET_RECONNECT === 'true') {
+          setTimeout(connect, 10000); // Increased delay to reduce noise
+        }
+      };
+
+      setWs(newWs); // Set the new WebSocket instance even if not yet open
+    } catch (error) {
+      console.warn('WebSocket connection failed (optional feature):', error);
+      setError(error as Event);
       setIsConnected(false);
-    };
-
-    newWs.onclose = (event) => {
-      console.log('WebSocket disconnected:', event);
-      setIsConnected(false);
-      setWs(null); // Clear the WebSocket instance
-      // Attempt to reconnect after a delay
-      setTimeout(connect, 5000);
-    };
-
-    setWs(newWs); // Set the new WebSocket instance even if not yet open
+    }
   }, [url, ws]);
 
   useEffect(() => {

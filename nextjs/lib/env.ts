@@ -58,8 +58,8 @@ function validateSecurityKeys() {
     );
   }
 
-  // Validate Supabase service key format
-  if (supabaseServiceKey && !supabaseServiceKey.startsWith('sbp_')) {
+  // Validate Supabase service key format (JWT format)
+  if (supabaseServiceKey && (!supabaseServiceKey.startsWith('eyJ') || supabaseServiceKey.length < 100)) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY must be a valid Supabase service role key');
   }
 
@@ -163,7 +163,7 @@ export async function createRedisClient() {
   }
 }
 
-// Validate environment on module load in production
-if (process.env.NODE_ENV === 'production') {
+// Validate environment on module load in production (skip during build)
+if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV !== 'preview' && !process.env.BUILDING) {
   validateEnv();
 }

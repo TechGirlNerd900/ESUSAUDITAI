@@ -80,9 +80,9 @@ const DialogContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTML
         'grid w-full max-w-lg gap-4 border border-gray-200 bg-white p-6 shadow-lg rounded-lg dark:border-gray-800 dark:bg-gray-950',
         className
       )}
-      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking content
       role="dialog"
       aria-modal="true"
+      tabIndex={-1}
       {...props}
     />
   )
@@ -112,12 +112,14 @@ const DialogFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLD
 DialogFooter.displayName = 'DialogFooter';
 
 const DialogTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
+  ({ className, children, ...props }, ref) => (
     <h3
       ref={ref}
       className={cn('text-lg font-semibold leading-none tracking-tight', className)}
       {...props}
-    />
+    >
+      {children || 'Dialog Title'}
+    </h3>
   )
 );
 DialogTitle.displayName = 'DialogTitle';

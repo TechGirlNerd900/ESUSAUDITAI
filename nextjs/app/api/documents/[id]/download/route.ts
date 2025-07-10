@@ -91,9 +91,9 @@ export const GET = withErrorHandling(
       }
 
       // Check project access if document is linked to a project
-      if (document.project_id) {
-        const project = document.projects;
-        if (project.organization_id !== userProfile.organization_id) {
+      if (document.project_id && document.projects) {
+        const project = Array.isArray(document.projects) ? document.projects[0] : document.projects;
+        if (project && project.organization_id !== userProfile.organization_id) {
           return NextResponse.json(
             { error: 'Access denied: Project access not allowed' },
             { status: 403 }

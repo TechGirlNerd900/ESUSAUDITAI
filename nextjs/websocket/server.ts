@@ -7,9 +7,10 @@ interface CustomWebSocket extends WebSocket {
   projectId?: string;
 }
 
-const wss = new WebSocketServer({ port: 8080 });
+const port = parseInt(process.env.WEBSOCKET_PORT || '8080', 10);
+const wss = new WebSocketServer({ port });
 
-console.log('WebSocket server started on port 8080');
+console.log(`WebSocket server started on port ${port}`);
 
 wss.on('connection', function connection(ws: WebSocket) {
   // Use base WebSocket type for connection event

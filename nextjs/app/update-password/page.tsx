@@ -19,7 +19,7 @@ export default function UpdatePassword() {
         router.push('/login');
       }
     });
-  }, []);
+  }, [router, supabase.auth]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

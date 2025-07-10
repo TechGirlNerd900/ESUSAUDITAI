@@ -54,7 +54,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   const paginatedResponse = createPaginatedResponse(
     transformedProjects,
     paginationParams,
-    result.pagination.total
+    result.pagination.total || 0
   );
 
   return successResponse(paginatedResponse);

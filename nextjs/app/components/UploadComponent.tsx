@@ -32,7 +32,7 @@ export default function UploadComponent({ projectId }: Props) {
     e.stopPropagation();
   }, []);
 
-  const handleFiles = async (files: File[]) => {
+  const handleFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
 
     setIsUploading(true);
@@ -61,7 +61,7 @@ export default function UploadComponent({ projectId }: Props) {
     } finally {
       setIsUploading(false);
     }
-  };
+  }, [projectId, setIsUploading, router]);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
