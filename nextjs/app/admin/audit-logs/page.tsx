@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useWebSocket } from '@/app/components/WebSocketProvider';
+import { createClient } from '@/utils/supabase/client';
 import SkeletonLoader from '@/app/components/SkeletonLoader';
 import ErrorBoundary from '@/app/components/ErrorBoundary';
 import clsx from 'clsx';
@@ -17,13 +17,14 @@ interface AuditLog {
 }
 
 const AuditLogViewer: React.FC = () => {
-  const { ws, isConnected, sendMessage } = useWebSocket();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10); // Number of logs per page
   const [totalPages, setTotalPages] = useState(1);
+  const [isRealTimeConnected, setIsRealTimeConnected] = useState(false);
+  const supabase = createClient();
 
   const fetchAuditLogs = useCallback(
     async (currentPage: number) => {
@@ -51,32 +52,40 @@ const AuditLogViewer: React.FC = () => {
     fetchAuditLogs(page);
   }, [page, fetchAuditLogs]);
 
-  // Example of receiving real-time updates (if implemented on server)
+  // Set up Supabase Realtime subscription for audit logs
   useEffect(() => {
-    if (!isConnected || !ws) return;
-
-    // You might want to send an auth message to the websocket server here
-    // sendMessage({ type: 'auth', payload: { userId: 'some-user-id', role: 'admin' } });
-
-    // Listen for 'audit_log_created' events from the WebSocket
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const message = JSON.parse(event.data);
-        if (message.type === 'audit_log_created') {
-          setLogs((prevLogs) => [message.payload, ...prevLogs].slice(0, pageSize)); // Add new log and maintain page size
+    const channel = supabase
+      .channel('audit-logs-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'audit_logs',
+        },
+        (payload) => {
+          console.log('New audit log received:', payload);
+          // Add new log to the beginning of the list if we're on the first page
+          if (page === 1) {
+            setLogs((prevLogs) => [payload.new as AuditLog, ...prevLogs].slice(0, pageSize));
+          }
         }
-      } catch (e) {
-        console.error('Failed to parse WebSocket message:', e);
-      }
-    };
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsRealTimeConnected(true);
+          console.log('Connected to audit logs realtime updates');
+        } else if (status === 'CLOSED') {
+          setIsRealTimeConnected(false);
+          console.log('Disconnected from audit logs realtime updates');
+        }
+      });
 
-    ws.addEventListener('message', handleMessage);
-
-    // Cleanup event listener on unmount or dependency change
     return () => {
-      ws.removeEventListener('message', handleMessage);
+      channel.unsubscribe();
+      setIsRealTimeConnected(false);
     };
-  }, [isConnected, ws, pageSize, sendMessage]);
+  }, [page, pageSize, supabase]);
 
   const handleNextPage = () => {
     setPage((prevPage) => Math.min(prevPage + 1, totalPages));
@@ -108,7 +117,7 @@ const AuditLogViewer: React.FC = () => {
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Audit Logs</h1>
       <p className="text-gray-600 mb-8">View system activities and user actions in real-time.</p>
 
-      {!isConnected && (
+      {!isRealTimeConnected && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-md">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -127,7 +136,33 @@ const AuditLogViewer: React.FC = () => {
             </div>
             <div className="ml-3">
               <p className="text-sm text-yellow-700">
-                WebSocket is not connected. Real-time updates may not be available.
+                Real-time updates are not available. Please refresh the page to see new logs.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRealTimeConnected && (
+        <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-green-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-green-700">
+                Real-time updates are active. New audit logs will appear automatically.
               </p>
             </div>
           </div>

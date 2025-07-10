@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev\" \"npm run websocket-server\"",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -12,8 +12,7 @@
     "validate-env": "node -e \"console.log('Environment validation placeholder')\"",
     "clean": "rm -rf .next out",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "websocket-server": "ts-node websocket/server.ts"
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@azure/ai-form-recognizer": "^5.1.0",
@@ -46,7 +45,6 @@
     "swagger-ui-react": "^5.25.3",
     "tailwind-merge": "^2.0.0",
     "uuid": "^9.0.1",
-    "ws": "^8.18.2",
     "xlsx": "^0.18.5",
     "zod": "^3.25.67"
   },
@@ -57,9 +55,7 @@
     "@types/react": "19.1.8",
     "@types/swagger-ui-react": "^5.18.0",
     "@types/uuid": "^10.0.0",
-    "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.0",
-    "concurrently": "^8.2.2",
     "eslint": "^8.56.0",
     "eslint-config-next": "15.3.3",
     "eslint-config-prettier": "^9.0.0",
@@ -69,7 +65,6 @@
     "postcss": "^8.4.0",
     "prettier": "^3.0.0",
     "tailwindcss": "^3.4.0",
-    "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
   "engines": {
