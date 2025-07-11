@@ -137,11 +137,7 @@ async function runTests() {
   }
 
   console.log('');
-  console.log('📝 Notes:');
-  console.log('- Routes returning 401 (Unauthorized) are working correctly when not authenticated');
-  console.log('- Routes returning 400 (Bad Request) for invalid data are working correctly');
-  console.log('- To test successful authentication, use the frontend login form');
-  console.log('- Check the AUTH_ROUTES_SUMMARY.md for complete documentation');
+  
 }
 
 // Run the tests

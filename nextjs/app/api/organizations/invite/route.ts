@@ -58,6 +58,9 @@ export async function POST(request: NextRequest) {
       .eq('id', auth.profile.organization_id)
       .single();
 
+    // Generate invitation token
+    const inviteToken = require('crypto').randomBytes(32).toString('hex');
+    
     // Store invitation in the invitations table
     const { data: invitation, error: inviteError } = await supabase
       .from('invitations')
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest) {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         role,
+        token: inviteToken,
         invited_by: auth.profile.id,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
       })
@@ -104,7 +108,7 @@ export async function POST(request: NextRequest) {
           invited_by_name: `${auth.profile.first_name} ${auth.profile.last_name}`,
           role: role,
         },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/register?invite=${invitation.token}`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/signup?invite=${invitation.token}`,
       },
     });
 

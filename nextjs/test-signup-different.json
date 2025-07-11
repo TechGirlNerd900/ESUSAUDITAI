@@ -1,0 +1,8 @@
+{
+  "email": "unique456@gmail.com",
+  "password": "TestPass123!",
+  "firstName": "Test",
+  "lastName": "User",
+  "organizationName": "Test Organization 456",
+  "registrationType": "create_org"
+}

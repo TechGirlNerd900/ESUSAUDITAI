@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/middleware';
 
 // Define public paths that don't require auth check
-const publicPaths = ['/_next', '/static', '/login', '/register', '/reset-password', '/auth'];
+const publicPaths = ['/_next', '/static', '/login', '/register', '/signup', '/reset-password', '/auth'];
 
 // Define public API routes that don't need authentication in middleware
 const publicApiPaths = [

@@ -1,166 +1,164 @@
-ESUS Audit AI - Comprehensive Codebase Analysis
+# CLAUDE.md
 
-  Application Pages (17 routes)
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-  Authentication & User Management
+## Project Overview
 
-  - / - Landing page with auth redirect
-  - /login - User authentication
-  - /signup - User registration with org creation/invitation
-  - /admin-signup - Admin account creation
-  - /reset-password - Password reset initiation
-  - /update-password - Password update completion
+ESUS Audit AI is a multi-tenant SaaS platform for audit management with AI-powered document processing. Built with Next.js 15, Supabase, and comprehensive security features.
 
-  Core Application
+## Development Commands
 
-  - /dashboard - Main dashboard with project overview, stats, AI assistant
-  - /projects - Project listing with filtering/archive functionality
-  - /projects/[id] - Individual project management
-  - /settings - User profile and account settings
+```bash
+# Development
+npm run dev                    # Start development server
+npm run build                  # Production build
+npm run start                  # Start production server
+npm run lint                   # Lint code
+npm run lint:fix              # Fix linting issues
+npm run format                 # Format code with Prettier
+npm run test                   # Run Jest tests
+npm run test:watch             # Run tests in watch mode
 
-  Admin Panel (Admin role required)
+# Database
+cd supabase && supabase db reset    # Reset local database
+cd supabase && supabase db push     # Push migrations
+```
 
-  - /admin - Admin dashboard entry point
-  - /admin/dashboard - System metrics and management
-  - /admin/audit-logs - Audit log management
-  - /admin/config - Configuration management
-  - /admin/metrics - System metrics
-  - /admin/organization - Organization management
-  - /admin/jobs - Job queue management
+## Architecture Overview
 
-  Documentation & Utilities
+### Multi-Tenant Security Architecture
+- **Row Level Security (RLS)**: Database-level tenant isolation using `organization_id`
+- **RBAC System**: Three roles (Admin/Auditor/Reviewer) with hierarchical permissions
+- **Middleware Security**: Rate limiting, audit logging, and auth enforcement in `middleware.ts`
+- **API Authentication**: Centralized in `lib/apiAuth.ts` with Redis-based rate limiting
 
-  - /api-docs - Swagger API documentation
+### Database Schema (Supabase/PostgreSQL)
+- **Core Tables**: organizations, users, projects, documents, audit_logs
+- **Security Tables**: invitations, api_tokens, security_events, login_attempts
+- **Workflow Tables**: deleted_entities, pending_deletion_requests, workflow_approvals
+- **16 Migration Files**: Comprehensive schema with RBAC, soft deletes, and audit trails
 
-  API Routes (30+ endpoints)
+### API Architecture
+- **Authentication Routes**: `/api/auth/*` - Login, signup, password reset
+- **Admin Routes**: `/api/admin/*` - User management, system metrics, integrations
+- **Business Logic**: `/api/projects/*`, `/api/documents/*` - Core functionality
+- **AI Features**: `/api/chat/*`, `/api/analysis/*` - OpenAI integration
+- **Rate Limiting**: Different limits per endpoint type (auth: 10/min, sensitive: 20/min, standard: 100/min)
 
-  Authentication (8 routes)
+### Frontend Structure
+- **App Router**: Next.js 15 with TypeScript and Tailwind CSS
+- **Authentication**: Server-side auth with Supabase SSR
+- **Admin Panel**: Role-based access with comprehensive dashboards
+- **Real-time Updates**: Supabase Realtime for audit logs (replaced WebSocket)
+- **File Uploads**: Secure with validation, virus scanning, and storage policies
 
-  - /api/auth/login - User login (rate limited)
-  - /api/auth/signup - User registration (rate limited)
-  - /api/auth/logout - Session termination
-  - /api/auth/profile - Profile management
-  - /api/auth/reset-password - Password reset
-  - /api/auth/update-password - Password update
-  - /api/auth/callback - OAuth callback
-  - /api/auth/admin-signup - Admin registration
+## Key Implementation Patterns
 
-  Project Management (5 routes)
+### Error Handling
+```typescript
+// Standardized error responses in lib/apiResponse.ts
+import { errorResponse, successResponse } from '@/lib/apiResponse';
 
-  - /api/projects - CRUD operations (rate limited: 100 GET, 20 POST)
-  - /api/projects/[id] - Individual project management
-  - /api/projects/[id]/archive - Soft delete
-  - /api/projects/[id]/restore - Restore archived
+// Database operations with retry logic in lib/database.ts
+await withRetry(async () => { /* operation */ }, { maxRetries: 3 });
+```
 
-  Document Management (6 routes)
+### Authentication Flow
+```typescript
+// All API routes use lib/apiAuth.ts
+const auth = await authenticateApiRequest(request, { 
+  rateLimit: 100, 
+  requireRole: 'auditor' 
+});
+```
 
-  - /api/documents/upload - Secure file upload (rate limited: 20/15min)
-  - /api/documents/process - AI processing queue
-  - /api/documents/[id]/download - Secure download
-  - /api/documents/[id]/meta - Metadata management
-  - /api/documents/[id]/archive - Soft delete
-  - /api/documents/[id]/restore - Restore
+### Multi-Tenant Data Access
+```typescript
+// All queries automatically scope to user's organization
+const { data } = await supabase
+  .from('projects')
+  .select('*')
+  .eq('organization_id', userProfile.organization_id);
+```
 
-  Admin Management (6 routes)
+### Transaction Management
+```typescript
+// Atomic operations using lib/transactionHandler.ts
+await executeTransaction(async (client) => {
+  // Multiple operations that must succeed together
+});
+```
 
-  - /api/admin/stats - Organization statistics
-  - /api/admin/users - User management
-  - /api/admin/users/[id] - Individual user management
-  - /api/admin/integrations - API integration management
-  - /api/admin/integrations/test - Integration testing
-  - /api/admin/env - Environment configuration
+## Security Implementation Status
 
-  AI & Analysis (3 routes)
+### ✅ Implemented Security Features
+- Multi-tenant isolation with RLS
+- Comprehensive audit logging
+- Rate limiting on sensitive endpoints
+- Secure file uploads with validation
+- RBAC with three-tier role system
+- Security headers (CSP, HSTS, X-Frame-Options)
+- Input validation and sanitization
+- Soft delete patterns
 
-  - /api/chat/general - General AI assistance
-  - /api/chat/[projectId] - Project-specific AI
-  - /api/analysis/document/[id] - Document analysis
+### ⚠️ Known Security Gaps
+- Missing rate limiting on some admin endpoints
+- Invitation tokens may be exposed in API responses
+- Cross-tenant access validation needs verification
+- Session management doesn't properly clear on logout
 
-  System & Monitoring (4 routes)
+## Environment Configuration
 
-  - /api/health - System health check
-  - /api/metrics - System metrics (Admin only)
-  - /api/audit-logs - Audit log access
-  - /api/organizations - Organization management
+Required environment variables are validated in `lib/env.ts`:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `UPSTASH_REDIS_REST_URL` (optional, for rate limiting)
+- `OPENAI_API_KEY` (for AI features)
+- `AZURE_*` variables (for document processing)
 
-  Database Schema (16 migration files)
+## Database Integration
 
-  Core Tables
+### Supabase Configuration
+- Client setup in `utils/supabase/`
+- Database operations in `lib/database.ts`
+- Query optimization and caching in `lib/queryOptimizer.ts`
+- Migration files in `supabase/migrations/`
 
-  - organizations - Multi-tenant root with hierarchy support
-  - users - RBAC implementation (Admin/Auditor/Reviewer)
-  - projects - Business entities with compliance framework
-  - documents - File management with security classifications
-  - audit_logs - Comprehensive audit trail
-  - invitations - Secure invitation system
-  - deleted_entities - Soft delete tracking
-  - pending_deletion_requests - Admin approval workflow
+### Key Database Functions
+```sql
+-- Core transaction functions (20240708000000_add_transaction_functions.sql)
+create_organization_with_admin()
+upload_document_with_record()
+process_document_analysis()
+create_invitation_with_audit()
+```
 
-  Security & Monitoring
+## Testing
 
-  - security_events - Threat tracking
-  - login_attempts - Authentication monitoring
-  - data_access_logs - Compliance logging
-  - system_health_logs - Performance monitoring
-  - api_tokens - Service authentication
-  - user_sessions - Session management
+- Jest configuration for unit tests
+- Test files in `__tests__/` directories
+- Key test areas: auth flows, error handling, database operations
 
-  Database-App Synchronization Analysis
+## Production Deployment
 
-  ✅ Well-Synchronized Features
+- Vercel deployment with `vercel.json` configuration
+- Supabase for database and authentication
+- Redis (Upstash) for rate limiting in production
+- Environment-specific configurations
+- Security scanning with Trivy in GitHub Actions
 
-  - Multi-tenant isolation: Consistent across UI, API, and database
-  - RBAC implementation: Roles properly enforced at all layers
-  - Audit logging: Comprehensive tracking for sensitive operations
-  - Soft delete patterns: Consistent implementation
-  - Security headers: Proper infrastructure security
+## Code Quality
 
-  ⚠️ Synchronization Issues Found
+- ESLint configuration with TypeScript rules
+- Prettier for code formatting
+- Comprehensive TypeScript types in `types/` and `lib/types/`
+- Error boundaries for graceful failure handling
 
-  1. Missing Database Tables (Critical)
+## Notable Implementation Details
 
-  - document_comments - Referenced in schema but missing implementation
-  - report_templates - Database table exists but no API/UI support
-  - workflow_approvals - Generic approval system unused
-
-  2. API-Database Gaps (High Priority)
-
-  - Invitation management: Database has comprehensive invitation system, but API missing bulk operations
-  - Document analysis results: Database table exists but limited API exposure
-  - Security event monitoring: Database tracks events but no admin UI
-  - User session management: Database supports session tracking but no API access
-
-  3. Database Features Not Exposed (Medium Priority)
-
-  - Hierarchical organizations: Database supports parent-child orgs but UI/API limited
-  - Advanced RBAC: Database has granular permissions but API uses basic roles
-  - Data retention policies: Database schema exists but no management interface
-  - Workflow approval system: Complete database implementation but unused
-
-  4. Transaction Atomicity Issues (High Priority)
-
-  - Organization creation: Should use atomic transaction for org+admin creation
-  - Document upload: Should atomically create document record and audit log
-  - User deletion: Should use pending approval workflow from database
-
-  5. Security Implementation Gaps (Critical)
-
-  - Invitation tokens: Database protects tokens but API might expose them
-  - Cross-tenant access: Database has RLS but API enforcement needs verification
-  - Session management: Database tracks sessions but logout doesn't clear properly
-
-  Recommendations
-
-  1. Implement missing API endpoints for existing database features
-  2. Add transaction wrappers for multi-step operations
-  3. Expose advanced RBAC features in admin interface
-  4. Implement proper session management with database backing
-  5. Add security event monitoring to admin dashboard
-  6. Create workflow approval UI for deletion requests
-
-  The database design is comprehensive and security-focused, but the application layer needs significant work to utilize its full capabilities. Priority
-  should be given to security gaps and transaction atomicity issues.should be given to security gaps and transaction atomicity issues.
-
-
-
-
+- **Removed WebSocket**: Replaced with Supabase Realtime for better serverless compatibility
+- **Job Queue**: In-memory implementation in `lib/jobQueue.ts`
+- **Document Processing**: Azure Form Recognizer integration for AI analysis
+- **Chat Features**: OpenAI integration with conversation history
+- **File Storage**: Supabase Storage with security policies

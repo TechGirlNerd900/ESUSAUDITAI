@@ -99,6 +99,13 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   };
 
   const supabase = await createClient();
+  
+  // For organization creation, we need to use the service role to bypass RLS
+  const { createClient: createServiceClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   let organizationId: string | undefined;
   let userRole: string = 'auditor'; // Default role
@@ -106,21 +113,30 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   if (registrationType === 'create_org') {
     // Organization creation flow - first user becomes admin
     try {
-      // Create organization first
-      const { data: organization, error: orgError } = await supabase
+      // Create organization first using service role to bypass RLS
+      const { data: organization, error: orgError } = await supabaseAdmin
         .from('organizations')
         .insert([
           {
             name: sanitizedData.organizationName,
+            is_active: true,
           },
         ])
         .select()
         .single();
 
       if (orgError) {
+        console.error('Organization creation error:', orgError);
+        console.error('Organization error details:', {
+          code: orgError.code,
+          message: orgError.message,
+          details: orgError.details,
+          hint: orgError.hint
+        });
         throw new Error(`Failed to create organization: ${orgError.message}`);
       }
 
+      console.log('Organization created successfully:', organization);
       organizationId = organization.id;
       userRole = 'admin'; // First user of organization becomes admin
     } catch (error) {
@@ -133,9 +149,9 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   } else if (registrationType === 'join_invite') {
     // Invitation-based registration
     try {
-      // Validate invitation token - use invitations table instead of app_settings
-      const { data: inviteData, error: inviteError } = await supabase
-        .from('invitation_tokens') // Use invitation_tokens table from schema
+      // Validate invitation token - use invitations table from schema
+      const { data: inviteData, error: inviteError } = await supabaseAdmin
+        .from('invitations') // Correct table name from schema
         .select('*')
         .eq('token', sanitizedData.inviteToken)
         .eq('status', 'pending')
@@ -148,8 +164,8 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
       // Check if invitation is expired
       if (new Date(inviteData.expires_at) < new Date()) {
         // Update invitation status to expired
-        await supabase
-          .from('invitation_tokens')
+        await supabaseAdmin
+          .from('invitations')
           .update({ status: 'expired' })
           .eq('token', sanitizedData.inviteToken);
 
@@ -194,12 +210,23 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
 
   if (authError) {
     console.error('Error creating user:', authError);
+    console.error('Auth error details:', {
+      code: authError.code,
+      message: authError.message,
+      status: authError.status
+    });
     throw new ApiError(authError.message || 'Failed to create account', 400);
   }
 
-  // SECURITY: Create user profile in database with validated data
+  console.log('Auth user created successfully:', {
+    id: authUser.user?.id,
+    email: authUser.user?.email,
+    confirmed: authUser.user?.email_confirmed_at
+  });
+
+  // SECURITY: Create user profile in database with validated data using service role
   if (authUser.user) {
-    const { data: userProfile, error: profileError } = await supabase
+    const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('users')
       .insert([
         {
@@ -211,8 +238,6 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
           organization_id: organizationId,
           status: 'active',
           is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         },
       ])
       .select()
@@ -220,24 +245,45 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
 
     if (profileError) {
       console.error('Error creating user profile:', profileError);
+      console.error('Profile error details:', {
+        code: profileError.code,
+        message: profileError.message,
+        details: profileError.details,
+        hint: profileError.hint
+      });
+      console.error('Attempted user data:', {
+        auth_user_id: authUser.user.id,
+        email: sanitizedData.email,
+        first_name: sanitizedData.firstName,
+        last_name: sanitizedData.lastName,
+        role: userRole,
+        organization_id: organizationId,
+        status: 'active',
+        is_active: true
+      });
       // Clean up auth user if profile creation fails
       await supabase.auth.admin.deleteUser(authUser.user.id);
-      throw new ApiError('Failed to create user profile', 500);
+      throw new ApiError(`Failed to create user profile: ${profileError.message}`, 500);
     }
 
     // If this was an invite, update the invitation status
     if (registrationType === 'join_invite' && sanitizedData.inviteToken) {
-      await supabase
-        .from('invitation_tokens')
+      await supabaseAdmin
+        .from('invitations')
         .update({
           status: 'accepted',
           accepted_at: new Date().toISOString(),
+          accepted_by: userProfile.id,
         })
         .eq('token', sanitizedData.inviteToken);
     }
 
     // Create audit log entry for the registration
-    await supabase
+    const clientIp = request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     '127.0.0.1'; // Default to localhost for development
+    
+    await supabaseAdmin
       .from('audit_logs')
       .insert([
         {
@@ -246,16 +292,13 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
           action: registrationType === 'create_org' ? 'organization_created' : 'user_joined',
           resource_type: 'user',
           resource_id: authUser.user.id,
+          ip_address: clientIp,
+          user_agent: request.headers.get('user-agent') || 'unknown',
           details: {
             email: sanitizedData.email,
             role: userRole,
             registration_type: registrationType,
             invitation_token: registrationType === 'join_invite' ? sanitizedData.inviteToken : null,
-            ip_address:
-              request.headers.get('x-forwarded-for') ||
-              request.headers.get('x-real-ip') ||
-              'unknown',
-            user_agent: request.headers.get('user-agent') || 'unknown',
           },
         },
       ])

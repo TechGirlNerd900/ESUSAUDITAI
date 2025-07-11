@@ -1,0 +1,8 @@
+{
+  "email": "admin@testcompany.com",
+  "password": "AdminPass123!",
+  "firstName": "Admin",
+  "lastName": "User",
+  "organizationName": "Test Company SaaS",
+  "registrationType": "create_org"
+}
