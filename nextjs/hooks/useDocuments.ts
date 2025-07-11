@@ -303,7 +303,9 @@ export function useDocuments(
           filter: projectId ? `project_id=eq.${projectId}` : undefined,
         },
         (payload: any) => {
-          console.log('Document change received:', payload);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Document change received:', payload);
+          }
 
           if (payload.eventType === 'INSERT') {
             const newDoc = payload.new as Document;

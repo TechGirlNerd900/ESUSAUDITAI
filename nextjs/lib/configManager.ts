@@ -8,11 +8,12 @@
  * - Organization-specific configuration
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import NodeCache from 'node-cache';
 import { withRetry, DatabaseError, ExternalServiceError } from './errorHandler';
 import { CircuitBreaker } from './errorHandler';
-import logger from './logger';
+import logger, { Logger } from './logger';
+import crypto from 'crypto';
 
 // Configuration types
 export enum ConfigCategory {
@@ -73,9 +74,9 @@ export interface ConfigManagerOptions {
  * Manages application configuration from database and environment variables
  */
 export class ConfigManager {
-  private supabase: any;
+  private supabase: SupabaseClient;
   private cache: NodeCache;
-  private logger: any;
+  private logger: Logger;
   private refreshInterval: number;
   private refreshTimer?: NodeJS.Timeout | undefined;
   private azureCircuitBreaker: CircuitBreaker;
@@ -84,11 +85,15 @@ export class ConfigManager {
   private initPromise?: Promise<void>;
 
   constructor(options: ConfigManagerOptions = {}) {
+    // Validate required env vars
+    const supabaseUrl = options.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = options.supabaseKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase URL and Service Role Key must be set in environment variables.');
+    }
+
     // Initialize Supabase client
-    this.supabase = createClient(
-      options.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      options.supabaseKey || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    );
+    this.supabase = createClient(supabaseUrl, supabaseKey);
 
     // Initialize cache
     this.cache = new NodeCache({
@@ -133,7 +138,8 @@ export class ConfigManager {
       this.logger.info('Configuration manager initialized');
     } catch (error) {
       this.initializing = false;
-      this.logger.error('Failed to initialize configuration manager', error);
+      // Ensure error is an Error object
+      this.logger.error('Failed to initialize configuration manager', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -202,9 +208,13 @@ export class ConfigManager {
 
           // Cache by type for quick lookup
           const typeKey = `integration_type:${integration.type}`;
-          const typeIntegrations = this.cache.get<ApiIntegration[]>(typeKey) || [];
-          typeIntegrations.push(integration);
-          this.cache.set(typeKey, typeIntegrations);
+          let typeIntegrations = this.cache.get<ApiIntegration[]>(typeKey) || [];
+
+          // Prevent duplicates
+          if (!typeIntegrations.some((i) => i.id === integration.id)) {
+            typeIntegrations.push(integration);
+            this.cache.set(typeKey, typeIntegrations);
+          }
         }
       }
 
@@ -213,7 +223,11 @@ export class ConfigManager {
         integrationsCount: apiIntegrations?.length || 0,
       });
     } catch (error) {
-      this.logger.error('Failed to load configuration', error);
+      if (error instanceof Error) {
+        this.logger.error('Failed to load configuration', error);
+      } else {
+        this.logger.error('Failed to load configuration', new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -297,14 +311,16 @@ export class ConfigManager {
       // Return default value
       return defaultValue;
     } catch (error) {
-      this.logger.error(`Failed to get config: ${key}`, error);
-
+      if (error instanceof Error) {
+        this.logger.error(`Failed to get config: ${key}`, error);
+      } else {
+        this.logger.error(`Failed to get config: ${key}`, new Error(String(error)));
+      }
       // Fallback to environment variable
       const envValue = process.env[key];
       if (envValue !== undefined) {
         return envValue;
       }
-
       // Return default value
       return defaultValue;
     }
@@ -410,7 +426,11 @@ export class ConfigManager {
         value: sensitive ? value : result.value, // Return original value for sensitive data
       };
     } catch (error) {
-      this.logger.error(`Failed to set config: ${key}`, error);
+      if (error instanceof Error) {
+        this.logger.error(`Failed to set config: ${key}`, error);
+      } else {
+        this.logger.error(`Failed to set config: ${key}`, new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -436,7 +456,11 @@ export class ConfigManager {
 
       return true;
     } catch (error) {
-      this.logger.error(`Failed to delete config: ${key}`, error);
+      if (error instanceof Error) {
+        this.logger.error(`Failed to delete config: ${key}`, error);
+      } else {
+        this.logger.error(`Failed to delete config: ${key}`, new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -474,7 +498,11 @@ export class ConfigManager {
         value: item.sensitive ? '********' : item.value,
       }));
     } catch (error) {
-      this.logger.error('Failed to get all config', error);
+      if (error instanceof Error) {
+        this.logger.error('Failed to get all config', error);
+      } else {
+        this.logger.error('Failed to get all config', new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -522,7 +550,11 @@ export class ConfigManager {
 
       return undefined;
     } catch (error) {
-      this.logger.error(`Failed to get integration: ${id}`, error);
+      if (error instanceof Error) {
+        this.logger.error(`Failed to get integration: ${id}`, error);
+      } else {
+        this.logger.error(`Failed to get integration: ${id}`, new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -582,7 +614,11 @@ export class ConfigManager {
         api_key: '********', // Mask API key
       }));
     } catch (error) {
-      this.logger.error(`Failed to get integrations by type: ${type}`, error);
+      if (error instanceof Error) {
+        this.logger.error(`Failed to get integrations by type: ${type}`, error);
+      } else {
+        this.logger.error(`Failed to get integrations by type: ${type}`, new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -688,23 +724,23 @@ export class ConfigManager {
 
       // Log audit event if userId provided
       if (userId) {
-        await this.supabase
-          .from('audit_logs')
-          .insert({
-            user_id: userId,
-            action: existingIntegration ? 'update' : 'create',
-            resource_type: 'api_integration',
-            resource_id: integration.id,
-            details: {
-              name: integration.name,
-              type: integration.type,
-              endpoint: integration.endpoint,
-            },
-          })
-          .then(() => {})
-          .catch((error: any) => {
-            this.logger.error('Failed to log audit event', error);
-          });
+        try {
+          await this.supabase
+            .from('audit_logs')
+            .insert({
+              user_id: userId,
+              action: existingIntegration ? 'update' : 'create',
+              resource_type: 'api_integration',
+              resource_id: integration.id,
+              details: {
+                name: integration.name,
+                type: integration.type,
+                endpoint: integration.endpoint,
+              },
+            });
+        } catch (error: any) {
+          this.logger.error('Failed to log audit event', error instanceof Error ? error : new Error(String(error)));
+        }
       }
 
       return {
@@ -712,7 +748,11 @@ export class ConfigManager {
         api_key: integration.api_key, // Return original API key
       };
     } catch (error) {
-      this.logger.error(`Failed to set integration: ${integration.id}`, error);
+      if (error instanceof Error) {
+        this.logger.error(`Failed to set integration: ${integration.id}`, error);
+      } else {
+        this.logger.error(`Failed to set integration: ${integration.id}`, new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -761,26 +801,30 @@ export class ConfigManager {
 
       // Log audit event if userId provided
       if (userId) {
-        await this.supabase
-          .from('audit_logs')
-          .insert({
-            user_id: userId,
-            action: 'delete',
-            resource_type: 'api_integration',
-            resource_id: id,
-            details: {
-              type: integration.type,
-            },
-          })
-          .then(() => {})
-          .catch((error: any) => {
-            this.logger.error('Failed to log audit event', error);
-          });
+        try {
+          await this.supabase
+            .from('audit_logs')
+            .insert({
+              user_id: userId,
+              action: 'delete',
+              resource_type: 'api_integration',
+              resource_id: id,
+              details: {
+                type: integration.type,
+              },
+            });
+        } catch (error: any) {
+          this.logger.error('Failed to log audit event', error instanceof Error ? error : new Error(String(error)));
+        }
       }
 
       return true;
     } catch (error) {
-      this.logger.error(`Failed to delete integration: ${id}`, error);
+      if (error instanceof Error) {
+        this.logger.error(`Failed to delete integration: ${id}`, error);
+      } else {
+        this.logger.error(`Failed to delete integration: ${id}`, new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -853,24 +897,26 @@ export class ConfigManager {
 
       return testResult;
     } catch (error) {
-      this.logger.error(`Failed to test integration: ${id}`, error);
-
+      if (error instanceof Error) {
+        this.logger.error(`Failed to test integration: ${id}`, error);
+      } else {
+        this.logger.error(`Failed to test integration: ${id}`, new Error(String(error)));
+      }
       // Update last test result with error
-      await this.supabase
-        .from('api_integrations')
-        .update({
-          last_test_result: {
-            success: false,
-            error: error instanceof Error ? error.message : String(error),
-            timestamp: new Date().toISOString(),
-          },
-        })
-        .eq('id', id)
-        .then(() => {})
-        .catch((updateError: any) => {
-          this.logger.error(`Failed to update test result: ${id}`, updateError);
-        });
-
+      try {
+        await this.supabase
+          .from('api_integrations')
+          .update({
+            last_test_result: {
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+              timestamp: new Date().toISOString(),
+            },
+          })
+          .eq('id', id);
+      } catch (updateError: unknown) {
+        this.logger.error(`Failed to update test result: ${id}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
+      }
       throw error;
     }
   }
@@ -888,13 +934,23 @@ export class ConfigManager {
     config: Record<string, any>
   ): Promise<Record<string, any>> {
     return await this.azureCircuitBreaker.execute(async () => {
-      // Mock implementation - in a real app, you would call Azure OpenAI
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
+      const start = Date.now();
+      const url = `${endpoint}/openai/deployments?api-version=${config.apiVersion || '2023-05-15'}&limit=1`;
+      const res = await fetch(url, {
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+      const responseTime = Date.now() - start;
+      if (!res.ok) {
+        return { success: false, error: await res.text(), responseTime };
+      }
+      const data = await res.json();
       return {
         success: true,
-        models: ['gpt-4', 'gpt-4o', 'gpt-35-turbo'],
-        responseTime: 500,
+        models: Array.isArray(data.value) ? data.value.map((m: any) => m.model) : [],
+        responseTime,
       };
     });
   }
@@ -910,13 +966,23 @@ export class ConfigManager {
     apiKey: string
   ): Promise<Record<string, any>> {
     return await this.azureCircuitBreaker.execute(async () => {
-      // Mock implementation - in a real app, you would call Azure Form Recognizer
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
+      const start = Date.now();
+      const url = `${endpoint}/formrecognizer/documentModels?api-version=2023-07-31`;
+      const res = await fetch(url, {
+        headers: {
+          'Ocp-Apim-Subscription-Key': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+      const responseTime = Date.now() - start;
+      if (!res.ok) {
+        return { success: false, error: await res.text(), responseTime };
+      }
+      const data = await res.json();
       return {
         success: true,
-        models: ['prebuilt-document', 'prebuilt-layout', 'prebuilt-invoice'],
-        responseTime: 500,
+        models: Array.isArray(data.value) ? data.value.map((m: any) => m.modelId) : [],
+        responseTime,
       };
     });
   }
@@ -934,13 +1000,23 @@ export class ConfigManager {
     config: Record<string, any>
   ): Promise<Record<string, any>> {
     return await this.azureCircuitBreaker.execute(async () => {
-      // Mock implementation - in a real app, you would call Azure Search
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
+      const start = Date.now();
+      const url = `${endpoint}/indexes?api-version=${config.apiVersion || '2023-11-01'}`;
+      const res = await fetch(url, {
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+      const responseTime = Date.now() - start;
+      if (!res.ok) {
+        return { success: false, error: await res.text(), responseTime };
+      }
+      const data = await res.json();
       return {
         success: true,
-        indexes: ['documents', 'projects'],
-        responseTime: 500,
+        indexes: Array.isArray(data.value) ? data.value.map((i: any) => i.name) : [],
+        responseTime,
       };
     });
   }
@@ -957,13 +1033,23 @@ export class ConfigManager {
     apiKey: string,
     config: Record<string, any>
   ): Promise<Record<string, any>> {
-    // Mock implementation - in a real app, you would call the custom endpoint
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
+    const start = Date.now();
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    const responseTime = Date.now() - start;
+    if (!res.ok) {
+      return { success: false, error: await res.text(), responseTime };
+    }
+    const data = await res.json();
     return {
       success: true,
-      endpoint,
-      responseTime: 500,
+      data,
+      responseTime,
     };
   }
 
@@ -1004,8 +1090,11 @@ export class ConfigManager {
         ...integration.config,
       };
     } catch (error) {
-      this.logger.error('Failed to get Azure OpenAI configuration', error);
-
+      if (error instanceof Error) {
+        this.logger.error('Failed to get Azure OpenAI configuration', error);
+      } else {
+        this.logger.error('Failed to get Azure OpenAI configuration', new Error(String(error)));
+      }
       // Fallback to environment variables
       return {
         endpoint: process.env.AZURE_OPENAI_ENDPOINT,
@@ -1051,8 +1140,11 @@ export class ConfigManager {
         ...integration.config,
       };
     } catch (error) {
-      this.logger.error('Failed to get Azure Form Recognizer configuration', error);
-
+      if (error instanceof Error) {
+        this.logger.error('Failed to get Azure Form Recognizer configuration', error);
+      } else {
+        this.logger.error('Failed to get Azure Form Recognizer configuration', new Error(String(error)));
+      }
       // Fallback to environment variables
       return {
         endpoint: process.env.AZURE_FORM_RECOGNIZER_ENDPOINT,
@@ -1083,7 +1175,11 @@ export class ConfigManager {
 
       return this.decrypt(data.api_key);
     } catch (error) {
-      this.logger.error(`Failed to get decrypted API key: ${integrationId}`, error);
+      if (error instanceof Error) {
+        this.logger.error(`Failed to get decrypted API key: ${integrationId}`, error);
+      } else {
+        this.logger.error(`Failed to get decrypted API key: ${integrationId}`, new Error(String(error)));
+      }
       throw error;
     }
   }
@@ -1130,9 +1226,13 @@ export class ConfigManager {
    * @returns Encrypted value
    */
   private encrypt(value: string): string {
-    // In a real implementation, you would use a proper encryption library
-    // This is a simple mock implementation
-    return `encrypted:${value}`;
+    const key = this.getEncryptionKey();
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    let encrypted = cipher.update(value, 'utf8', 'base64');
+    encrypted += cipher.final('base64');
+    const tag = cipher.getAuthTag();
+    return [iv.toString('base64'), tag.toString('base64'), encrypted].join(':');
   }
 
   /**
@@ -1141,12 +1241,25 @@ export class ConfigManager {
    * @returns Decrypted value
    */
   private decrypt(value: string): string {
-    // In a real implementation, you would use a proper encryption library
-    // This is a simple mock implementation
-    if (value.startsWith('encrypted:')) {
-      return value.substring(10);
+    const [ivB64, tagB64, encrypted] = value.split(':');
+    if (!ivB64 || !tagB64 || !encrypted) {
+      throw new Error('Malformed encrypted value');
     }
-    return value;
+    const key = this.getEncryptionKey();
+    const iv = Buffer.from(ivB64, 'base64');
+    const tag = Buffer.from(tagB64, 'base64');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encrypted, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  }
+
+  private getEncryptionKey(): Buffer {
+    const passphrase = process.env.CONFIG_ENCRYPTION_KEY || '';
+    if (!passphrase) throw new Error('CONFIG_ENCRYPTION_KEY env var is required for encryption');
+    // Use PBKDF2 to derive a 32-byte key
+    return crypto.pbkdf2Sync(passphrase, 'config_salt', 100000, 32, 'sha256');
   }
 }
 

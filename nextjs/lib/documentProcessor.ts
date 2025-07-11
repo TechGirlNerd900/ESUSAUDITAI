@@ -70,7 +70,9 @@ export function initDocumentProcessor(): void {
     }
   });
 
-  console.log('Document processor initialized');
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Document processor initialized');
+  }
 }
 
 /**
@@ -133,7 +135,9 @@ async function processDocument(document: any): Promise<any> {
   const documentAnalysis = await azureCircuitBreaker.execute(async () => {
     try {
       // Mock implementation - in a real app, you would call Azure Document Intelligence
-      console.log(`Processing document: ${document.id}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Processing document: ${document.id}`);
+      }
 
       // Simulate processing time
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -166,7 +170,9 @@ async function processDocument(document: any): Promise<any> {
   const aiSummary = await openaiCircuitBreaker.execute(async () => {
     try {
       // Mock implementation - in a real app, you would call OpenAI
-      console.log(`Generating AI summary for document: ${document.id}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Generating AI summary for document: ${document.id}`);
+      }
 
       // Simulate processing time
       await new Promise((resolve) => setTimeout(resolve, 1000));

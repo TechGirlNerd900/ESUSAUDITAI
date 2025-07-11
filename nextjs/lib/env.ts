@@ -38,7 +38,9 @@ export function validateEnv() {
   // Additional security validation for critical keys
   validateSecurityKeys();
 
-  console.log('✅ Environment variables validated successfully');
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Environment variables validated successfully');
+  }
 }
 
 function validateSecurityKeys() {
@@ -127,12 +129,16 @@ export function validateRedisConfig(): { url: string; token: string } | null {
         '⚠️  Rate limiting will be DISABLED - consider configuring Redis for production use'
       );
     } else {
-      console.log('ℹ️  Redis not configured - rate limiting disabled for development');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('ℹ️  Redis not configured - rate limiting disabled for development');
+      }
     }
     return null;
   }
 
-  console.log('✅ Redis configuration validated successfully');
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Redis configuration validated successfully');
+  }
   return { url: redisUrl, token: redisToken };
 }
 
@@ -154,7 +160,9 @@ export async function createRedisClient() {
       token: config.token,
     });
 
-    console.log('✅ Redis client initialized successfully');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Redis client initialized successfully');
+    }
     return redis;
   } catch (error) {
     console.error('❌ Redis client initialization failed:', error);

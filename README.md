@@ -1,263 +1,374 @@
+# ESUS Audit AI
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.3.3-black)](https://nextjs.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green)](https://supabase.com/)
 
-./app/admin/dashboard/page.tsx
-14:10  Warning: 'Tabs' is defined but never used.  @typescript-eslint/no-unused-vars
-14:16  Warning: 'TabsContent' is defined but never used.  @typescript-eslint/no-unused-vars
-14:29  Warning: 'TabsList' is defined but never used.  @typescript-eslint/no-unused-vars
-14:39  Warning: 'TabsTrigger' is defined but never used.  @typescript-eslint/no-unused-vars
+A comprehensive AI-powered audit automation platform designed for finance and audit firms. Built with Next.js 15, Supabase, and enterprise-grade security features for multi-tenant SaaS environments.
 
+## 🚀 Features
 
+### Core Functionality
+- **AI-Powered Document Processing** - Automated analysis using Azure Form Recognizer and OpenAI
+- **Multi-Tenant Architecture** - Secure organization-based isolation with Row Level Security (RLS)
+- **Role-Based Access Control** - Three-tier system (Admin/Auditor/Reviewer) with hierarchical permissions
+- **Real-Time Collaboration** - Live updates using Supabase Realtime
+- **Comprehensive Audit Trails** - Complete activity logging and security monitoring
+- **Document Management** - Secure upload, processing, and storage with virus scanning
+- **Interactive Chat Interface** - AI-powered assistance for audit queries and analysis
 
-./app/admin/metrics/page.tsx
-30:3  Warning: 'Database' is defined but never used.  @typescript-eslint/no-unused-vars
-32:3  Warning: 'Clock' is defined but never used.  @typescript-eslint/no-unused-vars
+### Security Features
+- **Enterprise-Grade Security** - CSP headers, HSTS, X-Frame-Options protection
+- **Rate Limiting** - Redis-based protection against abuse
+- **Input Validation** - Comprehensive sanitization using Zod schemas
+- **Secure File Handling** - Type validation, size limits, and malware scanning
+- **Session Management** - JWT-based authentication with automatic expiration
+- **Soft Delete Patterns** - Data retention with recovery capabilities
 
-./app/admin/organization/page.tsx
-244:17  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
-256:17  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
-283:17  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
-288:19  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
-289:19  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
-464:19  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
-476:19  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
-490:17  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
-503:17  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
+### Technical Highlights
+- **Modern Stack** - Next.js 15 with App Router, TypeScript, and Tailwind CSS
+- **Database** - PostgreSQL with Supabase for real-time capabilities
+- **AI Integration** - Azure OpenAI and Form Recognizer services
+- **Cloud Storage** - Supabase Storage with security policies
+- **Monitoring** - Application Insights integration for production monitoring
 
-./app/api/admin/env/route.ts
-118:12  Warning: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
-148:1  Error: Delete `··`  prettier/prettier
-153:1  Error: Delete `··`  prettier/prettier
+## 📋 Prerequisites
 
-./app/api/admin/integrations/route.ts
-135:12  Warning: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+- **Node.js** >= 18.0.0
+- **npm** or **yarn**
+- **Supabase Account** (for database and authentication)
+- **Azure Account** (for AI services - optional)
+- **Redis Instance** (for rate limiting - optional)
 
-./app/api/admin/integrations/test/route.ts
-49:12  Warning: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
-69:19  Error: Replace `⏎······.from('audit_logs')⏎······` with `.from('audit_logs')`  prettier/prettier
-72:1  Error: Delete `··`  prettier/prettier
-73:7  Error: Delete `··`  prettier/prettier
-74:1  Error: Delete `··`  prettier/prettier
-75:7  Error: Delete `··`  prettier/prettier
-76:1  Error: Delete `··`  prettier/prettier
-77:9  Error: Delete `··`  prettier/prettier
-78:1  Error: Delete `··`  prettier/prettier
-79:7  Error: Delete `··`  prettier/prettier
-80:1  Error: Delete `··`  prettier/prettier
+## 🛠️ Installation
 
-./app/api/audit-reports/[id]/pdf.ts
-2:23  Warning: 'NextResponse' is defined but never used.  @typescript-eslint/no-unused-vars
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-org/esus-audit-ai.git
+cd esus-audit-ai
+```
 
-./app/api/auth/login/route.ts
-3:27  Warning: 'errorResponse' is defined but never used.  @typescript-eslint/no-unused-vars
-6:15  Warning: 'User' is defined but never used.  @typescript-eslint/no-unused-vars
+### 2. Install Dependencies
+```bash
+# Install root dependencies
+npm install
 
-./app/api/chat/[projectId]/route.ts
-12:3  Warning: 'ExternalServiceError' is defined but never used.  @typescript-eslint/no-unused-vars
-98:14  Warning: 'parseError' is defined but never used.  @typescript-eslint/no-unused-vars
-109:11  Warning: 'userMessage' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+# Install Next.js dependencies
+cd nextjs && npm install
+```
 
-./app/api/documents/process/route.ts
-22:12  Warning: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+### 3. Environment Configuration
+```bash
+# Copy environment template
+cp .env.example .env.local
+cp nextjs/.env.local.example nextjs/.env.local
+```
 
-./app/api/documents/upload/route.ts
-62:14  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+### 4. Configure Environment Variables
+Edit `.env.local` and `nextjs/.env.local` with your actual values:
 
-./app/api/errors/__tests__/route.test.ts
-104:15  Warning: 'data' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+#### Required Variables
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
-./app/api/health/route.ts
-6:3  Warning: 'DatabaseError' is defined but never used.  @typescript-eslint/no-unused-vars
-7:3  Warning: 'ExternalServiceError' is defined but never used.  @typescript-eslint/no-unused-vars
-37:45  Warning: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-164:13  Warning: 'data' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-198:13  Warning: 'data' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+# Database
+DATABASE_URL=postgresql://username:password@your-host:5432/your-database
 
-./app/api/metrics/route.ts
-11:45  Warning: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+# Authentication
+JWT_SECRET=your-jwt-secret-key
+```
 
-./app/api/organizations/invite/route.ts
-185:17  Error: Replace `·inv.users·&&·Array.isArray(inv.users)·&&·inv.users[0]·?·`${inv.users[0].first_name}·${inv.users[0].last_name}`` with `⏎········inv.users·&&·Array.isArray(inv.users)·&&·inv.users[0]⏎··········?·`${inv.users[0].first_name}·${inv.users[0].last_name}`⏎·········`  prettier/prettier
+#### Optional Variables (for full functionality)
+```env
+# Azure AI Services
+AZURE_OPENAI_ENDPOINT=https://your-openai-service.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-azure-openai-key
+AZURE_FORM_RECOGNIZER_ENDPOINT=https://your-service.cognitiveservices.azure.com/
+AZURE_FORM_RECOGNIZER_KEY=your-azure-form-recognizer-key
 
-./app/api/organizations/route.ts
-6:10  Warning: 'withErrorHandling' is defined but never used.  @typescript-eslint/no-unused-vars
-68:19  Warning: 'authUser' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+# Rate Limiting (Production)
+UPSTASH_REDIS_REST_URL=your-redis-url
+UPSTASH_REDIS_REST_TOKEN=your-redis-token
+```
 
-./app/api/reports/generate/route.ts
-101:19  Warning: 'uploadData' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-218:12  Warning: 'parseError' is defined but never used.  @typescript-eslint/no-unused-vars
-237:3  Warning: 'includeCharts' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+### 5. Database Setup
+```bash
+# Run Supabase migrations
+cd supabase
+supabase db reset
+supabase db push
+```
 
-./app/components/AdminPanel.tsx
-90:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+## 🚀 Development
 
-./app/components/AuditReportsList.tsx
-29:16  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
-107:14  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+### Start Development Server
+```bash
+npm run dev
+```
 
-./app/components/ChatRAG.tsx
-14:46  Warning: 'user' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-142:15  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
-219:14  Error: Unknown property 'jsx' found  react/no-unknown-property
+The application will be available at `http://localhost:3000`
 
-./app/components/CreateProjectModal.tsx
-93:11  Error: Visible, non-interactive elements with click handlers must have at least one keyboard listener.  jsx-a11y/click-events-have-key-events
-93:11  Error: Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element.  jsx-a11y/no-static-element-interactions
+### Available Scripts
+```bash
+# Development
+npm run dev                    # Start development server
+npm run build                  # Production build
+npm run start                  # Start production server
+npm run lint                   # Lint code
+npm run lint:fix              # Fix linting issues
+npm run format                 # Format code with Prettier
 
-./app/components/DocumentAnalysisModal.tsx
-26:21  Warning: 'setIsLoading' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-28:9  Warning: 'supabase' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-54:14  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
-145:21  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
-161:21  Error: A form label must be associated with a control.  jsx-a11y/label-has-associated-control
+# Testing
+npm run test                   # Run Jest tests
+npm run test:watch             # Run tests in watch mode
 
-./app/components/DocumentsList.tsx
-31:9  Warning: 'supabase' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-68:14  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+# Database
+npm run db:setup              # Setup local database
+npm run supabase:setup        # Configure Supabase
+```
 
-./app/components/ErrorBoundary.tsx
-29:35  Warning: 'error' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+## 🏗️ Architecture
 
-./app/components/Navbar.tsx
-9:15  Warning: 'User' is defined but never used.  @typescript-eslint/no-unused-vars
-30:9  Warning: 'isActive' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+### Multi-Tenant Security Architecture
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Organization  │    │   Organization  │    │   Organization  │
+│        A        │    │        B        │    │        C        │
+├─────────────────┤    ├─────────────────┤    ├─────────────────┤
+│ Users           │    │ Users           │    │ Users           │
+│ Projects        │    │ Projects        │    │ Projects        │
+│ Documents       │    │ Documents       │    │ Documents       │
+│ Audit Logs      │    │ Audit Logs      │    │ Audit Logs      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │  Shared Services │
+                    │                 │
+                    │ • Authentication│
+                    │ • Rate Limiting │
+                    │ • Audit Logging │
+                    │ • File Storage  │
+                    └─────────────────┘
+```
 
-./app/components/Sidebar.tsx
-148:9  Error: The element ul has an implicit role of list. Defining this explicitly is redundant and should be avoided.  jsx-a11y/no-redundant-roles
-150:13  Error: The element ul has an implicit role of list. Defining this explicitly is redundant and should be avoided.  jsx-a11y/no-redundant-roles
+### Database Schema Overview
+- **Core Tables**: `organizations`, `users`, `projects`, `documents`, `audit_logs`
+- **Security**: `invitations`, `api_tokens`, `security_events`, `login_attempts`
+- **Workflow**: `deleted_entities`, `pending_deletion_requests`, `workflow_approvals`
 
-./app/components/SkeletonLoader.tsx
-97:14  Error: Unknown property 'jsx' found  react/no-unknown-property
-97:18  Error: Unknown property 'global' found  react/no-unknown-property
+### API Structure
+```
+/api/
+├── auth/                 # Authentication endpoints
+├── admin/               # Administrative functions
+├── projects/            # Project management
+├── documents/           # Document processing
+├── chat/               # AI chat interface
+├── reports/            # Report generation
+└── health/             # System health checks
+```
 
-./app/components/UploadComponent.tsx
-16:9  Warning: 'supabase' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-42:6  Warning: React Hook useCallback has a missing dependency: 'handleFiles'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+## 🔐 Security Features
 
-./app/components/WebSocketProvider.tsx
-81:6  Warning: React Hook useEffect has a missing dependency: 'ws'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+### Authentication & Authorization
+- **JWT-based Authentication** with automatic token refresh
+- **Role-Based Access Control** (RBAC) with three permission levels
+- **Multi-Factor Authentication** support (configurable)
+- **Session Management** with automatic timeout
 
-./app/components/WelcomeModal.tsx
-5:8  Warning: 'Link' is defined but never used.  @typescript-eslint/no-unused-vars
+### Data Protection
+- **Row Level Security (RLS)** for tenant isolation
+- **Input Validation** using Zod schemas
+- **SQL Injection Protection** via parameterized queries
+- **XSS Prevention** through content sanitization
 
-./app/dashboard/page.tsx
-52:10  Warning: 'initialLoad' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-792:69  Warning: 'index' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-973:27  Error: Visible, non-interactive elements with click handlers must have at least one keyboard listener.  jsx-a11y/click-events-have-key-events
-973:27  Error: Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element.  jsx-a11y/no-static-element-interactions
-1046:30  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
-1046:78  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
-1047:30  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
-1047:78  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
-1048:30  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
-1048:67  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+### Infrastructure Security
+- **Rate Limiting** on all API endpoints
+- **CORS Configuration** for cross-origin protection
+- **Security Headers** (CSP, HSTS, X-Frame-Options)
+- **File Upload Security** with type and size validation
 
-./app/not-found.tsx
-26:9  Error: Insert `··`  prettier/prettier
+## 🤖 AI Integration
 
-./app/projects/page.tsx
-79:14  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
-112:43  Warning: 'index' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+### Document Processing
+- **Azure Form Recognizer** for intelligent document analysis
+- **OpenAI GPT-4** for content understanding and insights
+- **Automated Data Extraction** from financial documents
+- **Custom Model Training** for audit-specific use cases
 
-./app/reset-password/page.tsx
-49:44  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+### Chat Interface
+- **Contextual AI Assistance** for audit queries
+- **Document-Based Q&A** using RAG (Retrieval Augmented Generation)
+- **Conversation History** with persistent storage
+- **Multi-Language Support** for international audits
 
-./app/settings/page.tsx
-20:6  Warning: React Hook useEffect has a missing dependency: 'checkUser'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+## 📊 Monitoring & Analytics
 
-./app/update-password/page.tsx
-22:6  Warning: React Hook useEffect has missing dependencies: 'router' and 'supabase.auth'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+### Application Monitoring
+- **Azure Application Insights** integration
+- **Real-time Performance Metrics** and alerts
+- **Error Tracking** with detailed stack traces
+- **User Activity Analytics** for usage insights
 
-./components/ui/alert.tsx
-34:5  Error: Headings must have content and the content must be accessible by a screen reader.  jsx-a11y/heading-has-content
+### Audit & Compliance
+- **Comprehensive Audit Logs** for all user actions
+- **Security Event Monitoring** with automated alerts
+- **Data Retention Policies** for compliance requirements
+- **Export Capabilities** for regulatory reporting
 
-./components/ui/card.tsx
-27:5  Error: Headings must have content and the content must be accessible by a screen reader.  jsx-a11y/heading-has-content
+## 🚀 Deployment
 
-./components/ui/dialog.tsx
-14:1  Error: Delete `··`  prettier/prettier
-49:7  Error: Visible, non-interactive elements with click handlers must have at least one keyboard listener.  jsx-a11y/click-events-have-key-events
-49:7  Error: Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element.  jsx-a11y/no-static-element-interactions
-49:11  Error: Replace `⏎········className="fixed·inset-0·bg-black·bg-opacity-50"⏎········onClick={()·=>·setOpen(false)}⏎·····` with `·className="fixed·inset-0·bg-black·bg-opacity-50"·onClick={()·=>·setOpen(false)}`  prettier/prettier
-54:38  Error: Replace `⏎········{children}⏎······` with `{children}`  prettier/prettier
-76:5  Error: Visible, non-interactive elements with click handlers must have at least one keyboard listener.  jsx-a11y/click-events-have-key-events
-76:5  Error: Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element.  jsx-a11y/no-static-element-interactions
-113:5  Error: Headings must have content and the content must be accessible by a screen reader.  jsx-a11y/heading-has-content
+### Vercel (Recommended)
+```bash
+# Install Vercel CLI
+npm i -g vercel
 
-./components/ui/input.tsx
-4:18  Error: An interface declaring no members is equivalent to its supertype.  @typescript-eslint/no-empty-object-type
+# Deploy to Vercel
+vercel --prod
+```
 
-./components/ui/popover.tsx
-29:43  Error: Replace `⏎··children,⏎··open,⏎··onOpenChange,⏎··defaultOpen·=·false,⏎` with `·children,·open,·onOpenChange,·defaultOpen·=·false·`  prettier/prettier
-37:1  Error: Delete `··`  prettier/prettier
-266:15  Error: Insert `··`  prettier/prettier
-267:1  Error: Insert `··`  prettier/prettier
-268:17  Error: Insert `··`  prettier/prettier
-269:1  Error: Insert `··`  prettier/prettier
+### Docker Deployment
+```bash
+# Build Docker image
+docker build -t esus-audit-ai .
 
-./components/ui/switch.tsx
-40:19  Error: Replace `⏎············?·'bg-gray-900·dark:bg-gray-50'·⏎···········` with `?·'bg-gray-900·dark:bg-gray-50'`  prettier/prettier
-63:19  Error: Insert `⏎`  prettier/prettier
+# Run container
+docker run -p 3000:3000 esus-audit-ai
+```
 
-./components/ui/tabs.tsx
-32:1  Error: Delete `····`  prettier/prettier
-38:13  Error: Replace `⏎··········ref={ref}⏎··········className={cn('w-full',·className)}⏎··········{...props}⏎········` with `·ref={ref}·className={cn('w-full',·className)}·{...props}`  prettier/prettier
-165:53  Error: Insert `⏎`  prettier/prettier
+### Environment-Specific Configuration
+- **Development**: Local Supabase with development keys
+- **Staging**: Staging Supabase instance with limited data
+- **Production**: Production Supabase with full security enabled
 
-./components/ui/textarea.tsx
-4:18  Error: An interface declaring no members is equivalent to its supertype.  @typescript-eslint/no-empty-object-type
-22:21  Error: Insert `⏎`  prettier/prettier
+## 🧪 Testing
 
-./components/ui/use-toast.tsx
-9:6  Warning: 'ToastActionElement' is defined but never used.  @typescript-eslint/no-unused-vars
-18:10  Warning: 'toasts' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+### Unit Tests
+```bash
+npm run test
+```
 
-./lib/auth.ts
-5:43  Warning: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+### Integration Tests
+```bash
+npm run test:integration
+```
 
-./lib/azureServices.ts
-2:24  Warning: 'SearchIndexClient' is defined but never used.  @typescript-eslint/no-unused-vars
-2:43  Warning: 'SearchResult' is defined but never used.  @typescript-eslint/no-unused-vars
-142:19  Warning: 'data' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-216:54  Warning: 'documentType' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+### End-to-End Tests
+```bash
+npm run test:e2e
+```
 
-./lib/configManager.ts
-13:10  Warning: 'withRetry' is defined but never used.  @typescript-eslint/no-unused-vars
-13:36  Warning: 'ExternalServiceError' is defined but never used.  @typescript-eslint/no-unused-vars
-886:5  Warning: 'endpoint' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-887:5  Warning: 'apiKey' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-888:5  Warning: 'config' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-909:5  Warning: 'endpoint' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-910:5  Warning: 'apiKey' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-932:5  Warning: 'endpoint' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-933:5  Warning: 'apiKey' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-934:5  Warning: 'config' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-957:5  Warning: 'apiKey' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
-958:5  Warning: 'config' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+### Test Coverage
+- **Authentication Flows** - Login, signup, password reset
+- **API Endpoints** - All routes with various scenarios
+- **Database Operations** - CRUD operations with RLS
+- **Security Features** - Rate limiting, input validation
 
-./lib/env.ts
-11:7  Warning: 'optionalEnvVars' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+## 📚 API Documentation
 
-./lib/logger.ts
-332:56  Error: Replace `·correlationIdProvider:·this.correlationIdProvider` with `⏎········correlationIdProvider:·this.correlationIdProvider,⏎·····`  prettier/prettier
+### Authentication
+```typescript
+POST /api/auth/login
+POST /api/auth/signup
+POST /api/auth/logout
+POST /api/auth/reset-password
+```
 
-./lib/queryOptimizer.ts
-6:7  Warning: 'LONG_CACHE_TTL' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-373:1  Error: Delete `⏎⏎⏎`  prettier/prettier
+### Projects
+```typescript
+GET    /api/projects              # List user's projects
+POST   /api/projects              # Create new project
+GET    /api/projects/[id]         # Get project details
+PUT    /api/projects/[id]         # Update project
+DELETE /api/projects/[id]         # Delete project
+```
 
-./lib/security.ts
-11:11  Warning: 'User' is defined but never used.  @typescript-eslint/no-unused-vars
-251:51  Error: Insert `⏎·····`  prettier/prettier
-252:1  Error: Delete `····`  prettier/prettier
-276:57  Error: Insert `⏎·····`  prettier/prettier
-277:1  Error: Delete `····`  prettier/prettier
-295:57  Error: Insert `⏎·····`  prettier/prettier
-296:1  Error: Delete `····`  prettier/prettier
+### Documents
+```typescript
+POST   /api/documents/upload      # Upload document
+GET    /api/documents/[id]        # Get document
+POST   /api/documents/process     # Process with AI
+DELETE /api/documents/[id]        # Delete document
+```
 
-./lib/serviceContainer.ts
-515:19  Warning: '_uploadData' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+### Admin
+```typescript
+GET    /api/admin/users           # List all users
+POST   /api/admin/users/invite    # Invite new user
+GET    /api/admin/metrics         # System metrics
+GET    /api/admin/audit-logs      # Audit trail
+```
 
-./lib/validation.ts
-224:14  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+## 🤝 Contributing
 
-info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
-techgirlnerd@TechGirlNerds-MacBook-Air esusauditai % 
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Code Standards
+- **TypeScript** for type safety
+- **ESLint** for code quality
+- **Prettier** for code formatting
+- **Jest** for testing
+- **Conventional Commits** for commit messages
+
+### Pull Request Guidelines
+- Include tests for new features
+- Update documentation as needed
+- Ensure all CI checks pass
+- Request review from maintainers
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+### Documentation
+- [API Documentation](docs/api.md)
+- [Deployment Guide](docs/deployment.md)
+- [Security Guide](docs/security.md)
+- [Troubleshooting](docs/troubleshooting.md)
+
+### Community
+- [GitHub Issues](https://github.com/your-org/esus-audit-ai/issues)
+- [Discussions](https://github.com/your-org/esus-audit-ai/discussions)
+- [Discord Community](https://discord.gg/your-invite)
+
+### Commercial Support
+For enterprise support, custom development, or consulting services, contact us at support@esusaudit.ai
+
+## 🗺️ Roadmap
+
+### Q1 2024
+- [ ] Advanced AI model training
+- [ ] Mobile application development
+- [ ] Enhanced reporting capabilities
+- [ ] Third-party integrations (QuickBooks, Xero)
+
+### Q2 2024
+- [ ] Blockchain audit capabilities
+- [ ] Advanced analytics dashboard
+- [ ] Multi-language support
+- [ ] API rate limiting improvements
+
+### Q3 2024
+- [ ] Machine learning insights
+- [ ] Automated compliance checking
+- [ ] Advanced workflow automation
+- [ ] Performance optimizations
+
+---
+
+**Built with ❤️ by the ESUS Audit AI Team**
+
+For more information, visit our [website](https://esusaudit.ai) or contact us at [hello@esusaudit.ai](mailto:hello@esusaudit.ai)

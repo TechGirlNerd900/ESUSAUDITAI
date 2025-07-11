@@ -69,7 +69,12 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
       throw new NotFoundError(`Environment variable "${key}"`);
     }
 
-    return NextResponse.json({ key, value });
+    // Get the full config item to check if it's sensitive
+    const envVars = await configManager.getAllConfig();
+    const configItem = envVars.find(item => item.key === key);
+    const maskedValue = configItem?.sensitive ? '********' : value;
+
+    return NextResponse.json({ key, value: maskedValue });
   }
 
   // Get all environment variables, optionally filtered by category

@@ -70,9 +70,13 @@ export default function AdminSignup() {
       router.push(
         '/login?message=Organization+created+successfully.+Please+check+your+email+to+verify+your+account.'
       );
-    } catch (error: any) {
+    } catch (error) {
       console.error('Admin signup error:', error);
-      setError(error.message || 'An error occurred during organization creation.');
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'An error occurred during organization creation.'
+      );
     } finally {
       setLoading(false);
     }

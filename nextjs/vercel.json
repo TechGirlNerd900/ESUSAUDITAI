@@ -1,0 +1,68 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "npm ci",
+  "devCommand": "npm run dev",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase-url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase-anon-key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase-service-role-key",
+    "NEXT_PUBLIC_SITE_URL": "@site-url",
+    "AZURE_FORM_RECOGNIZER_ENDPOINT": "@azure-form-recognizer-endpoint",
+    "AZURE_FORM_RECOGNIZER_KEY": "@azure-form-recognizer-key",
+    "AZURE_OPENAI_ENDPOINT": "@azure-openai-endpoint",
+    "AZURE_OPENAI_API_KEY": "@azure-openai-api-key",
+    "AZURE_OPENAI_DEPLOYMENT_NAME": "@azure-openai-deployment-name",
+    "AZURE_OPENAI_API_VERSION": "@azure-openai-api-version",
+    "AZURE_SEARCH_ENDPOINT": "@azure-search-endpoint",
+    "AZURE_SEARCH_API_KEY": "@azure-search-api-key",
+    "AZURE_SEARCH_INDEX_NAME": "@azure-search-index-name",
+    "CSRF_SECRET": "@csrf-secret",
+    "ENCRYPTION_KEY": "@encryption-key",
+    "UPSTASH_REDIS_REST_URL": "@upstash-redis-url",
+    "UPSTASH_REDIS_REST_TOKEN": "@upstash-redis-token"
+  },
+  "regions": ["iad1"],
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    },
+    "app/api/documents/process/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/analysis/document/*/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/chat/*/route.ts": {
+      "maxDuration": 45
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
+      ]
+    }
+  ]
+}

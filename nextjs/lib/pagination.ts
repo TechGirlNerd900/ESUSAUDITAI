@@ -247,7 +247,9 @@ export async function getOptimizedCount(
 
     // For very large datasets (>10k), consider using approximate count
     if (count && count > 10000) {
-      console.log(`Large dataset detected (${count} records), using approximate count`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Large dataset detected (${count} records), using approximate count`);
+      }
       return Math.round(count / 100) * 100; // Round to nearest 100
     }
 

@@ -21,7 +21,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prevToasts) => [...prevToasts, props]);
 
     // For simplicity, we'll just log the toast to the console
-    console.log('Toast:', props);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Toast:', props);
+    }
 
     // Remove toast after 5 seconds
     setTimeout(() => {

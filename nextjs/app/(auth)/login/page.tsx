@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client'; // Correct import
 import LoadingSpinner from '@/app/components/LoadingSpinner'; // Ensure this path is correct
+import { debugLogAuth, debugLogSession, debugLogger, debugError, debugWarn } from '@/lib/debugLogger';
 
 // Import the icons
 import {
@@ -49,40 +50,36 @@ export default function Login() {
     const supabase = createClient();
 
     try {
-      console.log('🔄 Attempting login for:', email);
+      debugLogAuth(email, 'Attempting login');
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log('🔍 Login response:', { data, error });
+      debugLogger('🔍 Login response:', { data, error });
 
       if (error) {
-        console.error('❌ Login error:', error);
+        debugError('❌ Login error:', error);
         throw error;
       }
 
       if (data.session) {
-        console.log(
-          '✅ Login successful, session created:',
-          data.session.access_token.substring(0, 10) + '...'
-        );
-        console.log('🍪 Session expires at:', new Date(data.session.expires_at! * 1000));
+        debugLogSession(data.session);
 
         // Check if session is immediately available
         const { data: sessionCheck } = await supabase.auth.getSession();
-        console.log('🔍 Immediate session check:', sessionCheck);
+        debugLogger('🔍 Immediate session check:', sessionCheck);
 
         // Force a hard navigation to trigger middleware
-        console.log('🚀 Redirecting to dashboard...');
+        debugLogger('🚀 Redirecting to dashboard...');
         router.push('/dashboard');
       } else {
-        console.warn('⚠️ Login succeeded but no session returned');
+        debugWarn('⚠️ Login succeeded but no session returned');
         setError('Login succeeded but session was not created');
       }
     } catch (error: any) {
-      console.error('💥 Login exception:', error);
+      debugError('💥 Login exception:', error);
       setError(error.message || 'An error occurred during login. Please check your credentials.');
     } finally {
       setLoading(false);

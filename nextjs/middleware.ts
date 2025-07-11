@@ -234,7 +234,9 @@ export async function middleware(request: NextRequest) {
       // Token is about to expire, refresh it
       // This happens automatically in the Supabase client
       // but we log it for monitoring
-      console.log('Session token is about to expire, refreshing...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Session token is about to expire, refreshing...');
+      }
     }
 
     // Add audit logging for authenticated requests

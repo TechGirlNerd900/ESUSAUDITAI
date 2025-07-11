@@ -96,11 +96,13 @@ export class AzureServices {
         lastError = error as Error;
         if (attempt === this.maxRetries) break;
 
-        console.log('Operation retry:', {
-          ...context,
-          attempt,
-          error: lastError.message,
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Operation retry:', {
+            ...context,
+            attempt,
+            error: lastError.message,
+          });
+        }
 
         // Exponential backoff
         await new Promise((resolve) =>

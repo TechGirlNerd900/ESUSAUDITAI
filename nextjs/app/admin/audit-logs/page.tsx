@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import SkeletonLoader from '@/app/components/SkeletonLoader';
 import ErrorBoundary from '@/app/components/ErrorBoundary';
 import clsx from 'clsx';
+import { debugLogger } from '@/lib/debugLogger';
 
 interface AuditLog {
   id: string;
@@ -16,7 +17,25 @@ interface AuditLog {
   user_agent?: string;
 }
 
-const AuditLogViewer: React.FC = () => {
+// Error fallback component
+const ErrorFallback: React.FC<{ error: Error; retry: () => void; isLoading: boolean }> = ({ 
+  error, 
+  retry, 
+  isLoading 
+}) => (
+  <div className="flex flex-col items-center justify-center min-h-screen">
+    <div className="text-red-600 text-lg mb-4">Error: {error.message}</div>
+    <button
+      onClick={retry}
+      className={clsx('btn-primary', isLoading && 'opacity-50 cursor-wait')}
+      disabled={isLoading}
+    >
+      {isLoading ? 'Loading...' : 'Retry'}
+    </button>
+  </div>
+);
+
+const AuditLogViewer = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -24,7 +43,8 @@ const AuditLogViewer: React.FC = () => {
   const [pageSize] = useState(10); // Number of logs per page
   const [totalPages, setTotalPages] = useState(1);
   const [isRealTimeConnected, setIsRealTimeConnected] = useState(false);
-  const supabase = createClient();
+
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchAuditLogs = useCallback(
     async (currentPage: number) => {
@@ -64,7 +84,7 @@ const AuditLogViewer: React.FC = () => {
           table: 'audit_logs',
         },
         (payload) => {
-          console.log('New audit log received:', payload);
+          debugLogger('New audit log received:', payload);
           // Add new log to the beginning of the list if we're on the first page
           if (page === 1) {
             setLogs((prevLogs) => [payload.new as AuditLog, ...prevLogs].slice(0, pageSize));
@@ -74,10 +94,10 @@ const AuditLogViewer: React.FC = () => {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setIsRealTimeConnected(true);
-          console.log('Connected to audit logs realtime updates');
+          debugLogger('Connected to audit logs realtime updates');
         } else if (status === 'CLOSED') {
           setIsRealTimeConnected(false);
-          console.log('Disconnected from audit logs realtime updates');
+          debugLogger('Disconnected from audit logs realtime updates');
         }
       });
 
@@ -97,18 +117,11 @@ const AuditLogViewer: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <ErrorBoundary fallback={() => <p>Error loading audit logs: {error.message}</p>}>
-          {/* Render fallback component or simple error message */}
-          <div className="text-red-600">Error: {error.message}</div>
-          <button
-            onClick={() => fetchAuditLogs(page)}
-            className={clsx('btn-primary mt-4', isLoading && 'opacity-50 cursor-wait')}
-          >
-            {isLoading ? 'Loading...' : 'Retry'}
-          </button>
-        </ErrorBoundary>
-      </div>
+      <ErrorFallback 
+        error={error} 
+        retry={() => fetchAuditLogs(page)} 
+        isLoading={isLoading}
+      />
     );
   }
 
@@ -289,4 +302,27 @@ const AuditLogViewer: React.FC = () => {
   );
 };
 
-export default AuditLogViewer;
+// Error fallback component for ErrorBoundary
+const AuditLogsErrorFallback: React.ComponentType<{ error: Error | null; retry: () => void }> = ({ error, retry }) => (
+  <div className="text-red-600 text-center p-8">
+    <p>Something went wrong loading audit logs.</p>
+    {error && <p className="text-sm mt-2">{error.message}</p>}
+    <button 
+      onClick={retry}
+      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+    >
+      Try Again
+    </button>
+  </div>
+);
+
+// Wrap the entire component with ErrorBoundary
+const AuditLogsPage: React.FC = () => {
+  return (
+    <ErrorBoundary fallback={AuditLogsErrorFallback}>
+      <AuditLogViewer />
+    </ErrorBoundary>
+  );
+};
+
+export default AuditLogsPage;

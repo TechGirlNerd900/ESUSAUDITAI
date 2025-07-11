@@ -136,7 +136,9 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
         throw new Error(`Failed to create organization: ${orgError.message}`);
       }
 
-      console.log('Organization created successfully:', organization);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Organization created successfully:', organization);
+      }
       organizationId = organization.id;
       userRole = 'admin'; // First user of organization becomes admin
     } catch (error) {
@@ -218,7 +220,8 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     throw new ApiError(authError.message || 'Failed to create account', 400);
   }
 
-  console.log('Auth user created successfully:', {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Auth user created successfully:', {
     id: authUser.user?.id,
     email: authUser.user?.email,
     confirmed: authUser.user?.email_confirmed_at

@@ -7,9 +7,9 @@ on:
     branches: [main]
 
 env:
-  VERCEL_ORG_ID: secrets.VERCEL_ORG_ID 
-  VERCEL_PROJECT_ID: secrets.VERCEL_PROJECT_ID }}
-
+ env:
+   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -116,14 +116,14 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=staging --token=
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=staging --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build Project Artifacts
-        run: vercel build --token=
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to Staging
-        run: vercel deploy --prebuilt --token=
-
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
       - name: Run Staging Tests
         run: |
           cd nextjs
