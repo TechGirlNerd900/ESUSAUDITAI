@@ -154,7 +154,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
               disabled={saving}
             >
               <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select type" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {Object.values(IntegrationType).map((type) => (

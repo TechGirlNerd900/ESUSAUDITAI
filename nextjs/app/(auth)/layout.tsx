@@ -1,6 +1,9 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 
+// Force dynamic rendering since we're using cookies
+export const dynamic = 'force-dynamic';
+
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   try {
     const supabase = await createClient();
