@@ -8,7 +8,7 @@ import { getJobQueue } from '@/lib/jobQueue';
  * Returns system metrics for monitoring
  * Restricted to admin users only
  */
-export const GET = withErrorHandling(async (request: NextRequest) => {
+export const GET = withErrorHandling(async (_request: NextRequest) => {
   // Initialize Supabase client
   const supabase = await createClient();
 

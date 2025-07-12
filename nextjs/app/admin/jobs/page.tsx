@@ -8,7 +8,7 @@ import { JobDetailsModal } from '@/components/jobs/JobDetailsModal';
 import { useJobsData, Job } from '@/hooks/useJobsData';
 
 const AlertTriangle = ({ className }: { className?: string }) => (
-  <span className={className}>⚠️</span>
+  <span className={className}>{'\u26A0'}</span>
 );
 
 export default function JobsPage() {
@@ -18,17 +18,8 @@ export default function JobsPage() {
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
 
-  const {
-    jobs,
-    loading,
-    error,
-    jobTypes,
-    loadJobs,
-    retryJob,
-    cancelJob,
-    deleteJob,
-    cleanupJobs,
-  } = useJobsData(selectedStatus, selectedType);
+  const { jobs, loading, error, jobTypes, loadJobs, retryJob, cancelJob, deleteJob, cleanupJobs } =
+    useJobsData(selectedStatus, selectedType);
 
   // Set up refresh interval
   useEffect(() => {

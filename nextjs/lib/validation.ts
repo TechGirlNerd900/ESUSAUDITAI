@@ -221,7 +221,7 @@ export class Validator {
       if (this.data[field] !== undefined) {
         new URL(this.data[field]);
       }
-    } catch (e) {
+    } catch (_e) {
       this.errors[field] = message;
     }
     return this;

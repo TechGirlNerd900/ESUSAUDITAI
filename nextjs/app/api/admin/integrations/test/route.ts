@@ -46,7 +46,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   let body;
   try {
     body = await request.json();
-  } catch (error) {
+  } catch {
     throw new ValidationError('Invalid JSON in request body');
   }
 

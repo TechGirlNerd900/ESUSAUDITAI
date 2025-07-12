@@ -48,7 +48,9 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
   title = 'Add API Integration',
   description = 'Add a new API integration to your organization.',
 }) => {
-  const [formData, setFormData] = useState<Partial<ApiIntegration>>(initialData || DEFAULT_FORM_DATA);
+  const [formData, setFormData] = useState<Partial<ApiIntegration>>(
+    initialData || DEFAULT_FORM_DATA
+  );
   const [configText, setConfigText] = useState('{}');
   const [saving, setSaving] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
   const handleConfigChange = (value: string) => {
     setConfigText(value);
     setConfigError(null);
-    
+
     try {
       const config = JSON.parse(value);
       setFormData({ ...formData, config });
@@ -205,7 +207,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
               <Textarea
                 id="config"
                 value={configText}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                   handleConfigChange(e.target.value)
                 }
                 className="font-mono text-sm"
@@ -213,9 +215,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
                 rows={5}
                 disabled={saving}
               />
-              {configError && (
-                <p className="text-sm text-red-500">{configError}</p>
-              )}
+              {configError && <p className="text-sm text-red-500">{configError}</p>}
             </div>
           </div>
 
@@ -227,9 +227,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
               <Switch
                 id="enabled"
                 checked={formData.enabled}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, enabled: checked })
-                }
+                onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })}
                 disabled={saving}
               />
               <label htmlFor="enabled" className="text-sm text-gray-500">

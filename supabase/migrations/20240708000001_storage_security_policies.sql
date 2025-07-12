@@ -3,7 +3,6 @@
 -- Purpose: Implement comprehensive storage security policies for file uploads
 
 -- Enable RLS on storage.objects table
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for file uploads (authenticated users can upload to their organization path)
 CREATE POLICY "Users can upload files to their organization folder"

@@ -23,16 +23,16 @@ import { useIntegrations } from '@/hooks/useIntegrations';
 import { IntegrationForm } from './IntegrationForm';
 
 export const IntegrationsTab: React.FC = () => {
-  const { 
-    integrations, 
-    loading, 
-    error, 
+  const {
+    integrations,
+    loading,
+    error,
     testingIntegration,
     testResults,
-    loadIntegrations, 
-    saveIntegration, 
+    loadIntegrations,
+    saveIntegration,
     deleteIntegration,
-    testIntegration
+    testIntegration,
   } = useIntegrations();
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showDialog, setShowDialog] = useState(false);
@@ -89,12 +89,9 @@ export const IntegrationsTab: React.FC = () => {
       {/* Header with controls */}
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <Select
-            value={selectedType || ''}
-            onValueChange={handleTypeChange}
-          >
+          <Select value={selectedType || ''} onValueChange={handleTypeChange}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue/>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">All Types</SelectItem>
@@ -106,9 +103,9 @@ export const IntegrationsTab: React.FC = () => {
             </SelectContent>
           </Select>
 
-          <Button 
-            variant="outline" 
-            onClick={() => loadIntegrations(selectedType || undefined)} 
+          <Button
+            variant="outline"
+            onClick={() => loadIntegrations(selectedType || undefined)}
             disabled={loading}
           >
             {loading ? (
@@ -144,18 +141,16 @@ export const IntegrationsTab: React.FC = () => {
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                    <p className="mt-2 text-sm text-gray-500">
-                      Loading API integrations...
-                    </p>
+                    <p className="mt-2 text-sm text-gray-500">Loading API integrations...</p>
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     <p className="text-sm text-red-500">Error: {error}</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => loadIntegrations(selectedType || undefined)}
                       className="mt-2"
                     >
@@ -171,7 +166,8 @@ export const IntegrationsTab: React.FC = () => {
                       {selectedType && ` of type "${selectedType}"`}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
-                      Click "Add Integration" to create your first integration for this organization
+                      Click &quot;Add Integration&quot; to create your first integration for this
+                      organization
                     </p>
                   </TableCell>
                 </TableRow>
@@ -180,7 +176,10 @@ export const IntegrationsTab: React.FC = () => {
                   <TableRow key={integration.id}>
                     <TableCell className="font-medium">{integration.name}</TableCell>
                     <TableCell>{renderIntegrationTypeBadge(integration.type)}</TableCell>
-                    <TableCell className="font-mono text-xs max-w-xs truncate" title={integration.endpoint}>
+                    <TableCell
+                      className="font-mono text-xs max-w-xs truncate"
+                      title={integration.endpoint}
+                    >
                       {integration.endpoint}
                     </TableCell>
                     <TableCell>
@@ -229,11 +228,7 @@ export const IntegrationsTab: React.FC = () => {
       </Card>
 
       {/* Add Integration Dialog */}
-      <IntegrationForm
-        open={showDialog}
-        onOpenChange={setShowDialog}
-        onSave={saveIntegration}
-      />
+      <IntegrationForm open={showDialog} onOpenChange={setShowDialog} onSave={saveIntegration} />
     </div>
   );
 };

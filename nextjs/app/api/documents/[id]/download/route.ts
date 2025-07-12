@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/apiAuth';
 import { withErrorHandling } from '@/lib/errorHandler';
-import { SecurityService } from '@/lib/security';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client with service role for file access
@@ -208,7 +207,7 @@ export const GET = withErrorHandling(
  */
 async function validateDocumentAccess(document: any, userProfile: any): Promise<boolean> {
   const { role } = userProfile;
-  const { access_level, sensitivity_level, classification } = document;
+  const { access_level } = document;
 
   // Admin has full access
   if (role === 'admin') {
@@ -242,7 +241,7 @@ async function validateDocumentAccess(document: any, userProfile: any): Promise<
 }
 
 // OPTIONS handler for CORS
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS(_request: NextRequest) {
   return new Response(null, {
     status: 200,
     headers: {

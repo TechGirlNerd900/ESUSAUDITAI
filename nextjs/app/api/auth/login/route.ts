@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
 import { withErrorHandling, ValidationError, AuthorizationError } from '@/lib/errorHandler';
-import { successResponse, errorResponse } from '@/lib/apiResponse';
+import { successResponse } from '@/lib/apiResponse';
 import { authRateLimiter } from '@/lib/rateLimiter';
 import { createClient } from '@/utils/supabase/server';
-import type { User } from '@/types/components';
 
 /**
  * POST handler for user authentication

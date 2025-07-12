@@ -32,45 +32,51 @@ export default function UploadComponent({ projectId }: Props) {
     e.stopPropagation();
   }, []);
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    if (files.length === 0) return;
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
 
-    setIsUploading(true);
-    try {
-      // Upload each file to Supabase storage
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('projectId', projectId);
+      setIsUploading(true);
+      try {
+        // Upload each file to Supabase storage
+        for (const file of files) {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('projectId', projectId);
 
-        const response = await fetch('/api/documents/upload', {
-          method: 'POST',
-          body: formData,
-        });
+          const response = await fetch('/api/documents/upload', {
+            method: 'POST',
+            body: formData,
+          });
 
-        if (!response.ok) {
-          throw new Error('Upload failed');
+          if (!response.ok) {
+            throw new Error('Upload failed');
+          }
         }
+
+        // Refresh the page to show new documents
+        router.refresh();
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert('Failed to upload documents. Please try again.');
+      } finally {
+        setIsUploading(false);
       }
+    },
+    [projectId, setIsUploading, router]
+  );
 
-      // Refresh the page to show new documents
-      router.refresh();
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload documents. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  }, [projectId, setIsUploading, router]);
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    await handleFiles(files);
-  }, [handleFiles]);
+      const files = Array.from(e.dataTransfer.files);
+      await handleFiles(files);
+    },
+    [handleFiles]
+  );
 
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];

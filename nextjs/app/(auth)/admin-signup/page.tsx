@@ -73,9 +73,7 @@ export default function AdminSignup() {
     } catch (error) {
       console.error('Admin signup error:', error);
       setError(
-        error instanceof Error
-          ? error.message
-          : 'An error occurred during organization creation.'
+        error instanceof Error ? error.message : 'An error occurred during organization creation.'
       );
     } finally {
       setLoading(false);

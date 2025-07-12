@@ -255,7 +255,10 @@ export default function OrganizationAdminPage() {
                 />
               </div>
               <div>
-                <label htmlFor="org-logo-url" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="org-logo-url"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Logo URL (Optional)
                 </label>
                 <input
@@ -466,7 +469,12 @@ export default function OrganizationAdminPage() {
             <form onSubmit={handleInviteUser} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="invite-first-name" className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <label
+                    htmlFor="invite-first-name"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    First Name
+                  </label>
                   <input
                     id="invite-first-name"
                     type="text"
@@ -479,7 +487,12 @@ export default function OrganizationAdminPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="invite-last-name" className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <label
+                    htmlFor="invite-last-name"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Last Name
+                  </label>
                   <input
                     id="invite-last-name"
                     type="text"
@@ -494,7 +507,10 @@ export default function OrganizationAdminPage() {
               </div>
 
               <div>
-                <label htmlFor="invite-email" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="invite-email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Email Address
                 </label>
                 <input
@@ -508,7 +524,12 @@ export default function OrganizationAdminPage() {
               </div>
 
               <div>
-                <label htmlFor="invite-role" className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <label
+                  htmlFor="invite-role"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Role
+                </label>
                 <select
                   id="invite-role"
                   value={inviteForm.role}

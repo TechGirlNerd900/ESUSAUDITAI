@@ -3,17 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SecurityService } from '@/lib/security';
 import { authenticateApiRequest } from '@/lib/apiAuth';
 
-// Allowed MIME types
-const ALLOWED_MIME_TYPES = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'application/msword', // .doc
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-  'application/vnd.ms-excel', // .xls
-  'text/csv',
-];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-
 function sanitizeFileName(name: string): string {
   // Remove path traversal and unsafe characters
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -51,7 +40,7 @@ export async function POST(request: NextRequest) {
     try {
       if (customFieldsRaw) custom_fields = JSON.parse(customFieldsRaw);
       if (tagsRaw) tags = JSON.parse(tagsRaw);
-    } catch (e) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid custom_fields or tags format (must be JSON)' },
         { status: 400 }
@@ -249,7 +238,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // Attempt compensating transaction cleanup
-      const supabase = await createClient();
+      await createClient();
 
       // Clean up any uploaded files that might exist
       // Note: filePath is not available in this scope, so we can't clean up specific files

@@ -9,7 +9,6 @@ import {
   AuthorizationError,
   NotFoundError,
   ValidationError,
-  ExternalServiceError,
   DatabaseError,
 } from '@/lib/errorHandler';
 import { createQueryOptimizer } from '@/lib/queryOptimizer';
@@ -95,7 +94,7 @@ export const POST = withErrorHandling(
     let requestBody;
     try {
       requestBody = await request.json();
-    } catch (parseError) {
+    } catch {
       throw new ValidationError('Invalid JSON in request body');
     }
 
@@ -106,7 +105,7 @@ export const POST = withErrorHandling(
     }
 
     // Store user message with transaction to ensure consistency
-    const userMessage = await withRetry(
+    await withRetry(
       async () => {
         const { error } = await supabase.from('chat_history').insert({
           project_id: projectId,

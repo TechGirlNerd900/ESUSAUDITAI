@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import {
-  withErrorHandling,
-  withRetry,
-  DatabaseError,
-  ExternalServiceError,
-} from '@/lib/errorHandler';
+import { withErrorHandling, withRetry } from '@/lib/errorHandler';
 import { CircuitBreaker } from '@/lib/errorHandler';
 
 // Define service types for health checks
@@ -34,7 +29,7 @@ const openaiCircuitBreaker = new CircuitBreaker(3, 60000, 2);
  * GET handler for health check
  * Checks the health of all system components
  */
-export const GET = withErrorHandling(async (request: NextRequest) => {
+export const GET = withErrorHandling(async (_request: NextRequest) => {
   const startTime = Date.now();
 
   // Initialize health response
@@ -161,7 +156,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   try {
     const storageStartTime = Date.now();
 
-    const { data, error } = await withRetry(
+    const { error } = await withRetry(
       async () => {
         return await supabase.storage.getBucket('documents');
       },
@@ -195,7 +190,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   try {
     const authStartTime = Date.now();
 
-    const { data, error } = await withRetry(
+    const { error } = await withRetry(
       async () => {
         return await supabase.auth.getSession();
       },

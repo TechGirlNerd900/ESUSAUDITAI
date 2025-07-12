@@ -51,7 +51,9 @@ const Dialog: React.FC<DialogProps> = ({ children, open, onOpenChange, defaultOp
         onClick={() => setOpen(false)}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen(false); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') setOpen(false);
+        }}
       />
       {/* Content Container */}
       <div className="relative z-50">{children}</div>

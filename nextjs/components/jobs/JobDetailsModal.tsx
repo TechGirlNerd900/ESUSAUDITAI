@@ -11,7 +11,9 @@ import {
 import { Job } from '@/hooks/useJobsData';
 import { JobPriority } from '@/lib/jobQueue';
 
-const CheckCircle = ({ className }: { className?: string }) => <span className={className}>✅</span>;
+const CheckCircle = ({ className }: { className?: string }) => (
+  <span className={className}>✅</span>
+);
 const XCircle = ({ className }: { className?: string }) => <span className={className}>❌</span>;
 const Clock = ({ className }: { className?: string }) => <span className={className}>🕐</span>;
 const Play = ({ className }: { className?: string }) => <span className={className}>▶️</span>;
@@ -24,7 +26,13 @@ interface JobDetailsModalProps {
   onCancel: (jobId: string) => void;
 }
 
-export function JobDetailsModal({ job, open, onOpenChange, onRetry, onCancel }: JobDetailsModalProps) {
+export function JobDetailsModal({
+  job,
+  open,
+  onOpenChange,
+  onRetry,
+  onCancel,
+}: JobDetailsModalProps) {
   if (!job) return null;
 
   const renderStatusBadge = (status: string) => {

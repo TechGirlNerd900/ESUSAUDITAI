@@ -194,6 +194,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
+
 -- Create atomic document analysis function
 CREATE OR REPLACE FUNCTION process_document_analysis(
     p_document_id UUID,

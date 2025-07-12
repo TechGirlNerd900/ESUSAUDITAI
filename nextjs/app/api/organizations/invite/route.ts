@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { authenticateApiRequest } from '@/lib/apiAuth';
+import { randomBytes } from 'crypto';
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
@@ -59,8 +60,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     // Generate invitation token
-    const inviteToken = require('crypto').randomBytes(32).toString('hex');
-    
+    const inviteToken = randomBytes(32).toString('hex');
+
     // Store invitation in the invitations table
     const { data: invitation, error: inviteError } = await supabase
       .from('invitations')

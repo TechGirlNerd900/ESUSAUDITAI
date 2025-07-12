@@ -50,9 +50,7 @@ export const EnvVarsTab: React.FC = () => {
     };
 
     return (
-      <Badge className={categoryColors[category] || 'bg-gray-100 text-gray-800'}>
-        {category}
-      </Badge>
+      <Badge className={categoryColors[category] || 'bg-gray-100 text-gray-800'}>{category}</Badge>
     );
   };
 
@@ -61,10 +59,7 @@ export const EnvVarsTab: React.FC = () => {
       {/* Header with controls */}
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <Select
-            value={selectedCategory || ''}
-            onValueChange={handleCategoryChange}
-          >
+          <Select value={selectedCategory || ''} onValueChange={handleCategoryChange}>
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -78,9 +73,9 @@ export const EnvVarsTab: React.FC = () => {
             </SelectContent>
           </Select>
 
-          <Button 
-            variant="outline" 
-            onClick={() => loadEnvVars(selectedCategory || undefined)} 
+          <Button
+            variant="outline"
+            onClick={() => loadEnvVars(selectedCategory || undefined)}
             disabled={loading}
           >
             {loading ? (
@@ -116,18 +111,16 @@ export const EnvVarsTab: React.FC = () => {
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                    <p className="mt-2 text-sm text-gray-500">
-                      Loading environment variables...
-                    </p>
+                    <p className="mt-2 text-sm text-gray-500">Loading environment variables...</p>
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     <p className="text-sm text-red-500">Error: {error}</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => loadEnvVars(selectedCategory || undefined)}
                       className="mt-2"
                     >
@@ -154,11 +147,7 @@ export const EnvVarsTab: React.FC = () => {
                     <TableCell>{renderCategoryBadge(env.category)}</TableCell>
                     <TableCell>{env.description || '-'}</TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => deleteEnvVar(env.key)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => deleteEnvVar(env.key)}>
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     </TableCell>
@@ -171,11 +160,7 @@ export const EnvVarsTab: React.FC = () => {
       </Card>
 
       {/* Add Environment Variable Dialog */}
-      <EnvVarForm
-        open={showDialog}
-        onOpenChange={setShowDialog}
-        onSave={saveEnvVar}
-      />
+      <EnvVarForm open={showDialog} onOpenChange={setShowDialog} onSave={saveEnvVar} />
     </div>
   );
 };

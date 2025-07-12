@@ -22,7 +22,6 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     password,
     firstName,
     lastName,
-    role,
     organizationName,
     inviteToken,
     registrationType, // 'create_org' or 'join_invite'
@@ -99,7 +98,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   };
 
   const supabase = await createClient();
-  
+
   // For organization creation, we need to use the service role to bypass RLS
   const { createClient: createServiceClient } = await import('@supabase/supabase-js');
   const supabaseAdmin = createServiceClient(
@@ -131,7 +130,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
           code: orgError.code,
           message: orgError.message,
           details: orgError.details,
-          hint: orgError.hint
+          hint: orgError.hint,
         });
         throw new Error(`Failed to create organization: ${orgError.message}`);
       }
@@ -215,17 +214,18 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     console.error('Auth error details:', {
       code: authError.code,
       message: authError.message,
-      status: authError.status
+      status: authError.status,
     });
     throw new ApiError(authError.message || 'Failed to create account', 400);
   }
 
   if (process.env.NODE_ENV === 'development') {
     console.log('Auth user created successfully:', {
-    id: authUser.user?.id,
-    email: authUser.user?.email,
-    confirmed: authUser.user?.email_confirmed_at
-  });
+      id: authUser.user?.id,
+      email: authUser.user?.email,
+      confirmed: authUser.user?.email_confirmed_at,
+    });
+  }
 
   // SECURITY: Create user profile in database with validated data using service role
   if (authUser.user) {
@@ -252,7 +252,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
         code: profileError.code,
         message: profileError.message,
         details: profileError.details,
-        hint: profileError.hint
+        hint: profileError.hint,
       });
       console.error('Attempted user data:', {
         auth_user_id: authUser.user.id,
@@ -262,7 +262,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
         role: userRole,
         organization_id: organizationId,
         status: 'active',
-        is_active: true
+        is_active: true,
       });
       // Clean up auth user if profile creation fails
       await supabase.auth.admin.deleteUser(authUser.user.id);
@@ -282,10 +282,9 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     }
 
     // Create audit log entry for the registration
-    const clientIp = request.headers.get('x-forwarded-for') || 
-                     request.headers.get('x-real-ip') || 
-                     '127.0.0.1'; // Default to localhost for development
-    
+    const clientIp =
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1'; // Default to localhost for development
+
     await supabaseAdmin
       .from('audit_logs')
       .insert([

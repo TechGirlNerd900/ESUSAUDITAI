@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { jsPDF } from 'jspdf';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

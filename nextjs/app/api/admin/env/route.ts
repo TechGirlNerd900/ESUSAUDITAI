@@ -71,7 +71,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
 
     // Get the full config item to check if it's sensitive
     const envVars = await configManager.getAllConfig();
-    const configItem = envVars.find(item => item.key === key);
+    const configItem = envVars.find((item) => item.key === key);
     const maskedValue = configItem?.sensitive ? '********' : value;
 
     return NextResponse.json({ key, value: maskedValue });
@@ -120,7 +120,7 @@ export const PUT = withErrorHandling(async (request: NextRequest) => {
   let body;
   try {
     body = await request.json();
-  } catch (error) {
+  } catch {
     throw new ValidationError('Invalid JSON in request body');
   }
 

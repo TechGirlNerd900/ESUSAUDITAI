@@ -31,8 +31,9 @@ export default function ConfigPage() {
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Security Notice</AlertTitle>
               <AlertDescription>
-                Environment variables marked as sensitive are encrypted in the database and masked in the UI. 
-                Changes to environment variables may require application restart to take effect.
+                Environment variables marked as sensitive are encrypted in the database and masked
+                in the UI. Changes to environment variables may require application restart to take
+                effect.
               </AlertDescription>
             </Alert>
           </div>
@@ -45,8 +46,8 @@ export default function ConfigPage() {
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Organization Scope</AlertTitle>
               <AlertDescription>
-                API integrations are scoped to your organization. Only admins can manage integrations, 
-                and they will be available to all users within your organization.
+                API integrations are scoped to your organization. Only admins can manage
+                integrations, and they will be available to all users within your organization.
               </AlertDescription>
             </Alert>
           </div>

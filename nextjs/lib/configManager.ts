@@ -139,7 +139,10 @@ export class ConfigManager {
     } catch (error) {
       this.initializing = false;
       // Ensure error is an Error object
-      this.logger.error('Failed to initialize configuration manager', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Failed to initialize configuration manager',
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -208,7 +211,7 @@ export class ConfigManager {
 
           // Cache by type for quick lookup
           const typeKey = `integration_type:${integration.type}`;
-          let typeIntegrations = this.cache.get<ApiIntegration[]>(typeKey) || [];
+          const typeIntegrations = this.cache.get<ApiIntegration[]>(typeKey) || [];
 
           // Prevent duplicates
           if (!typeIntegrations.some((i) => i.id === integration.id)) {
@@ -725,21 +728,22 @@ export class ConfigManager {
       // Log audit event if userId provided
       if (userId) {
         try {
-          await this.supabase
-            .from('audit_logs')
-            .insert({
-              user_id: userId,
-              action: existingIntegration ? 'update' : 'create',
-              resource_type: 'api_integration',
-              resource_id: integration.id,
-              details: {
-                name: integration.name,
-                type: integration.type,
-                endpoint: integration.endpoint,
-              },
-            });
+          await this.supabase.from('audit_logs').insert({
+            user_id: userId,
+            action: existingIntegration ? 'update' : 'create',
+            resource_type: 'api_integration',
+            resource_id: integration.id,
+            details: {
+              name: integration.name,
+              type: integration.type,
+              endpoint: integration.endpoint,
+            },
+          });
         } catch (error: any) {
-          this.logger.error('Failed to log audit event', error instanceof Error ? error : new Error(String(error)));
+          this.logger.error(
+            'Failed to log audit event',
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
 
@@ -802,19 +806,20 @@ export class ConfigManager {
       // Log audit event if userId provided
       if (userId) {
         try {
-          await this.supabase
-            .from('audit_logs')
-            .insert({
-              user_id: userId,
-              action: 'delete',
-              resource_type: 'api_integration',
-              resource_id: id,
-              details: {
-                type: integration.type,
-              },
-            });
+          await this.supabase.from('audit_logs').insert({
+            user_id: userId,
+            action: 'delete',
+            resource_type: 'api_integration',
+            resource_id: id,
+            details: {
+              type: integration.type,
+            },
+          });
         } catch (error: any) {
-          this.logger.error('Failed to log audit event', error instanceof Error ? error : new Error(String(error)));
+          this.logger.error(
+            'Failed to log audit event',
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
 
@@ -915,7 +920,10 @@ export class ConfigManager {
           })
           .eq('id', id);
       } catch (updateError: unknown) {
-        this.logger.error(`Failed to update test result: ${id}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
+        this.logger.error(
+          `Failed to update test result: ${id}`,
+          updateError instanceof Error ? updateError : new Error(String(updateError))
+        );
       }
       throw error;
     }
@@ -1037,7 +1045,7 @@ export class ConfigManager {
     const res = await fetch(endpoint, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
     });
@@ -1143,7 +1151,10 @@ export class ConfigManager {
       if (error instanceof Error) {
         this.logger.error('Failed to get Azure Form Recognizer configuration', error);
       } else {
-        this.logger.error('Failed to get Azure Form Recognizer configuration', new Error(String(error)));
+        this.logger.error(
+          'Failed to get Azure Form Recognizer configuration',
+          new Error(String(error))
+        );
       }
       // Fallback to environment variables
       return {
@@ -1178,7 +1189,10 @@ export class ConfigManager {
       if (error instanceof Error) {
         this.logger.error(`Failed to get decrypted API key: ${integrationId}`, error);
       } else {
-        this.logger.error(`Failed to get decrypted API key: ${integrationId}`, new Error(String(error)));
+        this.logger.error(
+          `Failed to get decrypted API key: ${integrationId}`,
+          new Error(String(error))
+        );
       }
       throw error;
     }

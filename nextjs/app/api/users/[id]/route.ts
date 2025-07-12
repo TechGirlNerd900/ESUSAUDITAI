@@ -195,7 +195,9 @@ export const DELETE = withErrorHandling(
 
       return successResponse({ message: 'User deleted successfully' });
     } catch (error) {
-      throw new Error(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 );

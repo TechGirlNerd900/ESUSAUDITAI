@@ -64,10 +64,7 @@ class DebugLogger {
   logSession(session: any): void {
     if (this.shouldLog()) {
       if (session?.access_token) {
-        console.log(
-          '✅ Session created:',
-          session.access_token.substring(0, 10) + '...'
-        );
+        console.log('✅ Session created:', session.access_token.substring(0, 10) + '...');
         if (session.expires_at) {
           console.log('🍪 Session expires at:', new Date(session.expires_at * 1000));
         }
@@ -99,5 +96,5 @@ export const {
   debug: debugDebug,
   logAuth: debugLogAuth,
   logSession: debugLogSession,
-  logApiResponse: debugLogApiResponse
+  logApiResponse: debugLogApiResponse,
 } = debugLog;

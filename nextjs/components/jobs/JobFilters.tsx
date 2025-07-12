@@ -57,10 +57,7 @@ export function JobFilters({
           </SelectContent>
         </Select>
 
-        <Select
-          value={selectedType || ''}
-          onValueChange={(value) => onTypeChange(value || null)}
-        >
+        <Select value={selectedType || ''} onValueChange={(value) => onTypeChange(value || null)}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>

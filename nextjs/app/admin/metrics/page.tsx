@@ -20,15 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
-import {
-  Loader2,
-  RefreshCw,
-  AlertTriangle,
-  Server,
-  Users,
-  FileText,
-  Activity,
-} from 'lucide-react';
+import { Loader2, RefreshCw, AlertTriangle, Server, Users, FileText, Activity } from 'lucide-react';
 
 // Metrics interface
 interface Metrics {

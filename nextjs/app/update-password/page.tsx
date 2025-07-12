@@ -31,7 +31,7 @@ export default function UpdatePassword() {
     if (!passwordRegex.test(password)) {
       setMessage({
         type: 'error',
-        text: "Password must be at least 8 characters and include uppercase, lowercase, number, and special character",
+        text: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
       });
       setLoading(false);
       return;

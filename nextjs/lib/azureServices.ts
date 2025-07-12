@@ -1,5 +1,5 @@
 import { DocumentAnalysisClient, AnalyzeResult } from '@azure/ai-form-recognizer';
-import { SearchClient, SearchIndexClient, SearchResult } from '@azure/search-documents';
+import { SearchClient } from '@azure/search-documents';
 import { createServerClient } from '@supabase/ssr';
 import NodeCache from 'node-cache';
 import { promiseWithTimeout } from './helpers';
@@ -215,7 +215,7 @@ export class AzureServices {
     );
   }
 
-  private extractDocumentData(result: AnalyzeResult, documentType: string): ExtractedDocument {
+  private extractDocumentData(result: AnalyzeResult, _documentType: string): ExtractedDocument {
     const extracted: ExtractedDocument = {
       content: '',
       tables: [],

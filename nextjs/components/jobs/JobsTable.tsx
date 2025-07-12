@@ -13,7 +13,9 @@ import { Job } from '@/hooks/useJobsData';
 import { JobPriority } from '@/lib/jobQueue';
 
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⟳</span>;
-const CheckCircle = ({ className }: { className?: string }) => <span className={className}>✅</span>;
+const CheckCircle = ({ className }: { className?: string }) => (
+  <span className={className}>✅</span>
+);
 const XCircle = ({ className }: { className?: string }) => <span className={className}>❌</span>;
 const Clock = ({ className }: { className?: string }) => <span className={className}>🕐</span>;
 const Play = ({ className }: { className?: string }) => <span className={className}>▶️</span>;
@@ -27,7 +29,14 @@ interface JobsTableProps {
   onDelete: (jobId: string) => void;
 }
 
-export function JobsTable({ jobs, loading, onJobClick, onRetry, onCancel, onDelete }: JobsTableProps) {
+export function JobsTable({
+  jobs,
+  loading,
+  onJobClick,
+  onRetry,
+  onCancel,
+  onDelete,
+}: JobsTableProps) {
   const renderStatusBadge = (status: string) => {
     const statusColors: Record<string, { bg: string; icon: React.ReactNode }> = {
       pending: { bg: 'bg-yellow-100 text-yellow-800', icon: <Clock className="w-3 h-3 mr-1" /> },

@@ -5,7 +5,13 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client'; // Correct import
 import LoadingSpinner from '@/app/components/LoadingSpinner'; // Ensure this path is correct
-import { debugLogAuth, debugLogSession, debugLogger, debugError, debugWarn } from '@/lib/debugLogger';
+import {
+  debugLogAuth,
+  debugLogSession,
+  debugLogger,
+  debugError,
+  debugWarn,
+} from '@/lib/debugLogger';
 
 // Import the icons
 import {

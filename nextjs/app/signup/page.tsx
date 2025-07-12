@@ -58,7 +58,7 @@ function SignUpForm() {
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       setError(
-        "Password must be at least 8 characters and include uppercase, lowercase, number, and special character"
+        'Password must be at least 8 characters and include uppercase, lowercase, number, and special character'
       );
       setLoading(false);
       return;
@@ -405,9 +405,13 @@ function SignUpForm() {
 
 export default function SignUpPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-    </div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      }
+    >
       <SignUpForm />
     </Suspense>
   );

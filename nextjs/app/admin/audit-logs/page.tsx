@@ -18,10 +18,10 @@ interface AuditLog {
 }
 
 // Error fallback component
-const ErrorFallback: React.FC<{ error: Error; retry: () => void; isLoading: boolean }> = ({ 
-  error, 
-  retry, 
-  isLoading 
+const ErrorFallback: React.FC<{ error: Error; retry: () => void; isLoading: boolean }> = ({
+  error,
+  retry,
+  isLoading,
 }) => (
   <div className="flex flex-col items-center justify-center min-h-screen">
     <div className="text-red-600 text-lg mb-4">Error: {error.message}</div>
@@ -116,13 +116,7 @@ const AuditLogViewer = () => {
   };
 
   if (error) {
-    return (
-      <ErrorFallback 
-        error={error} 
-        retry={() => fetchAuditLogs(page)} 
-        isLoading={isLoading}
-      />
-    );
+    return <ErrorFallback error={error} retry={() => fetchAuditLogs(page)} isLoading={isLoading} />;
   }
 
   return (
@@ -303,11 +297,14 @@ const AuditLogViewer = () => {
 };
 
 // Error fallback component for ErrorBoundary
-const AuditLogsErrorFallback: React.ComponentType<{ error: Error | null; retry: () => void }> = ({ error, retry }) => (
+const AuditLogsErrorFallback: React.ComponentType<{ error: Error | null; retry: () => void }> = ({
+  error,
+  retry,
+}) => (
   <div className="text-red-600 text-center p-8">
     <p>Something went wrong loading audit logs.</p>
     {error && <p className="text-sm mt-2">{error.message}</p>}
-    <button 
+    <button
       onClick={retry}
       className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
     >
