@@ -8,6 +8,7 @@ import { successResponse } from '@/lib/apiResponse';
 import { authRateLimiter } from '@/lib/rateLimiter';
 import { validate } from '@/lib/validation';
 import { SecurityService } from '@/lib/security';
+import net from 'net';
 
 export const POST = withErrorHandling(async (request: NextRequest) => {
   // Apply rate limiting for signup attempts
@@ -16,6 +17,24 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   if (rateLimitResponse) {
     return rateLimitResponse;
   }
+
+  // --- ADDED: Robust IP Address Parsing ---
+  // Get headers that may contain the client's IP address.
+  const xForwardedFor = request.headers.get('x-forwarded-for');
+  const xRealIp = request.headers.get('x-real-ip');
+
+  // Safely parse the headers to get the first IP address in the list.
+  // This handles comma-separated lists and prevents 'undefined' errors by using optional chaining.
+  let clientIp: string | null = (
+    xForwardedFor?.split(',')[0]?.trim() ||
+    xRealIp?.split(',')[0]?.trim() ||
+    '127.0.0.1'
+  ).replace('::1', '127.0.0.1');
+
+  if (!net.isIP(clientIp)) {
+    clientIp = null;
+  }
+  // --- END ADDED ---
 
   const {
     email,
@@ -241,6 +260,10 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
           organization_id: organizationId,
           status: 'active',
           is_active: true,
+          // --- ADDED: Include the parsed IP address in the user profile creation ---
+          // Supabase will handle the string-to-inet conversion if the string is a valid IP.
+          ip_address: clientIp,
+          // --- END ADDED ---
         },
       ])
       .select()
@@ -263,6 +286,9 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
         organization_id: organizationId,
         status: 'active',
         is_active: true,
+        // --- ADDED: Log the IP that was attempted ---
+        ip_address: clientIp,
+        // --- END ADDED ---
       });
       // Clean up auth user if profile creation fails
       await supabase.auth.admin.deleteUser(authUser.user.id);
@@ -281,30 +307,42 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
         .eq('token', sanitizedData.inviteToken);
     }
 
-    // Create audit log entry for the registration
-    const clientIp =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1'; // Default to localhost for development
+    // --- CHANGED: Moved IP address logic to the top ---
+    // The 'clientIp' variable is now defined at the start of the function.
 
-    await supabaseAdmin
-      .from('audit_logs')
-      .insert([
-        {
-          organization_id: organizationId,
-          user_id: userProfile.id,
-          action: registrationType === 'create_org' ? 'organization_created' : 'user_joined',
-          resource_type: 'user',
-          resource_id: authUser.user.id,
-          ip_address: clientIp,
-          user_agent: request.headers.get('user-agent') || 'unknown',
-          details: {
-            email: sanitizedData.email,
-            role: userRole,
-            registration_type: registrationType,
-            invitation_token: registrationType === 'join_invite' ? sanitizedData.inviteToken : null,
-          },
-        },
-      ])
-      .select();
+    // Only create audit log if we have a valid user profile with ID
+    if (userProfile && userProfile.id) {
+      try {
+        await supabaseAdmin
+          .from('audit_logs')
+          .insert([
+            {
+              organization_id: organizationId,
+              user_id: userProfile.id,
+              action: registrationType === 'create_org' ? 'organization_created' : 'user_joined',
+              resource_type: 'user',
+              resource_id: authUser.user.id,
+              // --- CHANGED: Use the already parsed clientIp variable ---
+              ip_address: clientIp,
+              // --- END CHANGED ---
+              user_agent: request.headers.get('user-agent') || 'unknown',
+              details: {
+                email: sanitizedData.email,
+                role: userRole,
+                registration_type: registrationType,
+                invitation_token:
+                  registrationType === 'join_invite' ? sanitizedData.inviteToken : null,
+              },
+            },
+          ])
+          .select();
+      } catch (auditError) {
+        // Log audit error but don't fail the entire signup process
+        console.error('Failed to create audit log entry (non-fatal):', auditError);
+      }
+    } else {
+      console.warn('Skipping audit log creation: userProfile or userProfile.id is missing');
+    }
   }
 
   return successResponse(

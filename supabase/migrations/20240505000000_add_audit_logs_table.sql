@@ -92,11 +92,20 @@ BEGIN
         v_action := 'delete';
     END IF;
     
-    -- Get user ID from auth.uid() or use system user ID for background operations
-    v_user_id := COALESCE(
-        auth.uid(),
-        '00000000-0000-0000-0000-000000000000'::UUID
-    );
+    -- Get user ID with special handling for users table
+    IF TG_TABLE_NAME = 'users' AND TG_OP = 'INSERT' THEN
+        -- For new user creation, use the newly created user's ID
+        v_user_id := NEW.id;
+    ELSE
+        -- For all other cases, try to get the authenticated user ID
+        v_user_id := COALESCE(
+            auth.uid(),
+            CASE 
+                WHEN TG_OP = 'DELETE' THEN OLD.id
+                ELSE NEW.id
+            END
+        );
+    END IF;
     
     -- Create details JSON
     IF TG_OP = 'INSERT' THEN
@@ -135,6 +144,12 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Drop existing triggers first
+DROP TRIGGER IF EXISTS audit_projects_trigger ON public.projects;
+DROP TRIGGER IF EXISTS audit_documents_trigger ON public.documents;
+DROP TRIGGER IF EXISTS audit_document_analysis_results_trigger ON public.document_analysis_results;
+DROP TRIGGER IF EXISTS audit_users_trigger ON public.users;
 
 -- Create audit triggers for important tables
 CREATE TRIGGER audit_projects_trigger
