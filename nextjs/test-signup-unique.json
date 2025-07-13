@@ -1,8 +1,0 @@
-{
-  "email": "test123@example.com",
-  "password": "TestPass123!",
-  "firstName": "Test",
-  "lastName": "User",
-  "organizationName": "Test Organization 123",
-  "registrationType": "create_org"
-}
