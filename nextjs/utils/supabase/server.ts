@@ -19,10 +19,13 @@ export async function createClient() {
               cookieStore.set(name, value, options);
             });
           } catch (error) {
-            console.error('Error setting cookies in server component:', error);
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
+            // Only log in development to avoid noise
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('Cookie setting skipped in server component (handled by middleware)');
+            }
           }
         },
       },

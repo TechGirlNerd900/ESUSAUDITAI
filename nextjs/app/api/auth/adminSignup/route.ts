@@ -165,6 +165,7 @@ export async function POST(request: NextRequest) {
       .from('users')
       .insert([
         {
+          id: authUser.user.id, // Set the primary key to the auth user's ID
           auth_user_id: authUser.user.id,
           organization_id: organization.id,
           email: email.toLowerCase().trim(),

@@ -5,10 +5,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/apiAuth';
 import { createClient } from '@/utils/supabase/server';
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params;
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const supabase = await createClient();
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .eq('organization_id', auth.profile.organization_id)
+      .single();
+
+    if (error || !user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ user });
+  } catch (error) {
+    console.error('User fetch error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 export async function PUT(
@@ -24,6 +48,10 @@ export async function PUT(
   try {
     const { is_active, role } = await request.json();
     const userId = id;
+
+    if (userId === auth.profile.id) {
+      return NextResponse.json({ error: 'Cannot modify your own account' }, { status: 400 });
+    }
 
     if (is_active === undefined && !role) {
       return NextResponse.json(
@@ -68,7 +96,7 @@ export async function PUT(
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   const { id } = await params;
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
   if (!auth.success) {
@@ -97,16 +125,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Delete from Supabase Auth (this will cascade to users table via trigger)
+    // Delete from Supabase Auth
     if (user.auth_user_id) {
       const { error: authDeleteError } = await supabase.auth.admin.deleteUser(user.auth_user_id);
       if (authDeleteError) {
         console.error('Error deleting auth user:', authDeleteError);
-        // Continue with local deletion even if auth deletion fails
+        return NextResponse.json(
+          { error: 'Failed to delete user from authentication service' },
+          { status: 500 }
+        );
       }
     }
 
-    // Delete from users table (in case auth deletion didn't cascade)
+    // Delete from users table
     const { error: deleteError } = await supabase
       .from('users')
       .delete()

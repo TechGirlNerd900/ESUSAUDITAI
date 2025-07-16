@@ -12,56 +12,56 @@ class DebugLogger {
     this.isDevelopment = process.env.NODE_ENV === 'development';
   }
 
-  private shouldLog(): boolean {
+  private shouldLog = (): boolean => {
     return this.isDevelopment;
-  }
+  };
 
-  log(...args: any[]): void {
+  log = (...args: any[]): void => {
     if (this.shouldLog()) {
       console.log(...args);
     }
-  }
+  };
 
-  info(...args: any[]): void {
+  info = (...args: any[]): void => {
     if (this.shouldLog()) {
       console.info(...args);
     }
-  }
+  };
 
-  warn(...args: any[]): void {
+  warn = (...args: any[]): void => {
     if (this.shouldLog()) {
       console.warn(...args);
     }
-  }
+  };
 
-  error(...args: any[]): void {
+  error = (...args: any[]): void => {
     if (this.shouldLog()) {
       console.error(...args);
     }
-  }
+  };
 
-  debug(...args: any[]): void {
+  debug = (...args: any[]): void => {
     if (this.shouldLog()) {
       console.debug(...args);
     }
-  }
+  };
 
   /**
    * Safely log authentication attempts without exposing sensitive data
    * @param email - Email address (will be partially masked in production)
    * @param action - Action being performed
    */
-  logAuth(email: string, action: string): void {
+  logAuth = (email: string, action: string): void => {
     if (this.shouldLog()) {
       console.log(`🔄 ${action} for:`, email);
     }
-  }
+  };
 
   /**
    * Safely log session information without exposing full tokens
    * @param session - Session object (will be sanitized)
    */
-  logSession(session: any): void {
+  logSession = (session: any): void => {
     if (this.shouldLog()) {
       if (session?.access_token) {
         console.log('✅ Session created:', session.access_token.substring(0, 10) + '...');
@@ -70,18 +70,18 @@ class DebugLogger {
         }
       }
     }
-  }
+  };
 
   /**
    * Log API responses safely
    * @param response - API response object
    * @param context - Context for the log
    */
-  logApiResponse(response: any, context: string): void {
+  logApiResponse = (response: any, context: string): void => {
     if (this.shouldLog()) {
       console.log(`🔍 ${context}:`, response);
     }
-  }
+  };
 }
 
 // Create singleton instance

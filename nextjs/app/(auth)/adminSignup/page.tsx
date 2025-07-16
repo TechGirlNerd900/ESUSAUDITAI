@@ -45,7 +45,7 @@ export default function AdminSignup() {
     }
 
     try {
-      const response = await fetch('/api/auth/admin-signup', {
+      const response = await fetch('/api/auth/adminSignup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

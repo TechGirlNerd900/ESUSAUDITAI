@@ -10,6 +10,10 @@ module.exports = {
       fontFamily: {
         inter: ['var(--font-inter)'],
       },
+      colors: {
+        primary: '#4f46e5',
+        secondary: '#111827',
+      },
     },
   },
   plugins: [],

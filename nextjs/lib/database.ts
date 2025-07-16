@@ -262,7 +262,7 @@ export class Database {
             `
                       *,
                       documents (*),
-                      analysis_results (*)
+                      document_analysis_results (*)
                   `
           )
           .eq('id', projectId)
@@ -317,7 +317,7 @@ export class Database {
         `
                     *,
                     documents (id),
-                    analysis_results (id)
+                    document_analysis_results (id)
                 `,
         { count: 'exact' }
       );

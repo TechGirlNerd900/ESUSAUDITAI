@@ -333,7 +333,7 @@ CREATE INDEX idx_org_settings_type ON organization_settings(setting_type);
 
 -- Function to get user's organization context
 CREATE OR REPLACE FUNCTION get_user_organization_id(user_uuid UUID)
-RETURNS UUID AS $$
+RETURNS UUID AS $
 DECLARE
     org_id UUID;
 BEGIN
@@ -345,11 +345,11 @@ BEGIN
     
     RETURN org_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$ LANGUAGE plpgsql SECURITY INVOKER;
 
 -- Function to check if user has admin role
 CREATE OR REPLACE FUNCTION is_user_admin(user_uuid UUID)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN AS $
 DECLARE
     user_role VARCHAR(20);
 BEGIN
@@ -361,7 +361,7 @@ BEGIN
     
     RETURN user_role = 'admin';
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$ LANGUAGE plpgsql SECURITY INVOKER;
 
 -- Function to audit log insertion
 CREATE OR REPLACE FUNCTION insert_audit_log(
@@ -445,8 +445,7 @@ CREATE POLICY "Organizations: Admins can manage their organization" ON organizat
 CREATE POLICY "Users: Users can view users in their organization" ON users
     FOR SELECT USING (organization_id = get_user_organization_id(auth.uid()) AND deleted_at IS NULL);
 
-CREATE POLICY "Users: Users can view their own profile" ON users
-    FOR SELECT USING (auth_user_id = auth.uid() AND deleted_at IS NULL);
+
 
 CREATE POLICY "Users: Admins can manage users in their organization" ON users
     FOR ALL USING (organization_id = get_user_organization_id(auth.uid()) AND is_user_admin(auth.uid()));
@@ -651,7 +650,6 @@ BEGIN
         v_action := 'delete';
     END IF;
     
-    -- Get user ID from auth.uid() or use system user ID for background operations
     v_user_id := COALESCE(
         auth.uid(),
         '00000000-0000-0000-0000-000000000000'::UUID

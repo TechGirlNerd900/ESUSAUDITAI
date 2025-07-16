@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/apiAuth';
-import { createClient } from '@/utils/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
@@ -12,10 +12,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
-
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const offset = (page - 1) * limit;
     // Get all users in the same organization
-    const { data: users, error } = await supabase
+    const { data: users, error } = await supabaseAdmin
       .from('users')
       .select(
         `
@@ -34,7 +36,8 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq('organization_id', auth.profile.organization_id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error('Error fetching users:', error);
@@ -55,9 +58,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { email, password, firstName, lastName, role } = await request.json();
+    const { email, firstName, lastName, role } = await request.json();
 
-    if (!email || !password || !firstName || !lastName || !role) {
+    if (!email || !firstName || !lastName || !role) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
@@ -68,19 +71,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-
-    // Create user in Supabase Auth
-    const { data: authUser, error: authError } = await supabase.auth.signUp({
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password,
-      options: {
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          role,
-          organization_id: auth.profile.organization_id,
-        },
+      email_confirm: true,
+      user_metadata: {
+        first_name: firstName,
+        last_name: lastName,
+        role,
+        organization_id: auth.profile.organization_id,
       },
     });
 
@@ -93,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'User created successfully',
+      message: 'User created successfully. An invitation has been sent to their email.',
       user: {
         id: authUser.user?.id,
         email: authUser.user?.email,

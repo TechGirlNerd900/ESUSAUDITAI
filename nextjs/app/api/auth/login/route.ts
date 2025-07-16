@@ -39,9 +39,10 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     password,
   });
 
-  if (error) {
+  if (error || !data.session || !data.user) {
     console.error('Login error:', error);
-    throw new AuthorizationError(error.message);
+    // Generic error to prevent user enumeration
+    throw new AuthorizationError('Invalid login credentials');
   }
 
   if (!data.session || !data.user) {

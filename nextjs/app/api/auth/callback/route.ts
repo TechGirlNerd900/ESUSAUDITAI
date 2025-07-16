@@ -17,12 +17,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error: authError } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (error) {
-      console.error('Auth callback error:', error);
+    if (authError) {
+      console.error('Auth callback error:', authError);
       return NextResponse.redirect(
-        new URL(`/login?error=${encodeURIComponent(error.message)}`, requestUrl.origin)
+        new URL(`/login?error=${encodeURIComponent(authError.message)}`, requestUrl.origin)
       );
     }
 
@@ -47,17 +47,78 @@ export async function GET(request: NextRequest) {
     }
 
     // For regular login callbacks, check if user profile exists
-    const { data: profile, error: profileError } = await supabase
+    // FIX: Destructure to separate const `profileError` from let `profile`
+    const { data: initialProfile, error: profileError } = await supabase
       .from('users')
       .select('id, is_active, status, organization_id')
       .eq('auth_user_id', data.user.id)
       .single();
+    let profile = initialProfile;
 
-    if (profileError || !profile) {
-      console.error('Auth callback: User profile not found:', profileError);
-      return NextResponse.redirect(
-        new URL('/login?error=User+profile+not+found', requestUrl.origin)
-      );
+    // If profile doesn't exist, create it automatically
+    if (profileError && profileError.code === 'PGRST116') {
+      console.log('Auth callback: Creating missing user profile for', data.user.email);
+
+      // Get or create default organization
+      // FIX: Destructure to separate const `orgError` from let `defaultOrg`
+      const { data: initialDefaultOrg, error: orgError } = await supabase
+        .from('organizations')
+        .select('*')
+        .limit(1)
+        .single();
+      let defaultOrg = initialDefaultOrg;
+
+      if (orgError || !defaultOrg) {
+        const { data: newOrg, error: createOrgError } = await supabase
+          .from('organizations')
+          .insert({
+            name: 'Default Organization',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (createOrgError) {
+          console.error('Auth callback: Failed to create default organization:', createOrgError);
+          return NextResponse.redirect(
+            new URL('/login?error=Failed+to+create+user+profile', requestUrl.origin)
+          );
+        }
+        defaultOrg = newOrg;
+      }
+
+      // Create user profile
+      const metadata = data.user.user_metadata || {};
+      const { data: newProfile, error: createProfileError } = await supabase
+        .from('users')
+        .insert({
+          auth_user_id: data.user.id,
+          email: data.user.email,
+          first_name: (metadata as any).first_name || (metadata as any).firstName || 'Unknown',
+          last_name: (metadata as any).last_name || (metadata as any).lastName || 'User',
+          role: (metadata as any).role || 'auditor',
+          organization_id: (metadata as any).organization_id || defaultOrg.id,
+          status: 'active',
+          is_active: true,
+          created_at: data.user.created_at,
+          updated_at: new Date().toISOString(),
+        })
+        .select('id, is_active, status, organization_id')
+        .single();
+
+      if (createProfileError) {
+        console.error('Auth callback: Failed to create user profile:', createProfileError);
+        return NextResponse.redirect(
+          new URL('/login?error=Failed+to+create+user+profile', requestUrl.origin)
+        );
+      }
+
+      profile = newProfile;
+    } else if (profileError || !profile) {
+      console.error('Auth callback: User profile error:', profileError);
+      return NextResponse.redirect(new URL('/login?error=User+profile+error', requestUrl.origin));
     }
 
     if (!profile.is_active || profile.status !== 'active') {

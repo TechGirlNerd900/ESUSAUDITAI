@@ -45,7 +45,7 @@ export function JobFilters({
           onValueChange={(value) => onStatusChange(value || null)}
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue defaultValue={selectedStatus || 'All Statuses'}>{selectedStatus || 'All Statuses'}</SelectValue>
+            <SelectValue>{selectedStatus || 'All Statuses'}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All Statuses</SelectItem>
@@ -59,7 +59,7 @@ export function JobFilters({
 
         <Select value={selectedType || ''} onValueChange={(value) => onTypeChange(value || null)}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue defaultValue={selectedType || 'All Types'}>{selectedType || 'All Types'}</SelectValue>
+            <SelectValue>{selectedType || 'All Types'}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All Types</SelectItem>
@@ -76,7 +76,7 @@ export function JobFilters({
           onValueChange={(value) => onRefreshIntervalChange(parseInt(value) || null)}
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue defaultValue={refreshInterval ? `${refreshInterval / 1000}s` : 'Manual Refresh'}>
+            <SelectValue>
               {refreshInterval ? `${refreshInterval / 1000}s` : 'Manual Refresh'}
             </SelectValue>
           </SelectTrigger>

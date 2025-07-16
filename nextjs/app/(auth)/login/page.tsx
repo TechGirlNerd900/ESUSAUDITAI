@@ -42,6 +42,23 @@ function LoginContent() {
     if (urlError) {
       setError(urlError);
     }
+
+    // Clear any stale session on component mount
+    const clearStaleSession = async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.auth.getSession();
+        
+        if (error && error.message?.includes('refresh_token_not_found')) {
+          await supabase.auth.signOut();
+          debugLogger('🧹 Cleared stale session');
+        }
+      } catch (error) {
+        debugLogger('🧹 Session cleanup error (ignored):', error);
+      }
+    };
+
+    clearStaleSession();
   }, [searchParams]);
 
   // UPDATED handleSubmit with extensive debugging

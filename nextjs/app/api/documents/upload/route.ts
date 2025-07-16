@@ -1,6 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { SecurityService } from '@/lib/security';
 import { authenticateApiRequest } from '@/lib/apiAuth';
 
 function sanitizeFileName(name: string): string {
@@ -51,23 +50,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File and project ID are required' }, { status: 400 });
     }
 
-    // SECURITY: Initialize SecurityService for enhanced file validation
-    const securityService = new SecurityService({
-      getAll: () => [],
-      setAll: () => {},
-    });
+    // SECURITY: File validation
+    const maxSizeMB = 50;
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv',
+    ];
 
-    // SECURITY: Comprehensive file validation using SecurityService
-    const fileValidation = securityService.validateFileUpload(
-      {
-        mimetype: file.type,
-        size: file.size,
-      },
-      50
-    );
+    if (file.size > maxSizeBytes) {
+      return NextResponse.json(
+        { error: `File size exceeds ${maxSizeMB}MB limit` },
+        { status: 400 }
+      );
+    }
 
-    if (!fileValidation.valid) {
-      return NextResponse.json({ error: fileValidation.error }, { status: 400 });
+    if (!allowedMimeTypes.includes(file.type)) {
+      return NextResponse.json({ error: 'File type not allowed' }, { status: 400 });
     }
 
     // SECURITY: Additional file content inspection
