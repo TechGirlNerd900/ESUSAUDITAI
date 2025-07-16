@@ -316,8 +316,9 @@ export class Database {
       let query = this.client.from('projects').select(
         `
                     *,
-                    documents (id),
-                    document_analysis_results (id)
+                    documents (id,
+                      document_analysis_results (id)
+                    )
                 `,
         { count: 'exact' }
       );
