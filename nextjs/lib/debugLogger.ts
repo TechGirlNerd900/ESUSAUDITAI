@@ -88,13 +88,12 @@ class DebugLogger {
 export const debugLog = new DebugLogger();
 
 // Export individual methods for convenience
-export const {
-  log: debugLogger,
-  info: debugInfo,
-  warn: debugWarn,
-  error: debugError,
-  debug: debugDebug,
-  logAuth: debugLogAuth,
-  logSession: debugLogSession,
-  logApiResponse: debugLogApiResponse,
-} = debugLog;
+
+export const debugLogger = debugLog.log.bind(debugLog);
+export const debugInfo = debugLog.info.bind(debugLog);
+export const debugWarn = debugLog.warn.bind(debugLog);
+export const debugError = debugLog.error.bind(debugLog);
+export const debugDebug = debugLog.debug.bind(debugLog);
+export const debugLogAuth = debugLog.logAuth.bind(debugLog);
+export const debugLogSession = debugLog.logSession.bind(debugLog);
+export const debugLogApiResponse = debugLog.logApiResponse.bind(debugLog);
