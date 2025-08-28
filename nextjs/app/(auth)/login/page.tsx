@@ -48,7 +48,7 @@ function LoginContent() {
       try {
         const supabase = createClient();
         const { error } = await supabase.auth.getSession();
-        
+
         if (error && error.message?.includes('refresh_token_not_found')) {
           await supabase.auth.signOut();
           debugLogger('🧹 Cleared stale session');

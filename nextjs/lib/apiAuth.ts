@@ -62,6 +62,40 @@ export interface AuthFailure {
 export type AuthResult = AuthSuccess | AuthFailure;
 
 /**
+ * Get user profile by user ID
+ * Uses service role client to bypass RLS for profile fetching
+ */
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  try {
+    // Use service role client to bypass RLS
+    const { createClient: createServiceClient } = await import('@supabase/supabase-js');
+    const serviceClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: profile, error: profileError } = await serviceClient
+      .from('users')
+      .select('*')
+      .eq('auth_user_id', userId)
+      .eq('is_active', true)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+      .single();
+
+    if (profileError) {
+      console.error('Profile fetch error:', profileError);
+      return null;
+    }
+
+    return profile;
+  } catch (error) {
+    console.error('getUserProfile error:', error);
+    return null;
+  }
+}
+
+/**
  * Centralized API authentication middleware
  * Handles user auth check, profile validation, and rate limiting
  */
@@ -122,8 +156,8 @@ export async function authenticateApiRequest(
       },
     };
 
-    // Temporarily bypass user profile fetch to avoid RLS recursion
-    // TODO: Re-enable after fixing RLS policies
+    // Use service role client to bypass RLS for user profile fetch
+    // This prevents recursion issues with RLS policies
     let userProfile: UserProfile | null = null;
 
     try {

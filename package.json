@@ -31,7 +31,7 @@
   "author": "Esus Audit AI Team",
   "license": "MIT",
   "dependencies": {
-    "@supabase/ssr": "^0.0.10",
+    "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.50.0",
     "@upstash/ratelimit": "^1.0.0",
     "@upstash/redis": "^1.28.4",

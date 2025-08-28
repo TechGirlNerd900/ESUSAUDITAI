@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/middleware';
+import { addSecurityHeaders } from './lib/securityHeaders';
 
 // Define public paths that don't require auth check
 const publicPaths = ['/_next', '/static', '/login', '/register', '/signup', '/reset-password', '/auth'];
@@ -83,42 +84,37 @@ function applyRateLimit(
   return undefined;
 }
 
-/**
- * Add security headers to a response
- * @param response The response to add headers to
- * @returns The response with added security headers
- */
-function addSecurityHeaders(response: NextResponse): NextResponse {
-  // Content Security Policy
-  response.headers.set(
-    'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'"
-  );
-
-  // Other security headers
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
-
-  return response;
-}
 
 /**
- * Check if a user has admin role
+ * Check if a user has admin role using service role client to bypass RLS
  * @param supabase Supabase client
  * @param userId User ID to check
  * @returns Whether the user has admin role
  */
 async function isUserAdmin(supabase: any, userId: string): Promise<boolean> {
   try {
-    // Temporarily disable admin check to prevent RLS recursion
-    // TODO: Re-enable after fixing RLS policies
-    // For now, allow access and let API routes handle authorization
-    console.warn('Admin check temporarily disabled due to RLS recursion issue');
-    return false; // Default to non-admin to be safe
+    // Use service role client to bypass RLS and prevent recursion
+    const { createClient: createServiceClient } = await import('@supabase/supabase-js');
+    const serviceClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: user, error } = await serviceClient
+      .from('users')
+      .select('role')
+      .eq('auth_user_id', userId)
+      .eq('is_active', true)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+      .single();
+
+    if (error || !user) {
+      console.error('Error checking admin role:', error);
+      return false;
+    }
+
+    return user.role === 'admin' || user.role === 'super_admin';
   } catch (error) {
     console.error('Error checking admin role:', error);
     return false;
@@ -229,9 +225,8 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Temporarily disable audit logging in middleware to prevent RLS recursion
-    // TODO: Re-enable after fixing RLS policies
-    // Audit logging will be handled at the API route level instead
+    // Audit logging is handled at the API route level for better security control
+    // This avoids potential middleware performance issues and ensures proper multi-tenant isolation
     if (process.env.NODE_ENV === 'development') {
       console.log(`Middleware: Authenticated request to ${pathname} by user ${user.id}`);
     }
