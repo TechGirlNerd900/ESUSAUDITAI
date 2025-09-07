@@ -152,21 +152,45 @@ DROP TRIGGER IF EXISTS audit_document_analysis_results_trigger ON public.documen
 DROP TRIGGER IF EXISTS audit_users_trigger ON public.users;
 
 -- Create audit triggers for important tables
-CREATE TRIGGER audit_projects_trigger
-AFTER INSERT OR UPDATE OR DELETE ON public.projects
-FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'audit_projects_trigger') THEN
+        CREATE TRIGGER audit_projects_trigger
+        AFTER INSERT OR UPDATE OR DELETE ON public.projects
+        FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
+    END IF;
+END
+$$;
 
-CREATE TRIGGER audit_documents_trigger
-AFTER INSERT OR UPDATE OR DELETE ON public.documents
-FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'audit_documents_trigger') THEN
+        CREATE TRIGGER audit_documents_trigger
+        AFTER INSERT OR UPDATE OR DELETE ON public.documents
+        FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
+    END IF;
+END
+$$;
 
-CREATE TRIGGER audit_document_analysis_results_trigger
-AFTER INSERT OR UPDATE OR DELETE ON public.document_analysis_results
-FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'audit_document_analysis_results_trigger') THEN
+        CREATE TRIGGER audit_document_analysis_results_trigger
+        AFTER INSERT OR UPDATE OR DELETE ON public.document_analysis_results
+        FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
+    END IF;
+END
+$$;
 
-CREATE TRIGGER audit_users_trigger
-AFTER INSERT OR UPDATE OR DELETE ON public.users
-FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'audit_users_trigger') THEN
+        CREATE TRIGGER audit_users_trigger
+        AFTER INSERT OR UPDATE OR DELETE ON public.users
+        FOR EACH ROW EXECUTE FUNCTION public.create_audit_log_from_trigger();
+    END IF;
+END
+$$;
 
 -- Add comment for documentation
 COMMENT ON TABLE public.audit_logs IS 'Stores audit logs for all system actions';

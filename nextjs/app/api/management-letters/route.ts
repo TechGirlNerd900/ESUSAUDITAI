@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 import {
   managementLetterGenerator,
   ManagementLetterFinding,
@@ -8,7 +7,7 @@ import {
   categorizeFindings,
   generateFindingSummary,
   calculateImplementationEffort,
-} from '@/lib/managementLetterGenerator';
+} from '@/lib/generators/managementLetterGenerator';
 
 /**
  * Management Letter API
@@ -17,7 +16,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -45,19 +44,20 @@ export async function GET(request: NextRequest) {
       case 'letters':
         return await handleListManagementLetters(supabase, organizationId);
 
-      case 'letter':
+      case 'letter': {
         const letterId = searchParams.get('letterId');
         if (!letterId) {
           return NextResponse.json({ error: 'Letter ID required' }, { status: 400 });
         }
         return await handleGetManagementLetter(supabase, letterId, organizationId);
-
-      case 'findings':
+      }
+      case 'findings': {
         const engagementId = searchParams.get('engagementId');
         if (!engagementId) {
           return NextResponse.json({ error: 'Engagement ID required' }, { status: 400 });
         }
         return await handleGetFindings(supabase, engagementId, organizationId);
+      }
 
       case 'analytics':
         return await handleGetAnalytics(supabase, organizationId);
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -132,7 +132,7 @@ export async function PUT(request: NextRequest) {
     }
 
     switch (action) {
-      case 'updateLetter':
+      case 'updateLetter': {
         const { letterId, updates } = body;
         if (!letterId) {
           return NextResponse.json({ error: 'Letter ID required' }, { status: 400 });
@@ -144,8 +144,8 @@ export async function PUT(request: NextRequest) {
           organizationId,
           user.id
         );
-
-      case 'updateFinding':
+      }
+      case 'updateFinding': {
         const { findingId, findingUpdates } = body;
         if (!findingId) {
           return NextResponse.json({ error: 'Finding ID required' }, { status: 400 });
@@ -157,8 +157,8 @@ export async function PUT(request: NextRequest) {
           organizationId,
           user.id
         );
-
-      case 'updateStatus':
+      }
+      case 'updateStatus': {
         const { letterId: statusLetterId, status } = body;
         if (!statusLetterId || !status) {
           return NextResponse.json({ error: 'Letter ID and status required' }, { status: 400 });
@@ -170,6 +170,7 @@ export async function PUT(request: NextRequest) {
           organizationId,
           user.id
         );
+      }
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
@@ -182,7 +183,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -201,12 +202,13 @@ export async function DELETE(request: NextRequest) {
     }
 
     switch (action) {
-      case 'finding':
+      case 'finding': {
         const findingId = searchParams.get('findingId');
         if (!findingId) {
           return NextResponse.json({ error: 'Finding ID required' }, { status: 400 });
         }
         return await handleDeleteFinding(supabase, findingId, organizationId);
+      }
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

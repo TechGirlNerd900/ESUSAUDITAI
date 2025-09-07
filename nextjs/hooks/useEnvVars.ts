@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/app/components/ui/use-toast';
 
 // Environment variable interface
 export interface EnvVar {
@@ -25,9 +25,7 @@ export const useEnvVars = () => {
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/admin/env${category ? `?category=${category}` : ''}`
-      );
+      const response = await fetch(`/api/admin/env${category ? `?category=${category}` : ''}`);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -37,7 +35,10 @@ export const useEnvVars = () => {
       const data = await response.json();
       setEnvVars(data);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred while loading environment variables';
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'An error occurred while loading environment variables';
       setError(errorMessage);
       toast({
         title: 'Error',
@@ -50,83 +51,89 @@ export const useEnvVars = () => {
   }, []);
 
   // Save environment variable
-  const saveEnvVar = useCallback(async (envVar: Partial<EnvVar>) => {
-    try {
-      if (!envVar.key || !envVar.value) {
+  const saveEnvVar = useCallback(
+    async (envVar: Partial<EnvVar>) => {
+      try {
+        if (!envVar.key || !envVar.value) {
+          toast({
+            title: 'Validation Error',
+            description: 'Key and value are required',
+            variant: 'destructive',
+          });
+          return false;
+        }
+
+        const response = await fetch('/api/admin/env', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(envVar),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to save environment variable');
+        }
+
         toast({
-          title: 'Validation Error',
-          description: 'Key and value are required',
+          title: 'Success',
+          description: `Environment variable ${envVar.key} saved successfully`,
+          variant: 'default',
+        });
+
+        // Reload environment variables
+        await loadEnvVars();
+        return true;
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: err instanceof Error ? err.message : 'An error occurred while saving',
           variant: 'destructive',
         });
         return false;
       }
-
-      const response = await fetch('/api/admin/env', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(envVar),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save environment variable');
-      }
-
-      toast({
-        title: 'Success',
-        description: `Environment variable ${envVar.key} saved successfully`,
-        variant: 'default',
-      });
-
-      // Reload environment variables
-      await loadEnvVars();
-      return true;
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'An error occurred while saving',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  }, [loadEnvVars]);
+    },
+    [loadEnvVars]
+  );
 
   // Delete environment variable
-  const deleteEnvVar = useCallback(async (key: string) => {
-    if (!confirm(`Are you sure you want to delete ${key}?`)) {
-      return false;
-    }
-
-    try {
-      const response = await fetch(`/api/admin/env?key=${encodeURIComponent(key)}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete environment variable');
+  const deleteEnvVar = useCallback(
+    async (key: string) => {
+      if (!confirm(`Are you sure you want to delete ${key}?`)) {
+        return false;
       }
 
-      toast({
-        title: 'Success',
-        description: `Environment variable ${key} deleted successfully`,
-        variant: 'default',
-      });
+      try {
+        const response = await fetch(`/api/admin/env?key=${encodeURIComponent(key)}`, {
+          method: 'DELETE',
+        });
 
-      // Reload environment variables
-      await loadEnvVars();
-      return true;
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'An error occurred while deleting',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  }, [loadEnvVars]);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete environment variable');
+        }
+
+        toast({
+          title: 'Success',
+          description: `Environment variable ${key} deleted successfully`,
+          variant: 'default',
+        });
+
+        // Reload environment variables
+        await loadEnvVars();
+        return true;
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: err instanceof Error ? err.message : 'An error occurred while deleting',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    },
+    [loadEnvVars]
+  );
 
   return {
     envVars,

@@ -4,12 +4,12 @@
  */
 
 import { NextRequest } from 'next/server';
-import { Database } from '@/lib/database';
+import { Database } from '@/lib/db/database';
 import { cookies } from 'next/headers';
-import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/apiAuth';
+import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/auth/apiAuth';
 import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler';
 import { createClient } from '@/utils/supabase/server';
-import { successResponse, errorResponse } from '@/lib/apiResponse';
+import { successResponse, errorResponse } from '@/lib/api/apiResponse';
 
 /**
  * GET handler for a specific project
@@ -25,35 +25,25 @@ export const GET = withErrorHandling(
 
     if (!auth.success) {
       // Type assertion to help TypeScript understand the auth object structure
-      return (auth as import('@/lib/apiAuth').AuthFailure).response;
+      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
     }
 
     // Initialize database
     const cookieStore = await cookies();
     const db = new Database(cookieStore);
 
-    try {
-      // Get project with related data
-      const project = await db.getProject(projectId, auth.user.id);
+    // Get project with related data
+    const project = await db.getProject(projectId, auth.user.id);
 
-      // Transform data for compatibility
-      const transformedProject = {
-        ...project,
-        document_count: project.documents?.length || 0,
-        due_date: project.end_date,
-        audit_type: project.project_type || 'general',
-      };
+    // Transform data for compatibility
+    const transformedProject = {
+      ...project,
+      document_count: project.documents?.length || 0,
+      due_date: project.end_date,
+      audit_type: project.project_type || 'general',
+    };
 
-      return successResponse(transformedProject);
-    } catch (error: any) {
-      if (error.message === 'Project not found') {
-        throw new NotFoundError('Project');
-      }
-      if (error.message === 'Access denied to this project') {
-        throw new AuthorizationError('You do not have access to this project');
-      }
-      throw error;
-    }
+    return successResponse(transformedProject);
   }
 );
 
@@ -70,7 +60,7 @@ export const PUT = withErrorHandling(
 
     if (!auth.success) {
       // Type assertion to help TypeScript understand the auth object structure
-      return (auth as import('@/lib/apiAuth').AuthFailure).response;
+      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
     }
 
     // Parse request body
@@ -161,6 +151,7 @@ export const PUT = withErrorHandling(
     // Create audit log entry
     await supabase.from('audit_logs').insert([
       {
+        organization_id: auth.profile.organization_id,
         user_id: auth.user.id,
         action: 'project_updated',
         resource_type: 'project',
@@ -191,7 +182,7 @@ export const DELETE = withErrorHandling(
 
     if (!auth.success) {
       // Type assertion to help TypeScript understand the auth object structure
-      return (auth as import('@/lib/apiAuth').AuthFailure).response;
+      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
     }
 
     // Initialize Supabase client
@@ -246,6 +237,7 @@ export const DELETE = withErrorHandling(
       // Create audit log entry
       await supabase.from('audit_logs').insert([
         {
+          organization_id: auth.profile.organization_id,
           user_id: auth.user.id,
           action: 'project_deleted',
           resource_type: 'project',

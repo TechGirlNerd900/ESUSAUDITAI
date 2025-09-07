@@ -34,41 +34,65 @@ CREATE INDEX IF NOT EXISTS idx_job_queue_organization_id ON public.job_queue(org
 ALTER TABLE public.job_queue ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for job_queue
-CREATE POLICY job_queue_select_policy ON public.job_queue
-    FOR SELECT
-    USING (
-        -- Only admins can see jobs
-        (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) IN ('admin', 'super_admin')
-        -- Users can only see jobs for their organization
-        AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'job_queue_select_policy') THEN
+        CREATE POLICY job_queue_select_policy ON public.job_queue
+            FOR SELECT
+            USING (
+                -- Only admins can see jobs
+                (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) IN ('admin', 'super_admin')
+                -- Users can only see jobs for their organization
+                AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY job_queue_insert_policy ON public.job_queue
-    FOR INSERT
-    WITH CHECK (
-        -- Only authenticated users can insert jobs
-        auth.uid() IS NOT NULL
-        -- Users can only insert jobs for their organization
-        AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'job_queue_insert_policy') THEN
+        CREATE POLICY job_queue_insert_policy ON public.job_queue
+            FOR INSERT
+            WITH CHECK (
+                -- Only authenticated users can insert jobs
+                auth.uid() IS NOT NULL
+                -- Users can only insert jobs for their organization
+                AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY job_queue_update_policy ON public.job_queue
-    FOR UPDATE
-    USING (
-        -- Only authenticated users can update jobs
-        auth.uid() IS NOT NULL
-        -- Users can only update jobs for their organization
-        AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'job_queue_update_policy') THEN
+        CREATE POLICY job_queue_update_policy ON public.job_queue
+            FOR UPDATE
+            USING (
+                -- Only authenticated users can update jobs
+                auth.uid() IS NOT NULL
+                -- Users can only update jobs for their organization
+                AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY job_queue_delete_policy ON public.job_queue
-    FOR DELETE
-    USING (
-        -- Only admins can delete jobs
-        (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) IN ('admin', 'super_admin')
-        -- Users can only delete jobs for their organization
-        AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'job_queue_delete_policy') THEN
+        CREATE POLICY job_queue_delete_policy ON public.job_queue
+            FOR DELETE
+            USING (
+                -- Only admins can delete jobs
+                (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) IN ('admin', 'super_admin')
+                -- Users can only delete jobs for their organization
+                AND (organization_id IS NULL OR organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()))
+            );
+    END IF;
+END
+$$;
 
 -- Create function to clean up old jobs
 CREATE OR REPLACE FUNCTION public.cleanup_old_jobs()

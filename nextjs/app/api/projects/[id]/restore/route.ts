@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/apiAuth';
+import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/auth/apiAuth';
 import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler';
 
 export const POST = withErrorHandling(
@@ -11,7 +11,7 @@ export const POST = withErrorHandling(
     const auth = await authenticateApiRequest(request);
 
     if (!auth.success) {
-      return (auth as import('@/lib/apiAuth').AuthFailure).response;
+      return auth.response;
     }
 
     const supabase = await createClient();

@@ -101,217 +101,349 @@ DROP POLICY IF EXISTS app_settings_isolation_policy ON public.app_settings;
 -- Create organization-based RLS policies for each table
 
 -- Users table policies
-CREATE POLICY users_isolation_policy ON public.users
-    USING (
-        -- Users can see their own profile
-        auth.uid() = auth_user_id
-        -- Users can see other users in their organization
-        OR organization_id = public.get_user_organization_id()
-        -- Super admins can see all users
-        OR (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) = 'super_admin'
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'users_isolation_policy') THEN
+        CREATE POLICY users_isolation_policy ON public.users
+            USING (
+                -- Users can see their own profile
+                auth.uid() = auth_user_id
+                -- Users can see other users in their organization
+                OR organization_id = public.get_user_organization_id()
+                -- Super admins can see all users
+                OR (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) = 'super_admin'
+            );
+    END IF;
+END
+$$;
 
 -- Projects table policies
-CREATE POLICY projects_isolation_policy ON public.projects
-    USING (
-        -- Users can only see projects in their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'projects_isolation_policy') THEN
+        CREATE POLICY projects_isolation_policy ON public.projects
+            USING (
+                -- Users can only see projects in their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
 -- Documents table policies
-CREATE POLICY documents_isolation_policy ON public.documents
-    USING (
-        -- Users can only see documents in their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'documents_isolation_policy') THEN
+        CREATE POLICY documents_isolation_policy ON public.documents
+            USING (
+                -- Users can only see documents in their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
 -- Document analysis results table policies
-CREATE POLICY document_analysis_results_isolation_policy ON public.document_analysis_results
-    USING (
-        -- Users can only see analysis results in their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'document_analysis_results_isolation_policy') THEN
+        CREATE POLICY document_analysis_results_isolation_policy ON public.document_analysis_results
+            USING (
+                -- Users can only see analysis results in their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
 -- Chat history table policies
-CREATE POLICY chat_history_isolation_policy ON public.chat_history
-    USING (
-        -- Users can only see chat history in their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'chat_history_isolation_policy') THEN
+        CREATE POLICY chat_history_isolation_policy ON public.chat_history
+            USING (
+                -- Users can only see chat history in their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
 -- Audit reports table policies
-CREATE POLICY audit_reports_isolation_policy ON public.audit_reports
-    USING (
-        -- Users can only see audit reports in their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'audit_reports_isolation_policy') THEN
+        CREATE POLICY audit_reports_isolation_policy ON public.audit_reports
+            USING (
+                -- Users can only see audit reports in their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
 -- Audit logs table policies
-CREATE POLICY audit_logs_isolation_policy ON public.audit_logs
-    USING (
-        -- Users can only see audit logs in their organization
-        organization_id = public.get_user_organization_id()
-        -- Only admins can see audit logs
-        AND public.is_admin()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'audit_logs_isolation_policy') THEN
+        CREATE POLICY audit_logs_isolation_policy ON public.audit_logs
+            USING (
+                -- Users can only see audit logs in their organization
+                organization_id = public.get_user_organization_id()
+                -- Only admins can see audit logs
+                AND public.is_admin()
+            );
+    END IF;
+END
+$$;
 
 -- App settings table policies
-CREATE POLICY app_settings_isolation_policy ON public.app_settings
-    USING (
-        -- Users can only see app settings in their organization
-        (organization_id = public.get_user_organization_id() OR organization_id IS NULL)
-        -- Only admins can see app settings
-        AND public.is_admin()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'app_settings_isolation_policy') THEN
+        CREATE POLICY app_settings_isolation_policy ON public.app_settings
+            USING (
+                -- Users can only see app settings in their organization
+                (organization_id = public.get_user_organization_id() OR organization_id IS NULL)
+                -- Only admins can see app settings
+                AND public.is_admin()
+            );
+    END IF;
+END
+$$;
 
 -- Create insert policies to enforce organization_id
-CREATE POLICY users_insert_policy ON public.users
-    FOR INSERT
-    WITH CHECK (
-        -- Users can only insert into their organization
-        organization_id = public.get_user_organization_id()
-        -- Super admins can insert into any organization
-        OR (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) = 'super_admin'
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'users_insert_policy') THEN
+        CREATE POLICY users_insert_policy ON public.users
+            FOR INSERT
+            WITH CHECK (
+                -- Users can only insert into their organization
+                organization_id = public.get_user_organization_id()
+                -- Super admins can insert into any organization
+                OR (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) = 'super_admin'
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY projects_insert_policy ON public.projects
-    FOR INSERT
-    WITH CHECK (
-        -- Users can only insert into their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'projects_insert_policy') THEN
+        CREATE POLICY projects_insert_policy ON public.projects
+            FOR INSERT
+            WITH CHECK (
+                -- Users can only insert into their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY documents_insert_policy ON public.documents
-    FOR INSERT
-    WITH CHECK (
-        -- Users can only insert into their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'documents_insert_policy') THEN
+        CREATE POLICY documents_insert_policy ON public.documents
+            FOR INSERT
+            WITH CHECK (
+                -- Users can only insert into their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY document_analysis_results_insert_policy ON public.document_analysis_results
-    FOR INSERT
-    WITH CHECK (
-        -- Users can only insert into their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'document_analysis_results_insert_policy') THEN
+        CREATE POLICY document_analysis_results_insert_policy ON public.document_analysis_results
+            FOR INSERT
+            WITH CHECK (
+                -- Users can only insert into their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY chat_history_insert_policy ON public.chat_history
-    FOR INSERT
-    WITH CHECK (
-        -- Users can only insert into their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'chat_history_insert_policy') THEN
+        CREATE POLICY chat_history_insert_policy ON public.chat_history
+            FOR INSERT
+            WITH CHECK (
+                -- Users can only insert into their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY audit_reports_insert_policy ON public.audit_reports
-    FOR INSERT
-    WITH CHECK (
-        -- Users can only insert into their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'audit_reports_insert_policy') THEN
+        CREATE POLICY audit_reports_insert_policy ON public.audit_reports
+            FOR INSERT
+            WITH CHECK (
+                -- Users can only insert into their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY audit_logs_insert_policy ON public.audit_logs
-    FOR INSERT
-    WITH CHECK (
-        -- Users can only insert into their organization
-        organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'audit_logs_insert_policy') THEN
+        CREATE POLICY audit_logs_insert_policy ON public.audit_logs
+            FOR INSERT
+            WITH CHECK (
+                -- Users can only insert into their organization
+                organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY app_settings_insert_policy ON public.app_settings
-    FOR INSERT
-    WITH CHECK (
-        -- Users can only insert into their organization
-        organization_id = public.get_user_organization_id()
-        -- Only admins can insert app settings
-        AND public.is_admin()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'app_settings_insert_policy') THEN
+        CREATE POLICY app_settings_insert_policy ON public.app_settings
+            FOR INSERT
+            WITH CHECK (
+                -- Users can only insert into their organization
+                organization_id = public.get_user_organization_id()
+                -- Only admins can insert app settings
+                AND public.is_admin()
+            );
+    END IF;
+END
+$$;
 
 -- Create update policies to enforce organization_id
-CREATE POLICY users_update_policy ON public.users
-    FOR UPDATE
-    USING (
-        -- Users can update their own profile
-        auth.uid() = auth_user_id
-        -- Admins can update users in their organization
-        OR (
-            public.is_admin()
-            AND organization_id = public.get_user_organization_id()
-        )
-        -- Super admins can update any user
-        OR (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) = 'super_admin'
-    );
-
-CREATE POLICY projects_update_policy ON public.projects
-    FOR UPDATE
-    USING (
-        -- Users can only update projects in their organization
-        organization_id = public.get_user_organization_id()
-        -- Users can only update projects they created or are assigned to
-        AND (
-            created_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
-            OR (SELECT id FROM public.users WHERE auth_user_id = auth.uid()) = ANY(assigned_to)
-            OR public.is_admin()
-        )
-    );
-
-CREATE POLICY documents_update_policy ON public.documents
-    FOR UPDATE
-    USING (
-        -- Users can only update documents in their organization
-        organization_id = public.get_user_organization_id()
-        -- Users can only update documents they uploaded or in projects they're assigned to
-        AND (
-            uploaded_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
-            OR EXISTS (
-                SELECT 1 FROM public.projects p
-                WHERE p.id = project_id
-                AND (
-                    p.created_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
-                    OR (SELECT id FROM public.users WHERE auth_user_id = auth.uid()) = ANY(p.assigned_to)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'users_update_policy') THEN
+        CREATE POLICY users_update_policy ON public.users
+            FOR UPDATE
+            USING (
+                -- Users can update their own profile
+                auth.uid() = auth_user_id
+                -- Admins can update users in their organization
+                OR (
+                    public.is_admin()
+                    AND organization_id = public.get_user_organization_id()
                 )
-            )
-            OR public.is_admin()
-        )
-    );
+                -- Super admins can update any user
+                OR (SELECT role FROM public.users WHERE auth_user_id = auth.uid()) = 'super_admin'
+            );
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'projects_update_policy') THEN
+        CREATE POLICY projects_update_policy ON public.projects
+            FOR UPDATE
+            USING (
+                -- Users can only update projects in their organization
+                organization_id = public.get_user_organization_id()
+                -- Users can only update projects they created or are assigned to
+                AND (
+                    created_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
+                    OR (SELECT id FROM public.users WHERE auth_user_id = auth.uid()) = ANY(assigned_to)
+                    OR public.is_admin()
+                )
+            );
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'documents_update_policy') THEN
+        CREATE POLICY documents_update_policy ON public.documents
+            FOR UPDATE
+            USING (
+                -- Users can only update documents in their organization
+                organization_id = public.get_user_organization_id()
+                -- Users can only update documents they uploaded or in projects they're assigned to
+                AND (
+                    uploaded_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
+                    OR EXISTS (
+                        SELECT 1 FROM public.projects p
+                        WHERE p.id = project_id
+                        AND (
+                            p.created_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
+                            OR (SELECT id FROM public.users WHERE auth_user_id = auth.uid()) = ANY(p.assigned_to)
+                        )
+                    )
+                    OR public.is_admin()
+                )
+            );
+    END IF;
+END
+$$;
 
 -- Create delete policies (using soft delete)
 -- Note: Soft delete validation is handled by application logic, not RLS policies
-CREATE POLICY users_delete_policy ON public.users
-    FOR UPDATE
-    USING (
-        -- Only admins can delete users
-        public.is_admin()
-        -- Users can only delete users in their organization
-        AND organization_id = public.get_user_organization_id()
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'users_delete_policy') THEN
+        CREATE POLICY users_delete_policy ON public.users
+            FOR UPDATE
+            USING (
+                -- Only admins can delete users
+                public.is_admin()
+                -- Users can only delete users in their organization
+                AND organization_id = public.get_user_organization_id()
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY projects_delete_policy ON public.projects
-    FOR UPDATE
-    USING (
-        -- Users can only delete projects in their organization
-        organization_id = public.get_user_organization_id()
-        -- Users can only delete projects they created or admins
-        AND (
-            created_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
-            OR public.is_admin()
-        )
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'projects_delete_policy') THEN
+        CREATE POLICY projects_delete_policy ON public.projects
+            FOR UPDATE
+            USING (
+                -- Users can only delete projects in their organization
+                organization_id = public.get_user_organization_id()
+                -- Users can only delete projects they created or admins
+                AND (
+                    created_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
+                    OR public.is_admin()
+                )
+            );
+    END IF;
+END
+$$;
 
-CREATE POLICY documents_delete_policy ON public.documents
-    FOR UPDATE
-    USING (
-        -- Users can only delete documents in their organization
-        organization_id = public.get_user_organization_id()
-        -- Users can only delete documents they uploaded or in projects they created
-        AND (
-            uploaded_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
-            OR EXISTS (
-                SELECT 1 FROM public.projects p
-                WHERE p.id = project_id
-                AND p.created_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
-            )
-            OR public.is_admin()
-        )
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'documents_delete_policy') THEN
+        CREATE POLICY documents_delete_policy ON public.documents
+            FOR UPDATE
+            USING (
+                -- Users can only delete documents in their organization
+                organization_id = public.get_user_organization_id()
+                -- Users can only delete documents they uploaded or in projects they created
+                AND (
+                    uploaded_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
+                    OR EXISTS (
+                        SELECT 1 FROM public.projects p
+                        WHERE p.id = project_id
+                        AND p.created_by = (SELECT id FROM public.users WHERE auth_user_id = auth.uid())
+                    )
+                    OR public.is_admin()
+                )
+            );
+    END IF;
+END
+$$;
 
 -- Create trigger to enforce organization_id on insert
 CREATE OR REPLACE FUNCTION public.enforce_organization_id()

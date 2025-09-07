@@ -1,99 +1,31 @@
-/**
- * Debug logging utility for production-safe console logging
- * Only logs in development environment to prevent sensitive data exposure
- */
+const isDebugMode = process.env.NODE_ENV === 'development';
 
-type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
-
-class DebugLogger {
-  private isDevelopment: boolean;
-
-  constructor() {
-    this.isDevelopment = process.env.NODE_ENV === 'development';
+export const debugLogger = (...args: any[]) => {
+  if (isDebugMode) {
+    console.log('[DEBUG]', ...args);
   }
+};
 
-  private shouldLog = (): boolean => {
-    return this.isDevelopment;
-  };
+export const debugError = (...args: any[]) => {
+  if (isDebugMode) {
+    console.error('[ERROR]', ...args);
+  }
+};
 
-  log = (...args: any[]): void => {
-    if (this.shouldLog()) {
-      console.log(...args);
-    }
-  };
+export const debugWarn = (...args: any[]) => {
+  if (isDebugMode) {
+    console.warn('[WARN]', ...args);
+  }
+};
 
-  info = (...args: any[]): void => {
-    if (this.shouldLog()) {
-      console.info(...args);
-    }
-  };
+export const debugLogAuth = (email: string, message: string) => {
+  if (isDebugMode) {
+    console.log(`[AUTH] User: ${email} - ${message}`);
+  }
+};
 
-  warn = (...args: any[]): void => {
-    if (this.shouldLog()) {
-      console.warn(...args);
-    }
-  };
-
-  error = (...args: any[]): void => {
-    if (this.shouldLog()) {
-      console.error(...args);
-    }
-  };
-
-  debug = (...args: any[]): void => {
-    if (this.shouldLog()) {
-      console.debug(...args);
-    }
-  };
-
-  /**
-   * Safely log authentication attempts without exposing sensitive data
-   * @param email - Email address (will be partially masked in production)
-   * @param action - Action being performed
-   */
-  logAuth = (email: string, action: string): void => {
-    if (this.shouldLog()) {
-      console.log(`🔄 ${action} for:`, email);
-    }
-  };
-
-  /**
-   * Safely log session information without exposing full tokens
-   * @param session - Session object (will be sanitized)
-   */
-  logSession = (session: any): void => {
-    if (this.shouldLog()) {
-      if (session?.access_token) {
-        console.log('✅ Session created:', session.access_token.substring(0, 10) + '...');
-        if (session.expires_at) {
-          console.log('🍪 Session expires at:', new Date(session.expires_at * 1000));
-        }
-      }
-    }
-  };
-
-  /**
-   * Log API responses safely
-   * @param response - API response object
-   * @param context - Context for the log
-   */
-  logApiResponse = (response: any, context: string): void => {
-    if (this.shouldLog()) {
-      console.log(`🔍 ${context}:`, response);
-    }
-  };
-}
-
-// Create singleton instance
-export const debugLog = new DebugLogger();
-
-// Export individual methods for convenience
-
-export const debugLogger = debugLog.log.bind(debugLog);
-export const debugInfo = debugLog.info.bind(debugLog);
-export const debugWarn = debugLog.warn.bind(debugLog);
-export const debugError = debugLog.error.bind(debugLog);
-export const debugDebug = debugLog.debug.bind(debugLog);
-export const debugLogAuth = debugLog.logAuth.bind(debugLog);
-export const debugLogSession = debugLog.logSession.bind(debugLog);
-export const debugLogApiResponse = debugLog.logApiResponse.bind(debugLog);
+export const debugLogSession = (session: any) => {
+  if (isDebugMode) {
+    console.log('[SESSION]', session);
+  }
+};

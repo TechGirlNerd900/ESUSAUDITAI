@@ -1,7 +1,7 @@
 // General Chat API Endpoint - Not project-specific
 // This allows users to chat with Esus AI assistant about general audit topics
 
-import { authenticateApiRequest } from '@/lib/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { NextRequest, NextResponse } from 'next/server';
 
 // This should be replaced with the user's actual OpenAI API key

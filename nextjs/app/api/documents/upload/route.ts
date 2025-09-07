@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 
 function sanitizeFileName(name: string): string {
   // Remove path traversal and unsafe characters
@@ -8,6 +8,7 @@ function sanitizeFileName(name: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  let filePath: string | null = null;
   try {
     const supabase = await createClient();
 
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
     const sanitizedFileName = sanitizeFileName(file.name);
     const timestamp = new Date().getTime();
     const fileName = `${timestamp}-${sanitizedFileName}`;
-    const filePath = `${user.id}/${projectId}/${fileName}`;
+    filePath = `${user.id}/${projectId}/${fileName}`;
 
     // Upload file to Supabase Storage
     const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
@@ -239,15 +240,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Upload error:', error);
 
-    try {
-      // Attempt compensating transaction cleanup
-      await createClient();
-
-      // Clean up any uploaded files that might exist
-      // Note: filePath is not available in this scope, so we can't clean up specific files
-      // This is a limitation of the current error handling structure
-    } catch (cleanupError) {
-      console.error('Error during error cleanup:', cleanupError);
+    if (filePath) {
+      try {
+        const supabase = await createClient();
+        await supabase.storage.from('documents').remove([filePath]);
+      } catch (cleanupError) {
+        console.error('Error during error cleanup:', cleanupError);
+      }
     }
 
     return NextResponse.json({ error: 'Failed to upload document' }, { status: 500 });

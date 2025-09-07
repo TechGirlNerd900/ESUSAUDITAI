@@ -3,7 +3,15 @@ import { createClient } from '@/utils/supabase/middleware';
 import { addSecurityHeaders } from './lib/securityHeaders';
 
 // Define public paths that don't require auth check
-const publicPaths = ['/_next', '/static', '/login', '/register', '/signup', '/reset-password', '/auth'];
+const publicPaths = [
+  '/_next',
+  '/static',
+  '/login',
+  '/register',
+  '/signup',
+  '/reset-password',
+  '/auth',
+];
 
 // Define public API routes that don't need authentication in middleware
 const publicApiPaths = [
@@ -83,7 +91,6 @@ function applyRateLimit(
 
   return undefined;
 }
-
 
 /**
  * Check if a user has admin role using service role client to bypass RLS

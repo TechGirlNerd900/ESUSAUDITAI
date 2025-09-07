@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
-import { EnvVarsTab } from '@/components/config/EnvVarsTab';
-import { IntegrationsTab } from '@/components/config/IntegrationsTab';
+import { EnvVarsTab } from '@/app/components/config/EnvVarsTab';
+import { IntegrationsTab } from '@/app/components/config/IntegrationsTab';
 
 export default function ConfigPage() {
   const [activeTab, setActiveTab] = useState('env');

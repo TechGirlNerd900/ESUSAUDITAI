@@ -69,15 +69,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_history_user_id ON public.chat_history(user_
 ALTER TABLE public.chat_history ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for multi-tenant isolation
-CREATE POLICY "Users can view their organization's chat history"
-ON public.chat_history
-FOR SELECT
-USING (organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()));
-
-CREATE POLICY "Users can insert chat history in their organization"
-ON public.chat_history
-FOR INSERT
-WITH CHECK (organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()));
+CREATE POLICY "Users can view their organization's chat history" ON public.chat_history FOR SELECT USING (organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()));
+CREATE POLICY "Users can insert chat history in their organization" ON public.chat_history FOR INSERT WITH CHECK (organization_id = (SELECT organization_id FROM public.users WHERE auth_user_id = auth.uid()));
 
 -- Add trigger for updated_at
 CREATE OR REPLACE FUNCTION update_chat_history_updated_at()

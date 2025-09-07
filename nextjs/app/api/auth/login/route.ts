@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withErrorHandling, ValidationError, AuthorizationError } from '@/lib/errorHandler';
-import { successResponse } from '@/lib/apiResponse';
-import { authRateLimiter } from '@/lib/rateLimiter';
+import { successResponse } from '@/lib/api/apiResponse';
+import { authRateLimiter } from '@/lib/api/rateLimiter';
 import { createClient } from '@/utils/supabase/server';
 
 /**

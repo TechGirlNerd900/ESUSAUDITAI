@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { getUserProfile } from '@/lib/apiAuth';
+import { createClient } from '@/utils/supabase/server';
+import { getUserProfile } from '@/lib/auth/apiAuth';
 import {
   performComplianceAssessment,
   generateComplianceReport,
   EntityType,
   ComplianceAssessment,
-} from '@/lib/nigerianCompliance';
+} from '@/lib/nigerian/nigerianCompliance';
 
 interface ComplianceAssessmentRequest {
   projectId: string;
@@ -92,10 +91,19 @@ interface ComplianceAssessmentRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // Get user profile and verify access
-    const userProfile = await getUserProfile(supabase);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -280,10 +288,19 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // Get user profile
-    const userProfile = await getUserProfile(supabase);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

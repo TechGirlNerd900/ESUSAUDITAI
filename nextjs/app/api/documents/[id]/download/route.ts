@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { withErrorHandling } from '@/lib/errorHandler';
 import { createClient } from '@supabase/supabase-js';
 

@@ -8,10 +8,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/use-toast';
+} from '@/app/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert';
+import { Button } from '@/app/components/ui/button';
+import { toast } from '@/app/components/ui/use-toast';
 import {
   Loader2,
   RefreshCw,

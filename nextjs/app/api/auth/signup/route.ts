@@ -4,8 +4,8 @@
 import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { withErrorHandling, ValidationError, ApiError } from '@/lib/errorHandler';
-import { successResponse } from '@/lib/apiResponse';
-import { authRateLimiter } from '@/lib/rateLimiter';
+import { successResponse } from '@/lib/api/apiResponse';
+import { authRateLimiter } from '@/lib/api/rateLimiter';
 
 import { z } from 'zod';
 import net from 'net';

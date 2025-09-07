@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { JobFilters } from '@/components/jobs/JobFilters';
-import { JobsTable } from '@/components/jobs/JobsTable';
-import { JobDetailsModal } from '@/components/jobs/JobDetailsModal';
+import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert';
+import { JobFilters } from '@/app/components/jobs/JobFilters';
+import { JobsTable } from '@/app/components/jobs/JobsTable';
+import { JobDetailsModal } from '@/app/components/jobs/JobDetailsModal';
 import { useJobsData, Job } from '@/hooks/useJobsData';
 
 const AlertTriangle = ({ className }: { className?: string }) => (

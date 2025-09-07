@@ -2,7 +2,7 @@
 // Lists all users in the organization for admin management
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(request: NextRequest) {

@@ -45,11 +45,13 @@
 ### Option 2: Deploy via CLI
 
 1. **Install Vercel CLI**:
+
    ```bash
    npm install -g vercel
    ```
 
 2. **Login to Vercel**:
+
    ```bash
    vercel login
    ```
@@ -77,16 +79,16 @@
 
 ## Environment Variables Reference
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Yes |
-| `NEXT_PUBLIC_SITE_URL` | Your deployed app URL | Yes |
-| `AZURE_*` | Azure services configuration | Yes |
-| `CSRF_SECRET` | CSRF protection secret | Yes |
-| `ENCRYPTION_KEY` | Encryption key for sensitive data | Yes |
-| `UPSTASH_REDIS_*` | Redis configuration for rate limiting | Optional |
+| Variable                        | Description                           | Required |
+| ------------------------------- | ------------------------------------- | -------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL                  | Yes      |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key                | Yes      |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key             | Yes      |
+| `NEXT_PUBLIC_SITE_URL`          | Your deployed app URL                 | Yes      |
+| `AZURE_*`                       | Azure services configuration          | Yes      |
+| `CSRF_SECRET`                   | CSRF protection secret                | Yes      |
+| `ENCRYPTION_KEY`                | Encryption key for sensitive data     | Yes      |
+| `UPSTASH_REDIS_*`               | Redis configuration for rate limiting | Optional |
 
 ## Custom Domain (Optional)
 
@@ -127,6 +129,7 @@
 ## Performance Optimization
 
 The application is configured with:
+
 - Automatic code splitting
 - Image optimization
 - Static generation where possible
@@ -136,6 +139,7 @@ The application is configured with:
 ## Security
 
 The deployment includes:
+
 - HTTPS by default
 - Security headers (CSP, HSTS, etc.)
 - Rate limiting

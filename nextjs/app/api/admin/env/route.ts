@@ -7,7 +7,7 @@ import {
   ValidationError,
   NotFoundError,
 } from '@/lib/errorHandler';
-import configManager, { ConfigCategory } from '@/lib/configManager';
+import configManager, { ConfigCategory } from '@/lib/core/configManager';
 import { z } from 'zod';
 
 // Validation schema for environment variable
@@ -19,7 +19,7 @@ const envVarSchema = z.object({
     .regex(/^[A-Z0-9_]+$/, 'Key must be uppercase with underscores'),
   value: z.string(),
   description: z.string().optional(),
-  category: z.enum(['database', 'azure', 'auth', 'security', 'monitoring', 'custom']),
+  category: z.enum(['database', 'gemini', 'auth', 'security', 'monitoring', 'custom']),
   sensitive: z.boolean().default(false),
 });
 

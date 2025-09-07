@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion'; //  }, [supabase.auth, router]);
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
   LayoutDashboard,
@@ -21,11 +20,23 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Skeleton } from '@/components/ui/skeleton';
+
 import ErrorBoundary from '../components/ErrorBoundary';
 import CreateProjectModal from '../components/CreateProjectModal';
 import WelcomeModal from '../components/WelcomeModal';
 import ChatWidget from '../components/ChatWidget';
-import SkeletonLoader from '../components/SkeletonLoader';
 
 interface Project {
   id: string;
@@ -56,15 +67,6 @@ interface NewsArticle {
   published_at: string;
   url: string;
 }
-
-const Tooltip = ({ text, children }: { text: string; children: React.ReactNode }) => (
-  <div className="relative group">
-    {children}
-    <div className="absolute bottom-full mb-2 w-max bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-      {text}
-    </div>
-  </div>
-);
 
 const Dashboard: React.FC = () => {
   const router = useRouter();
@@ -173,116 +175,162 @@ const Dashboard: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <div className="text-center p-8 bg-white rounded-lg shadow-md">
-          <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-          <h3 className="text-lg font-medium text-red-900 mb-2">Unable to Load Dashboard</h3>
-          <p className="text-sm text-red-700 mb-4">{error.message}</p>
-          <button onClick={() => window.location.reload()} className="btn-primary">
-            Try Again
-          </button>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="text-destructive">Unable to Load Dashboard</CardTitle>
+            <CardDescription>{error.message}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              Try Again
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     );
   }
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen bg-gray-50 font-sans">
+      <div className="flex h-screen bg-background font-sans">
         {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-md flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-800">Esus Audit AI</h1>
+        <aside className="w-64 bg-card shadow-md flex flex-col">
+          <div className="p-4 border-b">
+            <h1 className="text-2xl font-bold text-foreground">Esus Audit AI</h1>
           </div>
           <nav className="flex-grow p-4 space-y-2">
-            <Tooltip text="Dashboard Overview">
-              <Link
-                href="/dashboard"
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg"
-              >
-                <LayoutDashboard className="mr-3 h-5 w-5" />
-                Dashboard
-              </Link>
-            </Tooltip>
-            <Tooltip text="Manage Projects">
-              <Link
-                href="/projects"
-                className="flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                <Briefcase className="mr-3 h-5 w-5" />
-                Projects
-              </Link>
-            </Tooltip>
-            {userProfile?.role === 'admin' && (
-              <Tooltip text="User Management">
-                <Link
-                  href="/admin"
-                  className="flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  <Users className="mr-3 h-5 w-5" />
-                  Admin
-                </Link>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg"
+                  >
+                    <LayoutDashboard className="mr-3 h-5 w-5" />
+                    Dashboard
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Dashboard Overview</p>
+                </TooltipContent>
               </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/projects"
+                    className="flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg"
+                  >
+                    <Briefcase className="mr-3 h-5 w-5" />
+                    Projects
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Manage Projects</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {userProfile?.role === 'admin' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href="/admin"
+                      className="flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg"
+                    >
+                      <Users className="mr-3 h-5 w-5" />
+                      Admin
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>User Management</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
-            <Tooltip text="Application Settings">
-              <Link
-                href="/settings"
-                className="flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                <Settings className="mr-3 h-5 w-5" />
-                Settings
-              </Link>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/settings"
+                    className="flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg"
+                  >
+                    <Settings className="mr-3 h-5 w-5" />
+                    Settings
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Application Settings</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </nav>
-          <div className="p-4 border-t border-gray-200">
-            <button className="w-full btn-secondary text-sm">Help & Support</button>
+          <div className="p-4 border-t">
+            <Button variant="secondary" className="w-full">
+              Help & Support
+            </Button>
           </div>
         </aside>
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           {/* Header */}
-          <header className="bg-white shadow-sm sticky top-0 z-10">
+          <header className="bg-card shadow-sm sticky top-0 z-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center h-16">
                 <div className="flex items-center">
-                  <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+                  <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <Tooltip text="Create New Project">
-                    <button
-                      onClick={() => setShowCreateModal(true)}
-                      className="btn-primary flex items-center"
-                    >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Project
-                    </button>
-                  </Tooltip>
-                  <Tooltip text="Notifications">
-                    <button className="p-2 rounded-full hover:bg-gray-100">
-                      <Bell className="h-6 w-6 text-gray-600" />
-                    </button>
-                  </Tooltip>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button onClick={() => setShowCreateModal(true)}>
+                          <PlusCircle className="h-5 w-5 mr-2" />
+                          New Project
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Create New Project</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <Bell className="h-6 w-6" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Notifications</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className="relative">
                     <button className="flex items-center space-x-2">
-                      <Image
-                        className="h-8 w-8 rounded-full"
-                        // Use a local placeholder if userProfile is not loaded yet
-                        src={
-                          userProfile?.email
-                            ? `https://i.pravatar.cc/150?u=${userProfile.email}`
-                            : '/avatar-placeholder.svg'
-                        }
-                        alt="User avatar"
-                        width={32}
-                        height={32}
-                        // Optionally, add unoptimized if you want to bypass next/image optimization for remote images
-                        unoptimized={!!userProfile?.email}
-                      />
-                      <span className="text-sm font-medium text-gray-700 hidden md:block">
+                      <Avatar>
+                        <AvatarImage
+                          src={
+                            userProfile?.email
+                              ? `https://i.pravatar.cc/150?u=${userProfile.email}`
+                              : '/avatar-placeholder.svg'
+                          }
+                        />
+                        <AvatarFallback>
+                          {userProfile?.first_name?.[0]}
+                          {userProfile?.last_name?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-foreground hidden md:block">
                         {userProfile?.first_name} {userProfile?.last_name}
                       </span>
-                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     </button>
                   </div>
                 </div>
@@ -302,15 +350,15 @@ const Dashboard: React.FC = () => {
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                       {Array.from({ length: 4 }).map((_, i) => (
-                        <SkeletonLoader key={i} className="h-24" />
+                        <Skeleton key={i} className="h-24" />
                       ))}
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div className="lg:col-span-2">
-                        <SkeletonLoader className="h-80" />
+                        <Skeleton className="h-80" />
                       </div>
                       <div>
-                        <SkeletonLoader className="h-80" />
+                        <Skeleton className="h-80" />
                       </div>
                     </div>
                   </motion.div>
@@ -329,33 +377,18 @@ const Dashboard: React.FC = () => {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.1 }}
                         >
-                          <div className="bg-white p-5 rounded-lg shadow hover:shadow-lg transition-shadow duration-300">
-                            <div className="flex items-center">
-                              <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                                <stat.icon className="h-6 w-6" />
-                              </div>
-                              <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-500 truncate">
-                                  {stat.name}
-                                </p>
-                                <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
-                              </div>
-                            </div>
-                            <p
-                              className={clsx(
-                                'text-xs mt-2 flex items-center',
-                                stat.trend.startsWith('+') ? 'text-green-600' : 'text-red-600'
-                              )}
-                            >
-                              <TrendingUp
-                                className={clsx(
-                                  'h-4 w-4 mr-1',
-                                  !stat.trend.startsWith('+') && 'transform rotate-180'
-                                )}
-                              />
-                              {stat.trend} vs last month
-                            </p>
-                          </div>
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                              <CardTitle className="text-sm font-medium">{stat.name}</CardTitle>
+                              <stat.icon className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-2xl font-bold">{stat.value}</div>
+                              <p className="text-xs text-muted-foreground">
+                                {stat.trend} vs last month
+                              </p>
+                            </CardContent>
+                          </Card>
                         </motion.div>
                       ))}
                     </div>
@@ -363,103 +396,107 @@ const Dashboard: React.FC = () => {
                     {/* Main Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       {/* Recent Projects */}
-                      <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow">
-                        <h3 className="font-semibold text-lg mb-4 flex items-center">
-                          <Briefcase className="mr-2 h-5 w-5" />
-                          Recent Projects
-                        </h3>
-                        <div className="space-y-4">
-                          {projects.slice(0, 5).map((p) => (
-                            <Link key={p.id} href={`/projects/${p.id}`}>
-                              <motion.div
-                                whileHover={{ scale: 1.02 }}
-                                className="p-4 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-between"
-                              >
-                                <div>
-                                  <p className="font-semibold text-gray-800">{p.name}</p>
-                                  <p className="text-sm text-gray-500">{p.client_name}</p>
-                                </div>
-                                <div className="flex items-center space-x-4">
-                                  <span
-                                    className={clsx('px-2 py-1 text-xs font-medium rounded-full', {
-                                      'bg-green-100 text-green-800': p.status === 'active',
-                                      'bg-blue-100 text-blue-800': p.status === 'completed',
-                                      'bg-gray-100 text-gray-800':
-                                        p.status === 'on_hold' || p.status === 'cancelled',
-                                    })}
-                                  >
-                                    {p.status}
-                                  </span>
-                                  <p className="text-sm text-gray-400">
-                                    {new Date(p.created_at).toLocaleDateString()}
-                                  </p>
-                                </div>
-                              </motion.div>
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
+                      <Card className="lg:col-span-2">
+                        <CardHeader>
+                          <CardTitle className="flex items-center">
+                            <Briefcase className="mr-2 h-5 w-5" />
+                            Recent Projects
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {projects.slice(0, 5).map((p) => (
+                              <Link key={p.id} href={`/projects/${p.id}`}>
+                                <motion.div
+                                  whileHover={{ scale: 1.02 }}
+                                  className="p-4 rounded-lg border hover:bg-accent flex items-center justify-between"
+                                >
+                                  <div>
+                                    <p className="font-semibold text-foreground">{p.name}</p>
+                                    <p className="text-sm text-muted-foreground">{p.client_name}</p>
+                                  </div>
+                                  <div className="flex items-center space-x-4">
+                                    <span
+                                      className={`px-2 py-1 text-xs font-medium rounded-full bg-secondary text-secondary-foreground`}
+                                    >
+                                      {p.status}
+                                    </span>
+                                    <p className="text-sm text-muted-foreground">
+                                      {new Date(p.created_at).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </motion.div>
+                              </Link>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
 
                       {/* News & Activity */}
                       <div className="space-y-6">
-                        <div className="bg-white p-6 rounded-lg shadow">
-                          <h3 className="font-semibold text-lg mb-4 flex items-center">
-                            <FileText className="mr-2 h-5 w-5" />
-                            Financial News
-                          </h3>
-                          {newsLoading ? (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center">
+                              <FileText className="mr-2 h-5 w-5" />
+                              Financial News
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {newsLoading ? (
+                              <div className="space-y-3">
+                                {Array.from({ length: 3 }).map((_, i) => (
+                                  <Skeleton key={i} className="h-16" />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                {news.slice(0, 3).map((article, index) => (
+                                  <div key={index} className="border-b pb-3 last:border-b-0">
+                                    <h4 className="font-medium text-sm text-foreground mb-1">
+                                      {article.title}
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground mb-2">
+                                      {article.description}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {new Date(article.published_at).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center">
+                              <Activity className="mr-2 h-5 w-5" />
+                              Recent Activity
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
                             <div className="space-y-3">
-                              {Array.from({ length: 3 }).map((_, i) => (
-                                <SkeletonLoader key={i} className="h-16" />
-                              ))}
+                              <div className="flex items-center text-sm">
+                                <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
+                                <span className="text-muted-foreground">
+                                  Project &quot;Q3 Financial Review&quot; was created
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                                <span className="text-muted-foreground">
+                                  Audit findings uploaded for &quot;ABC Corp Review&quot;
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
+                                <span className="text-muted-foreground">
+                                  Review deadline approaching for &quot;XYZ Analysis&quot;
+                                </span>
+                              </div>
                             </div>
-                          ) : (
-                            <div className="space-y-4">
-                              {news.slice(0, 3).map((article, index) => (
-                                <div
-                                  key={index}
-                                  className="border-b border-gray-200 pb-3 last:border-b-0"
-                                >
-                                  <h4 className="font-medium text-sm text-gray-800 mb-1">
-                                    {article.title}
-                                  </h4>
-                                  <p className="text-xs text-gray-600 mb-2">
-                                    {article.description}
-                                  </p>
-                                  <p className="text-xs text-gray-400">
-                                    {new Date(article.published_at).toLocaleDateString()}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="bg-white p-6 rounded-lg shadow">
-                          <h3 className="font-semibold text-lg mb-4 flex items-center">
-                            <Activity className="mr-2 h-5 w-5" />
-                            Recent Activity
-                          </h3>
-                          <div className="space-y-3">
-                            <div className="flex items-center text-sm">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                              <span className="text-gray-600">
-                                Project &quot;Q3 Financial Review&quot; was created
-                              </span>
-                            </div>
-                            <div className="flex items-center text-sm">
-                              <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                              <span className="text-gray-600">
-                                Audit findings uploaded for &quot;ABC Corp Review&quot;
-                              </span>
-                            </div>
-                            <div className="flex items-center text-sm">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
-                              <span className="text-gray-600">
-                                Review deadline approaching for &quot;XYZ Analysis&quot;
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                          </CardContent>
+                        </Card>
                       </div>
                     </div>
                   </motion.div>

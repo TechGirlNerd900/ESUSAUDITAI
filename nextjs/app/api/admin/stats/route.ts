@@ -2,7 +2,7 @@
 // Provides organization-level statistics for admin dashboard
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: NextRequest) {

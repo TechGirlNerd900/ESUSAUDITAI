@@ -19,7 +19,7 @@ async function testSignupEndpoint() {
     firstName: 'Test',
     lastName: 'User',
     organizationName: 'Test Organization',
-    registrationType: 'create_org'
+    registrationType: 'create_org',
   };
 
   try {
@@ -28,13 +28,13 @@ async function testSignupEndpoint() {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(validOrgSignup)
+      body: JSON.stringify(validOrgSignup),
     });
 
     const data = await response.json();
     console.log(`Status: ${response.status}`);
     console.log(`Response:`, data);
-    
+
     if (response.ok) {
       console.log('✅ Organization creation signup works');
     } else {
@@ -47,40 +47,45 @@ async function testSignupEndpoint() {
 
   // Test 2: Invalid data scenarios
   console.log('\n2. Testing invalid data scenarios...');
-  
+
   const invalidTests = [
     {
       name: 'Missing email',
-      data: { password: 'TestPass123!', firstName: 'Test', lastName: 'User' }
+      data: { password: 'TestPass123!', firstName: 'Test', lastName: 'User' },
     },
     {
       name: 'Invalid email format',
-      data: { email: 'invalid-email', password: 'TestPass123!', firstName: 'Test', lastName: 'User' }
+      data: {
+        email: 'invalid-email',
+        password: 'TestPass123!',
+        firstName: 'Test',
+        lastName: 'User',
+      },
     },
     {
       name: 'Weak password',
-      data: { email: 'test2@example.com', password: 'weak', firstName: 'Test', lastName: 'User' }
+      data: { email: 'test2@example.com', password: 'weak', firstName: 'Test', lastName: 'User' },
     },
     {
       name: 'Missing organization name for create_org',
-      data: { 
-        email: 'test3@example.com', 
-        password: 'TestPass123!', 
-        firstName: 'Test', 
+      data: {
+        email: 'test3@example.com',
+        password: 'TestPass123!',
+        firstName: 'Test',
         lastName: 'User',
-        registrationType: 'create_org'
-      }
+        registrationType: 'create_org',
+      },
     },
     {
       name: 'Missing invite token for join_invite',
-      data: { 
-        email: 'test4@example.com', 
-        password: 'TestPass123!', 
-        firstName: 'Test', 
+      data: {
+        email: 'test4@example.com',
+        password: 'TestPass123!',
+        firstName: 'Test',
         lastName: 'User',
-        registrationType: 'join_invite'
-      }
-    }
+        registrationType: 'join_invite',
+      },
+    },
   ];
 
   for (const test of invalidTests) {
@@ -91,13 +96,13 @@ async function testSignupEndpoint() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(test.data)
+        body: JSON.stringify(test.data),
       });
 
       const data = await response.json();
       console.log(`  Status: ${response.status}`);
       console.log(`  Error: ${data.error || 'No error message'}`);
-      
+
       if (response.status === 400) {
         console.log('  ✅ Correctly rejected invalid data');
       } else {
@@ -115,13 +120,13 @@ async function testSignupEndpoint() {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
     });
 
     const data = await response.json();
     console.log(`Status: ${response.status}`);
     console.log(`Response:`, data);
-    
+
     if (response.ok) {
       console.log('✅ Database connection works');
     } else {
@@ -136,7 +141,7 @@ async function testSignupEndpoint() {
   const requiredEnvVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY'
+    'SUPABASE_SERVICE_ROLE_KEY',
   ];
 
   for (const envVar of requiredEnvVars) {

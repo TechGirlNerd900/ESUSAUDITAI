@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { getUserProfile } from '@/lib/apiAuth';
-import { importTrialBalanceFromExcel } from '@/lib/trialBalanceImporter';
+import { createClient } from '@/utils/supabase/server';
+import { getUserProfile } from '@/lib/auth/apiAuth';
+import { importTrialBalanceFromExcel } from '@/lib/processing/trialBalanceImporter';
 
 /**
  * POST /api/financial-analysis/trial-balance/upload
@@ -10,10 +9,19 @@ import { importTrialBalanceFromExcel } from '@/lib/trialBalanceImporter';
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // Get user profile
-    const userProfile = await getUserProfile(supabase);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json(
         { error: 'User not authenticated or profile not found' },
@@ -85,13 +93,21 @@ export async function POST(request: NextRequest) {
     const fileBuffer = await file.arrayBuffer();
 
     // Import trial balance from Excel
-    const importResult = await importTrialBalanceFromExcel(fileBuffer, {
-      worksheetName: worksheetName || undefined,
-      headerRow,
-      startRow,
-      endRow,
-      autoDetectAccountTypes,
-    });
+    const importOptions: {
+      worksheetName?: string;
+      headerRow?: number;
+      startRow?: number;
+      endRow?: number;
+      autoDetectAccountTypes?: boolean;
+    } = {};
+
+    if (worksheetName) importOptions.worksheetName = worksheetName;
+    if (headerRow) importOptions.headerRow = headerRow;
+    if (startRow) importOptions.startRow = startRow;
+    if (endRow) importOptions.endRow = endRow;
+    if (autoDetectAccountTypes) importOptions.autoDetectAccountTypes = autoDetectAccountTypes;
+
+    const importResult = await importTrialBalanceFromExcel(fileBuffer, importOptions);
 
     if (!importResult.success) {
       return NextResponse.json(
@@ -201,7 +217,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to process Excel upload',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details:
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : undefined,
       },
       { status: 500 }
     );

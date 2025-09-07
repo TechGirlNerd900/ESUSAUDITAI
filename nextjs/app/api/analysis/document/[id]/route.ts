@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { AzureServices } from '@/lib/azureServices';
-import { openai } from '@/lib/openaiClient';
+import { GeminiServices } from '@/lib/gemini/geminiServices';
+import { generateChatResponse } from '@/lib/geminiClient';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // Declare supabase and documentId outside try block for error handling access
@@ -121,17 +121,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error('Status update error:', statusUpdateError);
     }
 
-    // Initialize Azure services
+    // Initialize Gemini services
     const cookieStore = {
       getAll: () => [],
       setAll: () => {},
     };
 
-    let azureServices: AzureServices;
+    let geminiServices: GeminiServices;
     try {
-      azureServices = new AzureServices(cookieStore);
-    } catch (azureError) {
-      console.error('Azure services initialization error:', azureError);
+      geminiServices = new GeminiServices(cookieStore);
+    } catch (geminiError) {
+      console.error('Gemini services initialization error:', geminiError);
 
       // Compensating transaction: reset document status
 
@@ -147,30 +147,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const startTime = Date.now();
 
     try {
-      // Analyze document with Azure Document Intelligence
+      // Analyze document with Gemini
       let documentAnalysis;
       try {
-        documentAnalysis = await azureServices.analyzeDocument(
+        documentAnalysis = await geminiServices.analyzeDocument(
           document.blob_url,
           'prebuilt-document'
         );
-      } catch (azureAnalysisError: unknown) {
-        console.error('Azure document analysis error:', azureAnalysisError);
+      } catch (geminiAnalysisError: unknown) {
+        console.error('Gemini document analysis error:', geminiAnalysisError);
         let errorMessage = 'Document analysis failed';
-        if (azureAnalysisError instanceof Error) {
-          errorMessage += ': ' + azureAnalysisError.message;
-        } else if (typeof azureAnalysisError === 'string') {
-          errorMessage += ': ' + azureAnalysisError;
+        if (geminiAnalysisError instanceof Error) {
+          errorMessage += ': ' + geminiAnalysisError.message;
+        } else if (typeof geminiAnalysisError === 'string') {
+          errorMessage += ': ' + geminiAnalysisError;
         }
         throw new Error(errorMessage);
       }
 
       // Validate analysis results
       if (!documentAnalysis) {
-        throw new Error('No analysis results received from Azure');
+        throw new Error('No analysis results received from Gemini');
       }
 
-      // Generate AI summary and insights using OpenAI
+      // Generate AI summary and insights using Gemini
       const aiAnalysisPrompt = `
         Analyze this financial document data and provide:
         1. A comprehensive summary
@@ -184,26 +184,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       let aiSummary: string;
       try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a financial auditing expert. Analyze the provided document data and provide detailed insights.',
-            },
-            {
-              role: 'user',
-              content: aiAnalysisPrompt,
-            },
-          ],
-          max_tokens: 2000,
-          temperature: 0.3,
-        });
+        const completion = await generateChatResponse([], {}, aiAnalysisPrompt);
 
-        aiSummary = completion.choices[0]?.message?.content || 'Analysis completed';
-      } catch (openaiError) {
-        console.error('OpenAI analysis error:', openaiError);
+        aiSummary = completion.answer || 'Analysis completed';
+      } catch (geminiError) {
+        console.error('Gemini analysis error:', geminiError);
         aiSummary = 'AI analysis unavailable - using extracted data only';
       }
 
@@ -224,7 +209,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             confidence_score: confidence,
             processing_time_ms: Date.now() - startTime,
             analysis_type: 'document_analysis',
-            model_version: 'gpt-4-turbo',
+            model_version: 'gemini-pro',
             metadata: {
               file_type: document.file_type,
               file_size: document.file_size || null,

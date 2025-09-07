@@ -3,7 +3,7 @@ info:
   title: ESUS Audit AI API
   description: |
     API documentation for the ESUS Audit AI platform.
-    
+
     This API provides endpoints for managing projects, documents, analysis, and chat functionality.
   version: 1.0.0
   contact:
@@ -1444,7 +1444,18 @@ components:
           type: string
         type:
           type: string
-          enum: [VALIDATION, AUTHENTICATION, AUTHORIZATION, NOT_FOUND, CONFLICT, EXTERNAL_SERVICE, DATABASE, RATE_LIMIT, INTERNAL]
+          enum:
+            [
+              VALIDATION,
+              AUTHENTICATION,
+              AUTHORIZATION,
+              NOT_FOUND,
+              CONFLICT,
+              EXTERNAL_SERVICE,
+              DATABASE,
+              RATE_LIMIT,
+              INTERNAL,
+            ]
         details:
           type: object
   securitySchemes:

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 import {
   accountClassificationEngine,
   AccountMapping,
   ChartOfAccountsTemplate,
-} from '@/lib/accountClassification';
+} from '@/lib/financial/accountClassification';
 
 /**
  * Account Classification Management API
@@ -14,7 +13,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -36,11 +35,11 @@ export async function GET(request: NextRequest) {
       case 'list':
         return await handleListAccounts(supabase, organizationId);
 
-      case 'template':
+      case 'template': {
         const industryType = searchParams.get('industryType') || 'trading';
         const standard = (searchParams.get('standard') as 'IFRS' | 'GAAP' | 'FRS') || 'IFRS';
         return await handleGetTemplate(industryType, standard, organizationId);
-
+      }
       case 'analytics':
         return await handleGetAnalytics(supabase, organizationId);
 
@@ -55,7 +54,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -96,7 +95,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -125,7 +124,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,

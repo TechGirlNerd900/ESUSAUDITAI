@@ -5,85 +5,109 @@
 -- Enable RLS on storage.objects table
 
 -- Create policy for file uploads (authenticated users can upload to their organization path)
-CREATE POLICY "Users can upload files to their organization folder"
-ON storage.objects FOR INSERT
-WITH CHECK (
-  -- Check if user is authenticated
-  auth.role() = 'authenticated' AND
-  -- Check if the file path starts with user's organization ID
-  CASE 
-    WHEN bucket_id = 'documents' THEN
-      -- Extract organization from path structure: userId/projectId/filename
-      -- First get the user ID from path
-      (SELECT 
-        CASE 
-          WHEN users.organization_id::text = split_part(name, '/', 1) 
-          THEN true 
-          ELSE false 
-        END
-      FROM users 
-      WHERE users.auth_user_id = auth.uid()
-      LIMIT 1)
-    ELSE false
-  END
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can upload files to their organization folder') THEN
+        CREATE POLICY "Users can upload files to their organization folder"
+        ON storage.objects FOR INSERT
+        WITH CHECK (
+          -- Check if user is authenticated
+          auth.role() = 'authenticated' AND
+          -- Check if the file path starts with user's organization ID
+          CASE 
+            WHEN bucket_id = 'documents' THEN
+              -- Extract organization from path structure: userId/projectId/filename
+              -- First get the user ID from path
+              (SELECT 
+                CASE 
+                  WHEN users.organization_id::text = split_part(name, '/', 1) 
+                  THEN true 
+                  ELSE false 
+                END
+              FROM users 
+              WHERE users.auth_user_id = auth.uid()
+              LIMIT 1)
+            ELSE false
+          END
+        );
+    END IF;
+END
+$$;
 
 -- Create policy for file downloads (authenticated users can download from their organization)
-CREATE POLICY "Users can download files from their organization"
-ON storage.objects FOR SELECT
-USING (
-  auth.role() = 'authenticated' AND
-  CASE 
-    WHEN bucket_id = 'documents' THEN
-      -- Check if user has access to this document through their organization
-      EXISTS (
-        SELECT 1 FROM documents d
-        JOIN users u ON u.auth_user_id = auth.uid()
-        WHERE d.file_path = name 
-        AND d.organization_id = u.organization_id
-        AND d.deleted_at IS NULL
-      )
-    ELSE false
-  END
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can download files from their organization') THEN
+        CREATE POLICY "Users can download files from their organization"
+        ON storage.objects FOR SELECT
+        USING (
+          auth.role() = 'authenticated' AND
+          CASE 
+            WHEN bucket_id = 'documents' THEN
+              -- Check if user has access to this document through their organization
+              EXISTS (
+                SELECT 1 FROM documents d
+                JOIN users u ON u.auth_user_id = auth.uid()
+                WHERE d.file_path = name 
+                AND d.organization_id = u.organization_id
+                AND d.deleted_at IS NULL
+              )
+            ELSE false
+          END
+        );
+    END IF;
+END
+$$;
 
 -- Create policy for file updates (only document owner or admin can update)
-CREATE POLICY "Users can update their own files"
-ON storage.objects FOR UPDATE
-USING (
-  auth.role() = 'authenticated' AND
-  CASE 
-    WHEN bucket_id = 'documents' THEN
-      EXISTS (
-        SELECT 1 FROM documents d
-        JOIN users u ON u.auth_user_id = auth.uid()
-        WHERE d.file_path = name 
-        AND (d.uploaded_by = auth.uid() OR u.role = 'admin')
-        AND d.organization_id = u.organization_id
-        AND d.deleted_at IS NULL
-      )
-    ELSE false
-  END
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update their own files') THEN
+        CREATE POLICY "Users can update their own files"
+        ON storage.objects FOR UPDATE
+        USING (
+          auth.role() = 'authenticated' AND
+          CASE 
+            WHEN bucket_id = 'documents' THEN
+              EXISTS (
+                SELECT 1 FROM documents d
+                JOIN users u ON u.auth_user_id = auth.uid()
+                WHERE d.file_path = name 
+                AND (d.uploaded_by = auth.uid() OR u.role = 'admin')
+                AND d.organization_id = u.organization_id
+                AND d.deleted_at IS NULL
+              )
+            ELSE false
+          END
+        );
+    END IF;
+END
+$$;
 
 -- Create policy for file deletion (only document owner or admin can delete)
-CREATE POLICY "Users can delete their own files"
-ON storage.objects FOR DELETE
-USING (
-  auth.role() = 'authenticated' AND
-  CASE 
-    WHEN bucket_id = 'documents' THEN
-      EXISTS (
-        SELECT 1 FROM documents d
-        JOIN users u ON u.auth_user_id = auth.uid()
-        WHERE d.file_path = name 
-        AND (d.uploaded_by = auth.uid() OR u.role = 'admin')
-        AND d.organization_id = u.organization_id
-        AND d.deleted_at IS NULL
-      )
-    ELSE false
-  END
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can delete their own files') THEN
+        CREATE POLICY "Users can delete their own files"
+        ON storage.objects FOR DELETE
+        USING (
+          auth.role() = 'authenticated' AND
+          CASE 
+            WHEN bucket_id = 'documents' THEN
+              EXISTS (
+                SELECT 1 FROM documents d
+                JOIN users u ON u.auth_user_id = auth.uid()
+                WHERE d.file_path = name 
+                AND (d.uploaded_by = auth.uid() OR u.role = 'admin')
+                AND d.organization_id = u.organization_id
+                AND d.deleted_at IS NULL
+              )
+            ELSE false
+          END
+        );
+    END IF;
+END
+$$;
 
 -- Create data access logs table for compliance tracking
 CREATE TABLE IF NOT EXISTS data_access_logs (
@@ -96,7 +120,7 @@ CREATE TABLE IF NOT EXISTS data_access_logs (
   access_method VARCHAR(20) NOT NULL,
   ip_address INET,
   user_agent TEXT,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   
   CONSTRAINT fk_data_access_user 
     FOREIGN KEY (user_id) REFERENCES users(id),
@@ -112,27 +136,39 @@ CREATE TABLE IF NOT EXISTS data_access_logs (
 ALTER TABLE data_access_logs ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for data access logs
-CREATE POLICY "Users can view data access logs from their organization"
-ON data_access_logs FOR SELECT
-USING (
-  organization_id IN (
-    SELECT organization_id FROM users 
-    WHERE auth_user_id = auth.uid() 
-    AND deleted_at IS NULL
-  )
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view data access logs from their organization') THEN
+        CREATE POLICY "Users can view data access logs from their organization"
+        ON data_access_logs FOR SELECT
+        USING (
+          organization_id IN (
+            SELECT organization_id FROM users 
+            WHERE auth_user_id = auth.uid() 
+            AND deleted_at IS NULL
+          )
+        );
+    END IF;
+END
+$$;
 
 -- Create RLS policy for inserting data access logs
-CREATE POLICY "Authenticated users can insert data access logs"
-ON data_access_logs FOR INSERT
-WITH CHECK (
-  auth.role() = 'authenticated' AND
-  organization_id IN (
-    SELECT organization_id FROM users 
-    WHERE auth_user_id = auth.uid() 
-    AND deleted_at IS NULL
-  )
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated users can insert data access logs') THEN
+        CREATE POLICY "Authenticated users can insert data access logs"
+        ON data_access_logs FOR INSERT
+        WITH CHECK (
+          auth.role() = 'authenticated' AND
+          organization_id IN (
+            SELECT organization_id FROM users 
+            WHERE auth_user_id = auth.uid() 
+            AND deleted_at IS NULL
+          )
+        );
+    END IF;
+END
+$$;
 
 -- Create security events table for monitoring
 CREATE TABLE IF NOT EXISTS security_events (
@@ -144,7 +180,7 @@ CREATE TABLE IF NOT EXISTS security_events (
   details JSONB,
   ip_address INET,
   user_agent TEXT,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   
   CONSTRAINT security_event_severity_check 
     CHECK (severity IN ('low', 'medium', 'high', 'critical')),
@@ -167,27 +203,39 @@ CREATE TABLE IF NOT EXISTS security_events (
 ALTER TABLE security_events ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for security events
-CREATE POLICY "Users can view security events from their organization"
-ON security_events FOR SELECT
-USING (
-  organization_id IN (
-    SELECT organization_id FROM users 
-    WHERE auth_user_id = auth.uid() 
-    AND deleted_at IS NULL
-  )
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view security events from their organization') THEN
+        CREATE POLICY "Users can view security events from their organization"
+        ON security_events FOR SELECT
+        USING (
+          organization_id IN (
+            SELECT organization_id FROM users 
+            WHERE auth_user_id = auth.uid() 
+            AND deleted_at IS NULL
+          )
+        );
+    END IF;
+END
+$$;
 
 -- Create RLS policy for inserting security events
-CREATE POLICY "Authenticated users can insert security events"
-ON security_events FOR INSERT
-WITH CHECK (
-  auth.role() = 'authenticated' AND
-  organization_id IN (
-    SELECT organization_id FROM users 
-    WHERE auth_user_id = auth.uid() 
-    AND deleted_at IS NULL
-  )
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated users can insert security events') THEN
+        CREATE POLICY "Authenticated users can insert security events"
+        ON security_events FOR INSERT
+        WITH CHECK (
+          auth.role() = 'authenticated' AND
+          organization_id IN (
+            SELECT organization_id FROM users 
+            WHERE auth_user_id = auth.uid() 
+            AND deleted_at IS NULL
+          )
+        );
+    END IF;
+END
+$$;
 
 -- Create file quarantine table for suspicious files
 CREATE TABLE IF NOT EXISTS file_quarantine (
@@ -212,38 +260,50 @@ CREATE TABLE IF NOT EXISTS file_quarantine (
 ALTER TABLE file_quarantine ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for file quarantine
-CREATE POLICY "Users can view quarantined files from their organization"
-ON file_quarantine FOR SELECT
-USING (
-  organization_id IN (
-    SELECT organization_id FROM users 
-    WHERE auth_user_id = auth.uid() 
-    AND deleted_at IS NULL
-  )
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view quarantined files from their organization') THEN
+        CREATE POLICY "Users can view quarantined files from their organization"
+        ON file_quarantine FOR SELECT
+        USING (
+          organization_id IN (
+            SELECT organization_id FROM users 
+            WHERE auth_user_id = auth.uid() 
+            AND deleted_at IS NULL
+          )
+        );
+    END IF;
+END
+$$;
 
 -- Create RLS policy for inserting quarantine records
-CREATE POLICY "Authenticated users can quarantine files"
-ON file_quarantine FOR INSERT
-WITH CHECK (
-  auth.role() = 'authenticated' AND
-  organization_id IN (
-    SELECT organization_id FROM users 
-    WHERE auth_user_id = auth.uid() 
-    AND deleted_at IS NULL
-  )
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated users can quarantine files') THEN
+        CREATE POLICY "Authenticated users can quarantine files"
+        ON file_quarantine FOR INSERT
+        WITH CHECK (
+          auth.role() = 'authenticated' AND
+          organization_id IN (
+            SELECT organization_id FROM users 
+            WHERE auth_user_id = auth.uid() 
+            AND deleted_at IS NULL
+          )
+        );
+    END IF;
+END
+$$;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_data_access_logs_user_id ON data_access_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_data_access_logs_organization_id ON data_access_logs(organization_id);
 CREATE INDEX IF NOT EXISTS idx_data_access_logs_resource_type ON data_access_logs(resource_type);
-CREATE INDEX IF NOT EXISTS idx_data_access_logs_timestamp ON data_access_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_data_access_logs_created_at ON data_access_logs(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_security_events_organization_id ON security_events(organization_id);
 CREATE INDEX IF NOT EXISTS idx_security_events_event_type ON security_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_security_events_severity ON security_events(severity);
-CREATE INDEX IF NOT EXISTS idx_security_events_timestamp ON security_events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_security_events_created_at ON security_events(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_file_quarantine_organization_id ON file_quarantine(organization_id);
 CREATE INDEX IF NOT EXISTS idx_file_quarantine_status ON file_quarantine(status);

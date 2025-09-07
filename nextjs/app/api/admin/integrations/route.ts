@@ -7,7 +7,7 @@ import {
   ValidationError,
   NotFoundError,
 } from '@/lib/errorHandler';
-import configManager, { IntegrationType } from '@/lib/configManager';
+import configManager, { IntegrationType } from '@/lib/core/configManager';
 import { z } from 'zod';
 
 // Validation schema for API integration

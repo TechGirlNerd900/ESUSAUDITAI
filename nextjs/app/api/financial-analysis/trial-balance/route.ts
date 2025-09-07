@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { getUserProfile } from '@/lib/apiAuth';
-import { processExcelFile } from '@/lib/excelProcessor';
+import { createClient } from '@/utils/supabase/server';
+import { getUserProfile } from '@/lib/auth/apiAuth';
+import { processExcelFile } from '@/lib/processing/excelProcessor';
 
 interface TrialBalanceEntry {
   accountCode: string;
@@ -30,10 +29,19 @@ interface ProcessTrialBalanceRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // Get user profile
-    const userProfile = await getUserProfile(supabase);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json(
         { error: 'User not authenticated or profile not found' },
@@ -174,7 +182,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to process trial balance',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
       },
       { status: 500 }
     );
@@ -187,10 +195,19 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // Get user profile
-    const userProfile = await getUserProfile(supabase);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json(
         { error: 'User not authenticated or profile not found' },
@@ -289,7 +306,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to fetch trial balance',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
       },
       { status: 500 }
     );
@@ -478,8 +495,9 @@ function calculateTrialBalanceSummary(trialBalanceData: any[]) {
     summary.totalDebits += entry.debit_balance;
     summary.totalCredits += entry.credit_balance;
 
-    const accountType = entry.chart_of_accounts?.account_type;
-    if (accountType && summary.accountsByType.hasOwnProperty(accountType)) {
+    const accountType = entry.chart_of_accounts
+      ?.account_type as keyof typeof summary.accountsByType;
+    if (accountType && Object.prototype.hasOwnProperty.call(summary.accountsByType, accountType)) {
       summary.accountsByType[accountType]++;
       summary.balancesByType[accountType] += Math.abs(entry.net_balance);
     }

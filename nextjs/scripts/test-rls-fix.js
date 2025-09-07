@@ -41,7 +41,7 @@ async function testRLSFix() {
     // Test 2: Check if RLS policies exist
     console.log('\n2. Checking RLS policies...');
     let policies, policyError;
-    
+
     try {
       const result = await supabase.rpc('get_table_policies', { table_name: 'users' });
       policies = result.data;
@@ -49,10 +49,7 @@ async function testRLSFix() {
     } catch (rpcError) {
       // If RPC doesn't exist, try direct query
       try {
-        const result = await supabase
-          .from('pg_policies')
-          .select('*')
-          .eq('tablename', 'users');
+        const result = await supabase.from('pg_policies').select('*').eq('tablename', 'users');
         policies = result.data;
         policyError = result.error;
       } catch (directError) {
@@ -69,7 +66,7 @@ async function testRLSFix() {
     // Test 3: Try to create a test user (this will test RLS)
     console.log('\n3. Testing user creation (RLS test)...');
     const testEmail = `test-${Date.now()}@example.com`;
-    
+
     const { data: testUser, error: userError } = await supabase
       .from('users')
       .insert({
@@ -80,7 +77,7 @@ async function testRLSFix() {
         role: 'auditor',
         organization_id: '00000000-0000-0000-0000-000000000001', // Dummy UUID
         status: 'active',
-        is_active: true
+        is_active: true,
       })
       .select()
       .single();
@@ -95,16 +92,12 @@ async function testRLSFix() {
     } else {
       console.log('✅ Test user created successfully');
       // Clean up test user
-      await supabase
-        .from('users')
-        .delete()
-        .eq('id', testUser.id);
+      await supabase.from('users').delete().eq('id', testUser.id);
       console.log('✅ Test user cleaned up');
     }
 
     console.log('\n🎉 RLS fix verification completed successfully!');
     return true;
-
   } catch (error) {
     console.error('❌ Test failed with error:', error);
     return false;

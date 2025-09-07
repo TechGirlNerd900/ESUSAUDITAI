@@ -1,7 +1,7 @@
 // User Profile API Endpoint
 // Returns current user's profile information for dashboard initialization
 
-import { authenticateApiRequest } from '@/lib/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {

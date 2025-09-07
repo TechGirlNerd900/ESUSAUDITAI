@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { ChatMessage } from '@/types/supabase';
 import { NextRequest, NextResponse } from 'next/server';
-import { generateChatResponse } from '@/lib/openaiClient';
+import { generateChatResponse } from '@/lib/geminiClient';
 import {
   withErrorHandling,
   withRetry,
@@ -11,8 +11,8 @@ import {
   ValidationError,
   DatabaseError,
 } from '@/lib/errorHandler';
-import { createQueryOptimizer } from '@/lib/queryOptimizer';
-import { parsePaginationParams, validatePaginationParams } from '@/lib/pagination';
+import { createQueryOptimizer } from '@/lib/db/queryOptimizer';
+import { parsePaginationParams, validatePaginationParams } from '@/lib/api/pagination';
 
 /**
  * POST handler for chat messages
@@ -147,7 +147,6 @@ export const POST = withErrorHandling(
           generateChatResponse(chatHistory as ChatMessage[], project, query || message, projectId),
         {
           maxRetries: 2,
-          baseDelay: 500,
           shouldRetry: (error) => {
             // Only retry on network or timeout errors, not on validation errors
             return (
@@ -290,8 +289,8 @@ export const GET = withErrorHandling(
 
     // Use query optimizer to get paginated chat history with caching
     const result = await queryOptimizer.query('chat_history', {
-      page: paginationParams.page,
-      pageSize: paginationParams.pageSize,
+      page: paginationParams.page ?? 1,
+      pageSize: paginationParams.pageSize ?? 20,
       sortBy: 'created_at',
       sortOrder: paginationParams.sortOrder || 'asc',
       filters: {

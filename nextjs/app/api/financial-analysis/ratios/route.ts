@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { getUserProfile } from '@/lib/apiAuth';
+import { createClient } from '@/utils/supabase/server';
+import { getUserProfile } from '@/lib/auth/apiAuth';
 import {
   calculateAllFinancialRatios,
   TrialBalanceData,
   FinancialRatio,
-} from '@/lib/financialRatios';
+} from '@/lib/financial/financialRatios';
 
 interface CalculateRatiosRequest {
   projectId: string;
@@ -22,10 +21,19 @@ interface CalculateRatiosRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // Get user profile
-    const userProfile = await getUserProfile(supabase);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json(
         { error: 'User not authenticated or profile not found' },
@@ -143,7 +151,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to calculate financial ratios',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
       },
       { status: 500 }
     );
@@ -156,10 +164,19 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // Get user profile
-    const userProfile = await getUserProfile(supabase);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json(
         { error: 'User not authenticated or profile not found' },
@@ -254,7 +271,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to fetch financial ratios',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
       },
       { status: 500 }
     );

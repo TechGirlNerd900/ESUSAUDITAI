@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/app/components/ui/use-toast';
 
 export interface Job {
   id: string;
@@ -32,7 +32,10 @@ export interface UseJobsDataReturn {
   cleanupJobs: () => Promise<void>;
 }
 
-export function useJobsData(selectedStatus: string | null, selectedType: string | null): UseJobsDataReturn {
+export function useJobsData(
+  selectedStatus: string | null,
+  selectedType: string | null
+): UseJobsDataReturn {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

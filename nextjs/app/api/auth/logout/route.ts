@@ -1,8 +1,8 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandling, ApiError } from '@/lib/errorHandler';
-import { successResponse } from '@/lib/apiResponse';
-import { authRateLimiter } from '@/lib/rateLimiter';
+import { successResponse } from '@/lib/api/apiResponse';
+import { authRateLimiter } from '@/lib/api/rateLimiter';
 
 export const POST = withErrorHandling(async (request: NextRequest) => {
   // Apply rate limiting for logout attempts

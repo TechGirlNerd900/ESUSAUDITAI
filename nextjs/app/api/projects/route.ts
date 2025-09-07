@@ -1,14 +1,15 @@
 import { NextRequest } from 'next/server';
-import { Database } from '@/lib/database';
+import { Database } from '@/lib/db/database';
 import { cookies } from 'next/headers';
-import { authenticateApiRequest } from '@/lib/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { withErrorHandling } from '@/lib/errorHandler';
-import { successResponse, errorResponse, createdResponse } from '@/lib/apiResponse';
+import { successResponse, errorResponse, createdResponse } from '@/lib/api/apiResponse';
 import {
   parsePaginationParams,
   createPaginatedResponse,
   validatePaginationParams,
-} from '@/lib/pagination';
+} from '@/lib/api/pagination';
+import { createClient } from '@/utils/supabase/server';
 
 /**
  * GET handler for projects
@@ -28,7 +29,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   const auth = await authenticateApiRequest(request, { rateLimit: 100 });
 
   if (!auth.success) {
-    return (auth as import('@/lib/apiAuth').AuthFailure).response;
+    return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
   }
 
   // Initialize database
@@ -73,7 +74,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
 
   if (!auth.success) {
     // Type assertion to help TypeScript understand the auth object structure
-    return (auth as import('@/lib/apiAuth').AuthFailure).response;
+    return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
   }
 
   // Parse request body
@@ -131,6 +132,23 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     assignedTo: assignedToArray,
     organizationId: auth.profile.organization_id,
   });
+
+  const supabase = await createClient();
+  // Create audit log entry for the project creation
+  await supabase.from('audit_logs').insert([
+    {
+      organization_id: auth.profile.organization_id,
+      user_id: auth.profile.id,
+      action: 'project_created',
+      resource_type: 'project',
+      resource_id: project.id,
+      details: {
+        project_name: project.name,
+        client_name: project.client_name,
+        creation_time: new Date().toISOString(),
+      },
+    },
+  ]);
 
   return createdResponse(project, 'Project created successfully');
 });

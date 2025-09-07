@@ -137,7 +137,6 @@ async function runTests() {
   }
 
   console.log('');
-  
 }
 
 // Run the tests

@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
-import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/apiAuth';
+import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/auth/apiAuth';
 import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler';
 import { createClient } from '@/utils/supabase/server';
-import { successResponse } from '@/lib/apiResponse';
+import { successResponse } from '@/lib/api/apiResponse';
 
 export const GET = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
@@ -16,7 +16,7 @@ export const GET = withErrorHandling(
     });
 
     if (!auth.success) {
-      return (auth as import('@/lib/apiAuth').AuthFailure).response;
+      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
     }
 
     const supabase = await createClient();
@@ -62,7 +62,7 @@ export const PUT = withErrorHandling(
     });
 
     if (!auth.success) {
-      return (auth as import('@/lib/apiAuth').AuthFailure).response;
+      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
     }
 
     const supabase = await createClient();
@@ -128,7 +128,7 @@ export const DELETE = withErrorHandling(
     });
 
     if (!auth.success) {
-      return (auth as import('@/lib/apiAuth').AuthFailure).response;
+      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
     }
 
     const supabase = await createClient();

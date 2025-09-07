@@ -22,7 +22,7 @@ interface HealthResponse {
 }
 
 // Create circuit breakers for external services
-const azureCircuitBreaker = new CircuitBreaker(3, 60000, 2);
+const geminiCircuitBreaker = new CircuitBreaker(3, 60000, 2);
 const openaiCircuitBreaker = new CircuitBreaker(3, 60000, 2);
 
 /**
@@ -52,7 +52,7 @@ export const GET = withErrorHandling(async (_request: NextRequest) => {
       async () => {
         return await supabase.from('health_check').select('last_check, status').limit(1);
       },
-      { maxRetries: 2, baseDelay: 500 }
+      { maxRetries: 2 }
     );
 
     const responseTime = Date.now() - dbStartTime;
@@ -90,33 +90,33 @@ export const GET = withErrorHandling(async (_request: NextRequest) => {
     healthResponse.status = 'degraded';
   }
 
-  // Check Azure Document Intelligence health
+  // Check Gemini health
   try {
-    const azureStartTime = Date.now();
+    const geminiStartTime = Date.now();
 
-    await azureCircuitBreaker.execute(async () => {
-      // Mock implementation - in a real app, you would call Azure Document Intelligence
+    await geminiCircuitBreaker.execute(async () => {
+      // Mock implementation - in a real app, you would call Gemini
       // with a simple ping or status check
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Simulate success or failure based on environment variable
-      if (process.env.MOCK_AZURE_FAILURE === 'true') {
-        throw new Error('Simulated Azure failure');
+      if (process.env.MOCK_GEMINI_FAILURE === 'true') {
+        throw new Error('Simulated Gemini failure');
       }
 
       return true;
     });
 
-    const responseTime = Date.now() - azureStartTime;
+    const responseTime = Date.now() - geminiStartTime;
 
-    healthResponse.services.azureDocumentIntelligence = {
+    healthResponse.services.gemini = {
       status: 'ok',
       responseTime,
     };
   } catch (error) {
-    healthResponse.services.azureDocumentIntelligence = {
+    healthResponse.services.gemini = {
       status: 'error',
-      message: error instanceof Error ? error.message : 'Unknown Azure error',
+      message: error instanceof Error ? error.message : 'Unknown Gemini error',
     };
     healthResponse.status = 'degraded';
   }
@@ -160,7 +160,7 @@ export const GET = withErrorHandling(async (_request: NextRequest) => {
       async () => {
         return await supabase.storage.getBucket('documents');
       },
-      { maxRetries: 2, baseDelay: 500 }
+      { maxRetries: 2 }
     );
 
     const responseTime = Date.now() - storageStartTime;
@@ -194,7 +194,7 @@ export const GET = withErrorHandling(async (_request: NextRequest) => {
       async () => {
         return await supabase.auth.getSession();
       },
-      { maxRetries: 2, baseDelay: 500 }
+      { maxRetries: 2 }
     );
 
     const responseTime = Date.now() - authStartTime;

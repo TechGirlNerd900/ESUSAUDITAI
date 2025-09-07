@@ -1,0 +1,2 @@
+-- This file is used to seed the database with initial data.
+-- You can add your seed data here in the form of SQL statements.

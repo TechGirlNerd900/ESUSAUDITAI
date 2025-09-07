@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 import {
   auditReportGenerator,
   AuditEngagement,
   GeneratedAuditReport,
   formatAuditReportForPDF,
   generateReportSummary,
-} from '@/lib/auditReportGenerator';
+} from '@/lib/generators/auditReportGenerator';
 
 /**
  * Audit Report Generation API
@@ -16,7 +15,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -41,12 +40,13 @@ export async function GET(request: NextRequest) {
       case 'reports':
         return await handleListReports(supabase, organizationId);
 
-      case 'report':
+      case 'report': {
         const reportId = searchParams.get('reportId');
         if (!reportId) {
           return NextResponse.json({ error: 'Report ID required' }, { status: 400 });
         }
         return await handleGetReport(supabase, reportId, organizationId);
+      }
 
       case 'engagements':
         return await handleListEngagements(supabase, organizationId);
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,

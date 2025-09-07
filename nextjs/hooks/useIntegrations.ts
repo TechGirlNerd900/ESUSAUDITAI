@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/app/components/ui/use-toast';
 
 // API integration interface - organization-scoped
 export interface ApiIntegration {
@@ -37,9 +37,7 @@ export const useIntegrations = () => {
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/admin/integrations${type ? `?type=${type}` : ''}`
-      );
+      const response = await fetch(`/api/admin/integrations${type ? `?type=${type}` : ''}`);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -49,7 +47,8 @@ export const useIntegrations = () => {
       const data = await response.json();
       setIntegrations(data);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred while loading integrations';
+      const errorMessage =
+        err instanceof Error ? err.message : 'An error occurred while loading integrations';
       setError(errorMessage);
       toast({
         title: 'Error',
@@ -62,91 +61,92 @@ export const useIntegrations = () => {
   }, []);
 
   // Save API integration (organization_id is automatically set server-side)
-  const saveIntegration = useCallback(async (integration: Partial<ApiIntegration>) => {
-    try {
-      if (
-        !integration.id ||
-        !integration.name ||
-        !integration.endpoint ||
-        !integration.api_key
-      ) {
+  const saveIntegration = useCallback(
+    async (integration: Partial<ApiIntegration>) => {
+      try {
+        if (!integration.id || !integration.name || !integration.endpoint || !integration.api_key) {
+          toast({
+            title: 'Validation Error',
+            description: 'ID, name, endpoint, and API key are required',
+            variant: 'destructive',
+          });
+          return false;
+        }
+
+        const response = await fetch('/api/admin/integrations', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...integration,
+            // organization_id is set server-side from user profile
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to save API integration');
+        }
+
         toast({
-          title: 'Validation Error',
-          description: 'ID, name, endpoint, and API key are required',
+          title: 'Success',
+          description: `API integration ${integration.name} saved successfully`,
+          variant: 'default',
+        });
+
+        // Reload integrations for current organization
+        await loadIntegrations();
+        return true;
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: err instanceof Error ? err.message : 'An error occurred while saving',
           variant: 'destructive',
         });
         return false;
       }
-
-      const response = await fetch('/api/admin/integrations', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...integration,
-          // organization_id is set server-side from user profile
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save API integration');
-      }
-
-      toast({
-        title: 'Success',
-        description: `API integration ${integration.name} saved successfully`,
-        variant: 'default',
-      });
-
-      // Reload integrations for current organization
-      await loadIntegrations();
-      return true;
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'An error occurred while saving',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  }, [loadIntegrations]);
+    },
+    [loadIntegrations]
+  );
 
   // Delete API integration (organization isolation handled server-side)
-  const deleteIntegration = useCallback(async (id: string) => {
-    if (!confirm(`Are you sure you want to delete this integration?`)) {
-      return false;
-    }
-
-    try {
-      const response = await fetch(`/api/admin/integrations?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete API integration');
+  const deleteIntegration = useCallback(
+    async (id: string) => {
+      if (!confirm(`Are you sure you want to delete this integration?`)) {
+        return false;
       }
 
-      toast({
-        title: 'Success',
-        description: 'API integration deleted successfully',
-        variant: 'default',
-      });
+      try {
+        const response = await fetch(`/api/admin/integrations?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
 
-      // Reload integrations for current organization
-      await loadIntegrations();
-      return true;
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'An error occurred while deleting',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  }, [loadIntegrations]);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete API integration');
+        }
+
+        toast({
+          title: 'Success',
+          description: 'API integration deleted successfully',
+          variant: 'default',
+        });
+
+        // Reload integrations for current organization
+        await loadIntegrations();
+        return true;
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: err instanceof Error ? err.message : 'An error occurred while deleting',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    },
+    [loadIntegrations]
+  );
 
   // Test API integration (organization-scoped)
   const testIntegration = useCallback(async (id: string) => {
@@ -168,7 +168,7 @@ export const useIntegrations = () => {
 
       const data = await response.json();
 
-      setTestResults(prev => ({
+      setTestResults((prev) => ({
         ...prev,
         [id]: data.testResult,
       }));
@@ -184,7 +184,7 @@ export const useIntegrations = () => {
       return data.testResult;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred while testing';
-      
+
       toast({
         title: 'Error',
         description: errorMessage,
@@ -196,7 +196,7 @@ export const useIntegrations = () => {
         error: errorMessage,
       };
 
-      setTestResults(prev => ({
+      setTestResults((prev) => ({
         ...prev,
         [id]: failedResult,
       }));

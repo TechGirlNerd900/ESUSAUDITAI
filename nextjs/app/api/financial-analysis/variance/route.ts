@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { getUserProfile } from '@/lib/apiAuth';
+import { createClient } from '@/utils/supabase/server';
+import { getUserProfile } from '@/lib/auth/apiAuth';
 import {
   calculateVarianceAnalysis,
   generateVarianceSummary,
@@ -10,7 +9,7 @@ import {
   VarianceAnalysisData,
   VarianceThresholds,
   DEFAULT_VARIANCE_THRESHOLDS,
-} from '@/lib/varianceAnalysis';
+} from '@/lib/financial/varianceAnalysis';
 
 interface VarianceAnalysisRequest {
   projectId: string;
@@ -29,10 +28,19 @@ interface VarianceAnalysisRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
-    // Get user profile and verify access
-    const userProfile = await getUserProfile(supabase);
+    // Get user profile
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -218,10 +226,19 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // Get user profile
-    const userProfile = await getUserProfile(supabase);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userProfile = await getUserProfile(user.id);
     if (!userProfile) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

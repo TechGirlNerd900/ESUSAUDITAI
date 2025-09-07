@@ -7,7 +7,7 @@ import {
   ValidationError,
   NotFoundError,
 } from '@/lib/errorHandler';
-import configManager from '@/lib/configManager';
+import configManager from '@/lib/core/configManager';
 
 /**
  * POST handler for testing API integrations

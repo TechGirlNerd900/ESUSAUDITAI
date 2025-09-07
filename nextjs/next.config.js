@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false, // Remove X-Powered-By header for security
-  
+
   images: {
     domains: ['i.pravatar.cc', 'ui-avatars.com'],
     // Add Supabase storage domain if using Supabase storage
@@ -10,7 +10,10 @@ const nextConfig = {
       remotePatterns: [
         {
           protocol: 'https',
-          hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.replace(/^[^.]+\./, '*.'),
+          hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.replace(
+            /^[^.]+\./,
+            '*.'
+          ),
           pathname: '/storage/v1/object/public/**',
         },
       ],
@@ -26,23 +29,23 @@ const nextConfig = {
         headers: [
           {
             key: 'X-DNS-Prefetch-Control',
-            value: 'on'
+            value: 'on',
           },
           {
             key: 'X-XSS-Protection',
-            value: '1; mode=block'
+            value: '1; mode=block',
           },
           {
             key: 'X-Frame-Options',
-            value: 'DENY'
+            value: 'DENY',
           },
           {
             key: 'X-Content-Type-Options',
-            value: 'nosniff'
+            value: 'nosniff',
           },
           {
             key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin'
+            value: 'strict-origin-when-cross-origin',
           },
         ],
       },
@@ -52,15 +55,15 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'no-store, no-cache, must-revalidate, proxy-revalidate'
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate',
           },
           {
             key: 'Pragma',
-            value: 'no-cache'
+            value: 'no-cache',
           },
           {
             key: 'Expires',
-            value: '0'
+            value: '0',
           },
         ],
       },
