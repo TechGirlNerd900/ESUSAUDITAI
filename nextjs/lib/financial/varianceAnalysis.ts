@@ -102,15 +102,17 @@ export function calculateVarianceAnalysis(
       accountType: item.accountType,
       accountCategory: item.accountCategory,
       actualAmount: item.actualAmount,
-      budgetAmount: item.budgetAmount,
-      priorPeriodAmount: item.priorPeriodAmount,
+      ...(item.budgetAmount !== undefined && { budgetAmount: item.budgetAmount }),
+      ...(item.priorPeriodAmount !== undefined && {
+        priorPeriodAmount: item.priorPeriodAmount,
+      }),
       budgetVarianceType: 'n/a',
       periodVarianceType: 'n/a',
       significanceLevel: 'minimal',
       requiresAttention: false,
       varianceExplanation: '',
       recommendedActions: [],
-      riskFlags: [],
+      riskFlags: [] as string[],
     };
 
     // Calculate budget variance
@@ -356,7 +358,7 @@ export function generateVarianceSummary(variances: VarianceResult[]): VarianceSu
 
   // Calculate averages for categories
   Object.keys(summary.variancesByCategory).forEach((category) => {
-    const categoryData = summary.variancesByCategory[category];
+    const categoryData = summary.variancesByCategory[category]!; // Assert non-null as it's initialized in the previous loop
     categoryData.averageVariance = categoryData.totalVariance / categoryData.count;
   });
 

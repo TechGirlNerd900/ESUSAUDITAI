@@ -62,6 +62,13 @@ export class ExternalServiceError extends Error {
   }
 }
 
+export class RateLimitError extends Error {
+  constructor(message = 'Rate limit exceeded') {
+    super(message);
+    this.name = 'RateLimitError';
+  }
+}
+
 // Error handler middleware
 export const withErrorHandling =
   (handler: (req: any, res: any) => Promise<any>) => async (req: any, res: any) => {
@@ -81,6 +88,9 @@ export const withErrorHandling =
       }
       if (error instanceof NotFoundError) {
         return NextResponse.json({ error: error.message }, { status: 404 });
+      }
+      if (error instanceof RateLimitError) {
+        return NextResponse.json({ error: error.message }, { status: 429 });
       }
 
       return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });

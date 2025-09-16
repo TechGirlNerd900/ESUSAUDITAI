@@ -16,10 +16,9 @@ export async function POST(request: NextRequest) {
     // PostgreSQL transactions are handled implicitly by Supabase client
     // We implement compensating transactions for failure scenarios
 
-    // SECURITY: Authenticate with proper role-based access and rate limiting
+    // SECURITY: Authenticate with proper role-based access
     const auth = await authenticateApiRequest(request, {
       requireRole: 'auditor', // Only auditors and admins can upload files
-      rateLimit: 20, // Limit to 20 file uploads per 15 minutes
     });
 
     if (!auth.success) {

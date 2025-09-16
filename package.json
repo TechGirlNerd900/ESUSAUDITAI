@@ -31,6 +31,9 @@
   "author": "Esus Audit AI Team",
   "license": "MIT",
   "dependencies": {
+    "@google-cloud/discoveryengine": "^2.4.0",
+    "@google-cloud/documentai": "^9.4.0",
+    "@google-cloud/vertexai": "^1.10.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.50.0",
@@ -44,6 +47,7 @@
     "tree": "^0.1.3"
   },
   "devDependencies": {
+    "@supabase/mcp-server-supabase": "^0.5.3",
     "@testing-library/dom": "^10.4.0",
     "@types/bcryptjs": "^2.4.6",
     "concurrently": "^8.2.2",

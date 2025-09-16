@@ -18,31 +18,30 @@ describe('errorHandler', () => {
   });
 
   // Mock a simple API handler function
-  const mockHandler = async (req: NextRequest) => {
-    const { action } = await req.json();
-    switch (action) {
-      case 'success':
-        return NextResponse.json({ message: 'Success' }, { status: 200 });
-      case 'api_error':
-        throw new ApiError('Something went wrong with the API', 500);
-      case 'not_found':
-        throw new NotFoundError('Resource not found');
-      case 'validation_error':
-        // Pass details to ValidationError
-        throw new ValidationError('Invalid input', [
-          { field: 'name', message: 'Name is required' },
-        ]);
-      case 'authorization_error':
-        throw new AuthorizationError('Unauthorized access');
-      case 'rate_limit_error':
-        throw new RateLimitError('Too many requests');
-      case 'generic_error':
-        throw new Error('Unexpected generic error');
-      default:
-        return NextResponse.json({ message: 'Default action' }, { status: 200 });
-    }
-  };
-
+const mockHandler = async (req: NextRequest) => {
+  const { action } = await req.json();
+  switch (action) {
+    case 'success':
+      return NextResponse.json({ message: 'Success' }, { status: 200 });
+    case 'api_error':
+      throw new ApiError('Something went wrong with the API', 500);
+    case 'not_found':
+      throw new NotFoundError('Resource not found');
+    case 'validation_error':
+      // Pass details to ValidationError
+      throw new ValidationError('Invalid input', [
+        { field: 'name', message: 'Name is required' },
+      ]);
+    case 'authorization_error':
+      throw new AuthorizationError('Unauthorized access');
+    case 'rate_limit_error':
+      throw new RateLimitError('Too many requests');
+    case 'generic_error':
+      throw new Error('Unexpected generic error');
+    default:
+      return NextResponse.json({ message: 'Default action' }, { status: 200 });
+  }
+};
   const wrappedHandler = withErrorHandling(mockHandler);
 
   it('should return a successful response for valid actions', async () => {

@@ -204,10 +204,15 @@ export function createDevelopmentSecurityHeaders(
   response: NextResponse,
   supabaseUrl?: string
 ): NextResponse {
-  return createSecurityHeaders(response, {
+  const config: SecurityHeadersConfig = {
     isDevelopment: true,
-    supabaseUrl,
-  });
+  };
+
+  if (supabaseUrl) {
+    config.supabaseUrl = supabaseUrl;
+  }
+
+  return createSecurityHeaders(response, config);
 }
 
 /**
@@ -217,10 +222,15 @@ export function createProductionSecurityHeaders(
   response: NextResponse,
   supabaseUrl?: string
 ): NextResponse {
-  return createSecurityHeaders(response, {
+  const config: SecurityHeadersConfig = {
     isDevelopment: false,
-    supabaseUrl,
-  });
+  };
+
+  if (supabaseUrl) {
+    config.supabaseUrl = supabaseUrl;
+  }
+
+  return createSecurityHeaders(response, config);
 }
 
 /**

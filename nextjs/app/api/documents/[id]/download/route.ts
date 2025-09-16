@@ -17,9 +17,8 @@ export const GET = withErrorHandling(
   async (request: NextRequest, { params }: { params: { id: string } }) => {
     const { id: documentId } = params;
 
-    // Authenticate user and validate rate limiting
+    // Authenticate user
     const auth = await authenticateApiRequest(request, {
-      rateLimit: 100, // 100 downloads per 15 minutes
       requireRole: 'reviewer', // Minimum role for file access
     });
 

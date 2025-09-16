@@ -42,7 +42,7 @@ export const EnvVarsTab: React.FC = () => {
   const renderCategoryBadge = (category: string) => {
     const categoryColors: Record<string, string> = {
       database: 'bg-blue-100 text-blue-800',
-      azure: 'bg-purple-100 text-purple-800',
+      google: 'bg-purple-100 text-purple-800',
       auth: 'bg-green-100 text-green-800',
       security: 'bg-red-100 text-red-800',
       monitoring: 'bg-yellow-100 text-yellow-800',

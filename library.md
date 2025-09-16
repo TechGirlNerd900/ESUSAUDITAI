@@ -32,6 +32,31 @@ This file maintains a list of Context7-compatible library IDs that have been sea
 - Trust Score: 9
 - Documentation Retrieved: ✅ Component patterns, TypeScript integration, prop typing, event handlers
 
+## Google Cloud Services
+- **Google Cloud Document AI**: /websites/cloud_google_com-docs
+  - Description: Google Cloud Document AI for document processing and text extraction
+  - Code Snippets: 68921
+  - Trust Score: 7.5
+  - Usage: Replaces Azure Form Recognizer
+
+- **Google Cloud Vertex AI**: /googlecloudplatform/generative-ai
+  - Description: Generative AI on Google Cloud with Vertex AI for document processing and AI workflows
+  - Code Snippets: 7988
+  - Trust Score: 8
+  - Usage: Replaces Azure OpenAI
+
+- **Google Cloud Vertex AI Node.js**: /googleapis/nodejs-vertexai
+  - Description: Vertex AI SDK for Node.js with Gemini API support
+  - Code Snippets: 19
+  - Trust Score: 8.5
+  - Usage: Direct integration with Gemini models
+
+- **Vertex AI Search**: /websites/cloud_google_com-vertex-ai-generative-ai-docs-model-reference-rag-api
+  - Description: Vertex AI Search for retrieval-augmented generation
+  - Code Snippets: 1647
+  - Trust Score: 7.5
+  - Usage: Replaces Azure Search
+
 ## Other Libraries
 (Add other libraries as needed)
 

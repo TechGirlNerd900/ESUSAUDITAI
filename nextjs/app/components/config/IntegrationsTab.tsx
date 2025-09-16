@@ -52,9 +52,9 @@ export const IntegrationsTab: React.FC = () => {
   // Render integration type badge
   const renderIntegrationTypeBadge = (type: string) => {
     const typeColors: Record<string, string> = {
-      azure_openai: 'bg-blue-100 text-blue-800',
-      azure_form_recognizer: 'bg-purple-100 text-purple-800',
-      azure_search: 'bg-green-100 text-green-800',
+      google_vertex_ai: 'bg-blue-100 text-blue-800',
+      google_document_ai: 'bg-purple-100 text-purple-800',
+      google_vertex_ai_search: 'bg-green-100 text-green-800',
       custom: 'bg-gray-100 text-gray-800',
     };
 

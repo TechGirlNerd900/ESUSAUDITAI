@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Add '@supabase/realtime-js' to your existing array
-  serverExternalPackages: ['@azure/ai-form-recognizer', '@supabase/realtime-js'],
+  serverExternalPackages: ['@supabase/realtime-js'],
   images: {
     domains: ['supabase.co', 'localhost'],
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['@supabase/realtime-js'],
+    // Add Edge Runtime configuration
+    runtime: 'nodejs',
+    fallbackNodePolyfills: false,
+    nodeMiddleware: true // Enable Node.js middleware support
   },
   async headers() {
     return [

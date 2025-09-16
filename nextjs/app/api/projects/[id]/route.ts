@@ -20,8 +20,8 @@ export const GET = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
     const projectId = context.params.id;
 
-    // Authenticate request with rate limiting
-    const auth = await authenticateApiRequest(request, { rateLimit: 50 });
+    // Authenticate request
+    const auth = await authenticateApiRequest(request);
 
     if (!auth.success) {
       // Type assertion to help TypeScript understand the auth object structure
@@ -55,8 +55,8 @@ export const PUT = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
     const projectId = context.params.id;
 
-    // Authenticate request with rate limiting
-    const auth = await authenticateApiRequest(request, { rateLimit: 20 });
+    // Authenticate request
+    const auth = await authenticateApiRequest(request);
 
     if (!auth.success) {
       // Type assertion to help TypeScript understand the auth object structure
@@ -174,9 +174,8 @@ export const DELETE = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
     const projectId = context.params.id;
 
-    // Authenticate request with rate limiting and admin role requirement
+    // Authenticate request with admin role requirement
     const auth = await authenticateApiRequest(request, {
-      rateLimit: 10,
       requireRole: 'admin', // Only admins can delete projects
     });
 

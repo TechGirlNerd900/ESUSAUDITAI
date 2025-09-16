@@ -60,8 +60,9 @@ jspm_packages/
 ehthumbs.db
 Thumbs.db
 
-# Azure
-.azure/
+# Google Cloud
+.google/
+.vertex/
 
 # Temporary files
 tmp/

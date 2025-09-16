@@ -48,6 +48,7 @@ export interface AuditEngagement {
   materialWeaknesses: string[];
   managementLetterPoints: string[];
   organizationId: string;
+  emphasisOfMatter?: string; // Add optional emphasisOfMatter property
 }
 
 export interface GeneratedAuditReport {
@@ -390,12 +391,20 @@ export class AuditReportGenerator {
   private determineAuditOpinion(engagement: AuditEngagement): GeneratedAuditReport['auditOpinion'] {
     // Logic to determine opinion type based on findings
     if (engagement.materialWeaknesses.length > 0) {
-      return {
-        type: 'qualified',
-        basis: 'Material weaknesses in internal control were identified',
-        emphasisOfMatter:
-          engagement.significantMatters.length > 0 ? engagement.significantMatters[0] : undefined,
-      };
+      const opinion = {
+        type: 'qualified' as const,
+        basis: 'Material weaknesses in internal control were identified'
+      } as const;
+      
+      // Only add emphasisOfMatter if it exists
+      if (engagement.emphasisOfMatter) {
+        return {
+          ...opinion,
+          emphasisOfMatter: engagement.emphasisOfMatter
+        };
+      }
+      
+      return opinion;
     }
 
     if (

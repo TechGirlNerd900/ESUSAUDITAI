@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
         middlewareError: true,
         authenticatedViaMiddleware: false,
         errorResponse:
-          auth.success === false && auth.error
+          auth.success === false && auth.response
             ? {
-                status: auth.error.status,
-                statusText: auth.error.message,
+                status: auth.response.status,
+                statusText: auth.response.statusText,
               }
             : null,
       });

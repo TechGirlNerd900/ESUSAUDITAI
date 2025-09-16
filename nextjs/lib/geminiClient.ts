@@ -63,7 +63,13 @@ ANSWER:`;
     },
   });
 
-  const result = await chat.sendMessage(query || chatHistory[chatHistory.length - 1].content);
+  // Get message content with type safety
+  const messageContent = query ?? chatHistory[chatHistory.length - 1]?.content;
+  if (!messageContent) {
+    throw new Error('Either query or valid chat history must be provided');
+  }
+
+  const result = await chat.sendMessage(messageContent);
   const response = await result.response;
   const text = response.text();
 

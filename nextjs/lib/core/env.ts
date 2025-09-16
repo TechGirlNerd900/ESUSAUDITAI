@@ -62,6 +62,8 @@ function validateSecurityKeys() {
   }
 }
 
+import { IS_DEVELOPMENT, DEV_DUMMY_VALUES } from './constants';
+
 export function getEnvConfig() {
   return {
     supabase: {
@@ -70,11 +72,11 @@ export function getEnvConfig() {
       serviceKey: process.env.SUPABASE_SERVICE_KEY,
     },
     gemini: {
-      apiKey: process.env.GEMINI_API_KEY!,
+      apiKey: process.env.GEMINI_API_KEY || (IS_DEVELOPMENT ? DEV_DUMMY_VALUES.GEMINI_API_KEY : undefined),
     },
     redis: {
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      url: process.env.UPSTASH_REDIS_REST_URL || (IS_DEVELOPMENT ? DEV_DUMMY_VALUES.UPSTASH_REDIS_REST_URL : undefined),
+      token: process.env.UPSTASH_REDIS_REST_TOKEN || (IS_DEVELOPMENT ? DEV_DUMMY_VALUES.UPSTASH_REDIS_REST_TOKEN : undefined),
     },
     app: {
       maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800', 10),

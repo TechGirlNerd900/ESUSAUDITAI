@@ -37,11 +37,11 @@ function validateEnvironment() {
     ];
 
     // Azure variables (only warn if missing since they may be disabled)
-    const azureVars = [
-        'AZURE_FORM_RECOGNIZER_KEY',
-        'AZURE_FORM_RECOGNIZER_ENDPOINT',
-        'AZURE_SEARCH_ENDPOINT',
-        'AZURE_SEARCH_API_KEY'
+    const googleVars = [
+        'Google_FORM_RECOGNIZER_KEY',
+        'Google_FORM_RECOGNIZER_ENDPOINT',
+        'Google_SEARCH_ENDPOINT',
+        'Google_SEARCH_API_KEY'
     ];
 
     const missing = requiredVars.filter(varName => !process.env[varName]);
@@ -58,11 +58,11 @@ function validateEnvironment() {
         missingOptional.forEach(varName => console.warn(`- ${varName}`));
     }
 
-    // Check Azure variables
-    const missingAzure = azureVars.filter(varName => !process.env[varName]);
-    if (missingAzure.length > 0) {
-        console.warn('⚠️  Missing Azure environment variables (Azure features will be disabled):');
-        missingAzure.forEach(varName => console.warn(`- ${varName}`));
+    // Check Google variables
+    const missingGoogle = GoogleVars.filter(varName => !process.env[varName]);
+    if (missingGoogle.length > 0) {
+        console.warn('⚠️  Missing Google environment variables (Google features will be disabled):');
+        missingGoogle.forEach(varName => console.warn(`- ${varName}`));
     }
 
     console.log('✅ Environment validation completed');
@@ -107,9 +107,9 @@ function setupSupabaseStorage() {
 }
 
 function setupSearchIndex() {
-    console.log('Setting up Azure Search index...');
+    console.log('Setting up Google Search index...');
     try {
-        const { SearchIndexClient, AzureKeyCredential } = require('@azure/search-documents');
+        const { SearchIndexClient, GoogleKeyCredential } = require('@azure/search-documents');
         
         const client = new SearchIndexClient(
             process.env.AZURE_SEARCH_ENDPOINT,

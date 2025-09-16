@@ -66,10 +66,11 @@ export async function importTrialBalanceFromExcel(
 
   try {
     // Process Excel file
-    const excelData = await processExcelFile(fileBuffer, {
-      worksheetName,
-      convertToJson: true,
-    });
+    const processOptions: any = { convertToJson: true };
+    if (worksheetName) {
+      processOptions.worksheetName = worksheetName;
+    }
+    const excelData = await processExcelFile(fileBuffer, processOptions);
 
     if (!excelData.success || !excelData.data) {
       return {
@@ -82,9 +83,11 @@ export async function importTrialBalanceFromExcel(
     }
 
     // Get worksheet data
-    const worksheetData = Array.isArray(excelData.data)
-      ? excelData.data
-      : excelData.data[worksheetName || Object.keys(excelData.data)[0]];
+    const key = worksheetName || (excelData.data ? Object.keys(excelData.data)[0] : undefined);
+    const worksheetData =
+      Array.isArray(excelData.data)
+        ? excelData.data
+        : (excelData.data && key ? excelData.data[key] : undefined);
 
     if (!worksheetData || !Array.isArray(worksheetData)) {
       return {
@@ -125,7 +128,7 @@ export async function importTrialBalanceFromExcel(
     return {
       success: false,
       data: [],
-      errors: [`Import error: ${error.message}`],
+      errors: [`Import error: ${error instanceof Error ? error.message : String(error)}`],
       warnings: [],
       summary: createEmptySummary(),
     };
@@ -295,7 +298,7 @@ function processTrialBalanceRows(
       result.summary.totalDebits += entry.debitBalance;
       result.summary.totalCredits += entry.creditBalance;
     } catch (error) {
-      result.errors.push(`Row ${rowIndex + 1}: ${error.message}`);
+      result.errors.push(`Row ${rowIndex + 1}: ${error instanceof Error ? error.message : String(error)}`);
       result.summary.skippedRows++;
     }
   }
@@ -355,17 +358,22 @@ function processRow(
     .toLowerCase()
     .trim();
   const accountCategory = String(getValue(mapping.accountCategory) || '').trim();
+const entry: TrialBalanceEntry = {
+  accountCode,
+  accountName,
+  accountType: mapAccountType(accountType),
+  debitBalance,
+  creditBalance,
+  netBalance,
+};
 
-  return {
-    accountCode,
-    accountName,
-    accountType: mapAccountType(accountType),
-    accountCategory: accountCategory || undefined,
-    debitBalance,
-    creditBalance,
-    netBalance,
-  };
+if (accountCategory) {
+  entry.accountCategory = accountCategory;
 }
+
+return entry;
+};
+
 
 /**
  * Parse amount from cell value

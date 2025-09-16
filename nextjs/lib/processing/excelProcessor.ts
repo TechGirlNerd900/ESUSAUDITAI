@@ -4,6 +4,7 @@
  */
 
 import ExcelJS from 'exceljs';
+import { Buffer } from 'node:buffer';
 
 export interface ExcelData {
   sheets: {
@@ -12,15 +13,21 @@ export interface ExcelData {
   }[];
 }
 
+export interface ExcelProcessingOptions {
+  worksheetName?: string | undefined;
+  convertToJson?: boolean | undefined;
+}
+
 /**
  * Read Excel file and extract data securely
  * @param buffer File buffer
  * @returns Parsed Excel data
  */
-export async function readExcelFile(buffer: Buffer): Promise<ExcelData> {
+export async function readExcelFile(buffer: Buffer | ArrayBuffer): Promise<ExcelData> {
   try {
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+    await workbook.xlsx.load(buf as any);
 
     const sheets: ExcelData['sheets'] = [];
 
@@ -126,7 +133,7 @@ export function excelToJson(excelData: ExcelData): Record<string, any[]> {
  * @param buffer File buffer
  * @returns Validation result
  */
-export async function validateExcelFile(buffer: Buffer): Promise<{
+export async function validateExcelFile(buffer: Buffer | ArrayBuffer): Promise<{
   isValid: boolean;
   errors: string[];
   warnings: string[];
@@ -135,14 +142,16 @@ export async function validateExcelFile(buffer: Buffer): Promise<{
   const warnings: string[] = [];
 
   try {
+    const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+    
     // Check file size (limit to 10MB)
-    if (buffer.length > 10 * 1024 * 1024) {
+    if (buf.length > 10 * 1024 * 1024) {
       errors.push('File size exceeds 10MB limit');
     }
 
     // Try to parse the file
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    await workbook.xlsx.load(buf as any);
 
     // Check number of sheets (limit to 20)
     if (workbook.worksheets.length > 20) {
@@ -185,11 +194,15 @@ export async function validateExcelFile(buffer: Buffer): Promise<{
  * Process Excel file and extract data safely
  * Combines reading, validation, and JSON conversion
  * @param buffer File buffer
+ * @param options Processing options
  * @returns Processed data and validation results
  */
-export async function processExcelFile(buffer: Buffer): Promise<{
+export async function processExcelFile(
+  buffer: Buffer | ArrayBuffer,
+  options: ExcelProcessingOptions = {}
+): Promise<{
   success: boolean;
-  data?: Record<string, any[]>;
+  data?: Record<string, any[]> | any[][];
   errors: string[];
   warnings: string[];
 }> {
@@ -208,12 +221,35 @@ export async function processExcelFile(buffer: Buffer): Promise<{
     // Read the Excel file
     const excelData = await readExcelFile(buffer);
 
-    // Convert to JSON
-    const jsonData = excelToJson(excelData);
+    if (!excelData.sheets.length) {
+      return {
+        success: false,
+        errors: ['No worksheets found in the Excel file'],
+        warnings: validation.warnings,
+      };
+    }
+
+    // Handle specific worksheet if requested
+    if (options.worksheetName) {
+      const worksheet = excelData.sheets.find(s => s.name === options.worksheetName);
+      if (!worksheet) {
+        return {
+          success: false,
+          errors: [`Worksheet "${options.worksheetName}" not found`],
+          warnings: validation.warnings,
+        };
+      }
+      excelData.sheets = [worksheet];
+    }
+
+    // Convert to desired format and ensure sheets[0] exists
+    const data = options.convertToJson 
+      ? excelToJson(excelData) 
+      : (excelData.sheets[0]?.data || []);
 
     return {
       success: true,
-      data: jsonData,
+      data,
       errors: [],
       warnings: validation.warnings,
     };

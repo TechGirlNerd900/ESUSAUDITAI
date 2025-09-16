@@ -23,15 +23,14 @@
    NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
    SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
    NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app
-   AZURE_FORM_RECOGNIZER_ENDPOINT=https://esusdocai.cognitiveservices.azure.com/
-   AZURE_FORM_RECOGNIZER_KEY=your-key
-   AZURE_OPENAI_ENDPOINT=https://esusaudiau.openai.azure.com/
-   AZURE_OPENAI_API_KEY=your-key
-   AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
-   AZURE_OPENAI_API_VERSION=2024-02-15-preview
-   AZURE_SEARCH_ENDPOINT=https://esussearch.search.windows.net
-   AZURE_SEARCH_API_KEY=your-key
-   AZURE_SEARCH_INDEX_NAME=esussearch
+   GOOGLE_PROJECT_ID=your-gcp-project-id
+   GOOGLE_LOCATION=your-gcp-region
+   GOOGLE_APPLICATION_CREDENTIALS=your-service-account-key.json
+   DOCUMENT_AI_PROCESSOR_ID=your-document-ai-processor-id
+   DOCUMENT_AI_LOCATION=your-document-ai-location
+   VERTEX_AI_MODEL_NAME=gemini-1.5-pro-001
+   VERTEX_AI_SEARCH_DATA_STORE_ID=your-search-data-store-id
+   VERTEX_AI_SEARCH_LOCATION=global
    CSRF_SECRET=your-32-char-secret
    ENCRYPTION_KEY=your-32-char-key
    UPSTASH_REDIS_REST_URL=your-redis-url (optional)
@@ -85,7 +84,7 @@
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key                | Yes      |
 | `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key             | Yes      |
 | `NEXT_PUBLIC_SITE_URL`          | Your deployed app URL                 | Yes      |
-| `AZURE_*`                       | Azure services configuration          | Yes      |
+| `GOOGLE_*`                       | Azure services configuration          | Yes      |
 | `CSRF_SECRET`                   | CSRF protection secret                | Yes      |
 | `ENCRYPTION_KEY`                | Encryption key for sensitive data     | Yes      |
 | `UPSTASH_REDIS_*`               | Redis configuration for rate limiting | Optional |

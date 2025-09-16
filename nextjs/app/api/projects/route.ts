@@ -25,8 +25,8 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
     return errorResponse(validation.errors.join(', '), 400);
   }
 
-  // Authenticate request with rate limiting
-  const auth = await authenticateApiRequest(request, { rateLimit: 100 });
+  // Authenticate request
+  const auth = await authenticateApiRequest(request);
 
   if (!auth.success) {
     return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
@@ -37,14 +37,28 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   const db = new Database(cookieStore);
 
   // Get projects with optimized pagination
-  const result = await db.getProjects(auth.user.id, {
-    ...paginationParams,
-    search: searchParams.get('search') || undefined,
-    status: searchParams.get('status') || undefined,
-  });
+  const searchParam = searchParams.get('search');
+  const statusParam = searchParams.get('status');
+
+  const queryOptions: any = {
+    page: paginationParams.page || 1,
+    pageSize: paginationParams.pageSize || 10,
+    sortBy: paginationParams.sortBy || 'created_at',
+    sortOrder: paginationParams.sortOrder || 'desc',
+  };
+
+  if (searchParam) {
+    queryOptions.search = searchParam;
+  }
+
+  if (statusParam) {
+    queryOptions.status = statusParam;
+  }
+
+  const result = await db.getProjects(auth.user.id, queryOptions);
 
   // Transform data for compatibility
-  const transformedProjects = result.data.map((project) => ({
+  const transformedProjects = result.data.map((project: any) => ({
     ...project,
     document_count: project.documents?.length || 0,
     due_date: project.end_date,
@@ -66,9 +80,8 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
  * Creates a new project
  */
 export const POST = withErrorHandling(async (request: NextRequest) => {
-  // Authenticate request with rate limiting
+  // Authenticate request
   const auth = await authenticateApiRequest(request, {
-    rateLimit: 20,
     requireRole: 'auditor', // Only auditors and admins can create projects
   });
 

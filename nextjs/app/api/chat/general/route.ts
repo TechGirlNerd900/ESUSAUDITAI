@@ -3,10 +3,7 @@
 
 import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { NextRequest, NextResponse } from 'next/server';
-
-// This should be replaced with the user's actual OpenAI API key
-// Add this to environment variables: OPENAI_API_KEY
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+import { vertexAIService } from '@/lib/google/vertexAI';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -22,17 +19,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Check if OpenAI API key is configured
-    if (!OPENAI_API_KEY) {
-      return NextResponse.json(
-        {
-          error: 'OpenAI API key not configured. Please provide your API key.',
-          requiresApiKey: true,
-        },
-        { status: 400 }
-      );
-    }
-
     const body = await request.json();
     const { message, conversation_history = [] } = body;
 
@@ -64,55 +50,14 @@ Current user: ${auth.profile.first_name} ${auth.profile.last_name} (${auth.profi
       { role: 'user', content: message.trim() },
     ];
 
-    // Call OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4',
-        messages: messages,
-        max_tokens: 1000,
-        temperature: 0.7,
-        stream: false,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('OpenAI API error:', error);
-
-      if (response.status === 401) {
-        return NextResponse.json(
-          {
-            error: 'Invalid OpenAI API key. Please check your configuration.',
-            requiresApiKey: true,
-          },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json({ error: 'Failed to generate AI response' }, { status: 500 });
-    }
-
-    const data = await response.json();
-    const aiMessage = data.choices[0]?.message?.content;
-
-    if (!aiMessage) {
-      return NextResponse.json({ error: 'No response generated' }, { status: 500 });
-    }
+    // Call Vertex AI
+    const response = await vertexAIService.generateChatResponse(messages);
 
     // Return the AI response
     return NextResponse.json({
-      message: {
-        role: 'assistant',
-        content: aiMessage,
-        timestamp: new Date().toISOString(),
-      },
+      message: response.message,
       conversation_id: `general_${auth.user.id}_${Date.now()}`,
-      usage: data.usage,
+      usage: response.usage,
     });
   } catch (error) {
     console.error('General chat error:', error);
@@ -128,13 +73,15 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    available: !!OPENAI_API_KEY,
-    requiresApiKey: !OPENAI_API_KEY,
+    available: true, // Vertex AI is always available if properly configured
+    requiresApiKey: false, // Vertex AI uses service account authentication
     features: [
       'General audit assistance',
       'Compliance guidance',
       'Risk assessment help',
       'Audit procedure recommendations',
+      'Document analysis and interpretation',
+      'Financial statement analysis',
     ],
     user: {
       name: `${auth.profile.first_name} ${auth.profile.last_name}`,

@@ -443,20 +443,30 @@ export class ManagementLetterGenerator {
    * Utility methods
    */
   private formatCategory(category: string): string {
-    const categoryMap = {
-      internal_control: 'Internal Controls',
-      compliance: 'Regulatory Compliance',
-      operational: 'Operations',
+    type CategoryMap = {
+      internal_control: string;
+      compliance: string;
+      operational: string;
+      financial_reporting: string;
+      governance: string;
+      it_controls: string;
+    };
+
+    const categoryMap: CategoryMap = {
+      internal_control: 'Internal Control',
+      compliance: 'Compliance',
+      operational: 'Operational',
       financial_reporting: 'Financial Reporting',
-      governance: 'Corporate Governance',
+      governance: 'Governance',
       it_controls: 'IT Controls',
     };
-    return categoryMap[category] || category;
+
+    return (categoryMap as Record<string, string>)[category] || category;
   }
 
   private extractKeyRecommendation(recommendation: string): string {
-    // Extract the first sentence or up to 100 characters
-    const firstSentence = recommendation.split('.')[0];
+    const sentences = recommendation.split('.');
+    const firstSentence = sentences[0] || '';
     return firstSentence.length > 100 ? firstSentence.substring(0, 100) + '...' : firstSentence;
   }
 
@@ -658,7 +668,7 @@ export function categorizeFindings(
       if (!acc[finding.category]) {
         acc[finding.category] = [];
       }
-      acc[finding.category].push(finding);
+      acc[finding.category]!.push(finding); // Use non-null assertion since we just initialized it
       return acc;
     },
     {} as Record<string, ManagementLetterFinding[]>

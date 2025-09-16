@@ -22,8 +22,8 @@ interface HealthResponse {
 }
 
 // Create circuit breakers for external services
-const geminiCircuitBreaker = new CircuitBreaker(3, 60000, 2);
-const openaiCircuitBreaker = new CircuitBreaker(3, 60000, 2);
+const vertexAICircuitBreaker = new CircuitBreaker(3, 60000, 2);
+const documentAICircuitBreaker = new CircuitBreaker(3, 60000, 2);
 
 /**
  * GET handler for health check
@@ -90,64 +90,64 @@ export const GET = withErrorHandling(async (_request: NextRequest) => {
     healthResponse.status = 'degraded';
   }
 
-  // Check Gemini health
+  // Check Vertex AI health
   try {
-    const geminiStartTime = Date.now();
+    const vertexAIStartTime = Date.now();
 
-    await geminiCircuitBreaker.execute(async () => {
-      // Mock implementation - in a real app, you would call Gemini
+    await vertexAICircuitBreaker.execute(async () => {
+      // Mock implementation - in a real app, you would call Vertex AI
       // with a simple ping or status check
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Simulate success or failure based on environment variable
-      if (process.env.MOCK_GEMINI_FAILURE === 'true') {
-        throw new Error('Simulated Gemini failure');
+      if (process.env.MOCK_VERTEX_AI_FAILURE === 'true') {
+        throw new Error('Simulated Vertex AI failure');
       }
 
       return true;
     });
 
-    const responseTime = Date.now() - geminiStartTime;
+    const responseTime = Date.now() - vertexAIStartTime;
 
-    healthResponse.services.gemini = {
+    healthResponse.services.vertex_ai = {
       status: 'ok',
       responseTime,
     };
   } catch (error) {
-    healthResponse.services.gemini = {
+    healthResponse.services.vertex_ai = {
       status: 'error',
-      message: error instanceof Error ? error.message : 'Unknown Gemini error',
+      message: error instanceof Error ? error.message : 'Unknown Vertex AI error',
     };
     healthResponse.status = 'degraded';
   }
 
-  // Check OpenAI health
+  // Check Document AI health
   try {
-    const openaiStartTime = Date.now();
+    const documentAIStartTime = Date.now();
 
-    await openaiCircuitBreaker.execute(async () => {
-      // Mock implementation - in a real app, you would call OpenAI
+    await documentAICircuitBreaker.execute(async () => {
+      // Mock implementation - in a real app, you would call Document AI
       // with a simple ping or status check
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       // Simulate success or failure based on environment variable
-      if (process.env.MOCK_OPENAI_FAILURE === 'true') {
-        throw new Error('Simulated OpenAI failure');
+      if (process.env.MOCK_DOCUMENT_AI_FAILURE === 'true') {
+        throw new Error('Simulated Document AI failure');
       }
 
       return true;
     });
 
-    const responseTime = Date.now() - openaiStartTime;
+    const responseTime = Date.now() - documentAIStartTime;
 
-    healthResponse.services.openai = {
+    healthResponse.services.document_ai = {
       status: 'ok',
       responseTime,
     };
   } catch (error) {
-    healthResponse.services.openai = {
+    healthResponse.services.document_ai = {
       status: 'error',
-      message: error instanceof Error ? error.message : 'Unknown OpenAI error',
+      message: error instanceof Error ? error.message : 'Unknown Document AI error',
     };
     healthResponse.status = 'degraded';
   }

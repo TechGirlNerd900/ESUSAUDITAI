@@ -8,7 +8,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { withRetry, DatabaseError, ExternalServiceError } from '../errorHandler';
 import { CircuitBreaker } from '../errorHandler';
-import { generateChatResponse } from '../geminiClient';
+import { documentAIService } from '../google/documentAI';
+import { vertexAIService } from '../google/vertexAI';
 
 // Initialize Supabase client for the worker
 const supabase = createClient(
@@ -72,83 +73,75 @@ async function getDocument(documentId: string): Promise<any> {
 }
 
 /**
- * Process a document using Gemini and OpenAI
+ * Process a document using Google Cloud Document AI and Vertex AI
  * @param document Document to process
  * @returns Analysis results
  */
 async function processDocument(document: any): Promise<any> {
   const startTime = Date.now();
 
-  // Use circuit breaker pattern for Gemini
+  // Use circuit breaker pattern for Document AI
   const documentAnalysis = await geminiCircuitBreaker.execute(async () => {
     try {
-      // Mock implementation - in a real app, you would call Gemini
       if (process.env.NODE_ENV === 'development') {
         console.log(`Processing document: ${document.id}`);
       }
 
-      // Simulate processing time
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Process document using Google Cloud Document AI
+      const fileBuffer = Buffer.from(document.content || '', 'base64');
+      const mimeType = document.mime_type || 'application/pdf';
 
-      // Return mock analysis results
+      const result = await documentAIService.processDocument(fileBuffer, mimeType);
+
       return {
-        content: `Sample content for document ${document.id}`,
-        tables: [
-          {
-            rowCount: 3,
-            columnCount: 4,
-            cells: [],
-          },
-        ],
-        keyValuePairs: {
-          'Invoice Number': 'INV-12345',
-          Date: '2023-05-15',
-          'Total Amount': '$1,234.56',
-        },
+        content: result.content,
+        tables: result.tables,
+        keyValuePairs: result.keyValuePairs,
+        entities: result.entities,
+        confidence: result.confidence,
       };
     } catch (error) {
       throw new ExternalServiceError(
-        'Gemini',
+        'Document AI',
         error instanceof Error ? error.message : String(error)
       );
     }
   });
 
-  // Use circuit breaker pattern for OpenAI
-  let aiSummary: string;
+  // Use circuit breaker pattern for Vertex AI analysis
+  let aiAnalysis: any;
   try {
-    const aiAnalysisPrompt = `
-      Analyze this financial document data and provide:
-      1. A comprehensive summary
-      2. Key financial insights
-      3. Potential red flags or areas of concern
-      4. Important highlights
-      
-      Document Data:
-      ${JSON.stringify(documentAnalysis, null, 2)}
-    `;
-    const completion = await geminiCircuitBreaker.execute(async () => {
-      return await generateChatResponse([], {}, aiAnalysisPrompt);
+    const analysisRequest = {
+      documentContent: documentAnalysis.content,
+      documentType: document.document_type || 'financial',
+      analysisType: 'financial' as const,
+      context: `Document ID: ${document.id}, Organization: ${document.organization_id}`,
+    };
+
+    aiAnalysis = await geminiCircuitBreaker.execute(async () => {
+      return await vertexAIService.analyzeDocument(analysisRequest);
     });
-    aiSummary = completion.answer || 'Analysis completed';
   } catch (error) {
-    console.error('Gemini analysis error:', error);
-    aiSummary = 'AI analysis unavailable - using extracted data only';
+    console.error('Vertex AI analysis error:', error);
+    aiAnalysis = {
+      summary: 'AI analysis unavailable - using extracted data only',
+      keyInsights: [],
+      redFlags: [],
+      recommendations: [],
+      confidence: 0.5,
+    };
   }
 
   // Calculate confidence score
-  const confidence = calculateConfidenceScore(documentAnalysis);
-
-  // Extract red flags and highlights
-  const redFlags = extractRedFlags(aiSummary);
-  const highlights = extractHighlights(aiSummary);
+  const confidence = calculateConfidenceScore(documentAnalysis, aiAnalysis);
 
   // Return analysis results
   return {
     extracted_data: documentAnalysis,
-    ai_summary: aiSummary,
-    red_flags: redFlags,
-    highlights: highlights,
+    ai_summary: aiAnalysis.summary,
+    key_insights: aiAnalysis.keyInsights,
+    red_flags: aiAnalysis.redFlags,
+    recommendations: aiAnalysis.recommendations,
     confidence_score: confidence,
     processing_time_ms: Date.now() - startTime,
   };
@@ -189,81 +182,34 @@ async function saveAnalysisResults(
 }
 
 /**
- * Calculate confidence score based on data completeness
- * @param analysisData Analysis data
+ * Calculate confidence score based on data completeness and AI analysis
+ * @param analysisData Document AI analysis data
+ * @param aiAnalysis Vertex AI analysis data
  * @returns Confidence score between 0 and 1
  */
-function calculateConfidenceScore(analysisData: any): number {
-  // Simple confidence calculation based on data completeness
-  let score = 0.5; // Base score
+function calculateConfidenceScore(analysisData: any, aiAnalysis: any): number {
+  // Start with Document AI confidence
+  let score = analysisData?.confidence || 0.5;
 
   try {
-    if (analysisData?.tables && analysisData.tables.length > 0) score += 0.2;
+    // Boost score based on data completeness
+    if (analysisData?.tables && analysisData.tables.length > 0) score += 0.1;
     if (analysisData?.keyValuePairs && Object.keys(analysisData.keyValuePairs).length > 0)
-      score += 0.2;
+      score += 0.1;
     if (analysisData?.content && analysisData.content.length > 100) score += 0.1;
+    if (analysisData?.entities && analysisData.entities.length > 0) score += 0.05;
+
+    // Factor in AI analysis confidence
+    if (aiAnalysis?.confidence) {
+      score = (score + aiAnalysis.confidence) / 2;
+    }
+
+    // Boost score based on AI analysis quality
+    if (aiAnalysis?.keyInsights && aiAnalysis.keyInsights.length > 0) score += 0.05;
+    if (aiAnalysis?.summary && aiAnalysis.summary.length > 50) score += 0.05;
   } catch (error) {
     console.error('Error calculating confidence score:', error);
   }
 
   return Math.min(score, 1.0);
-}
-
-/**
- * Extract red flags from AI summary
- * @param summary AI summary
- * @returns Array of red flags
- */
-function extractRedFlags(summary: string): string[] {
-  if (!summary || typeof summary !== 'string') {
-    return [];
-  }
-
-  const redFlags = [];
-  const lowerSummary = summary.toLowerCase();
-
-  try {
-    if (lowerSummary.includes('discrepanc')) redFlags.push('Potential discrepancies detected');
-    if (lowerSummary.includes('inconsisten')) redFlags.push('Inconsistencies found');
-    if (lowerSummary.includes('unusual')) redFlags.push('Unusual patterns identified');
-    if (lowerSummary.includes('concern')) redFlags.push('Areas of concern noted');
-  } catch (error) {
-    console.error('Error extracting red flags:', error);
-  }
-
-  return redFlags;
-}
-
-/**
- * Extract highlights from AI summary
- * @param summary AI summary
- * @returns Array of highlights
- */
-function extractHighlights(summary: string): string[] {
-  if (!summary || typeof summary !== 'string') {
-    return [];
-  }
-
-  const highlights = [];
-
-  try {
-    const sentences = summary.split(/[.!?]+/);
-
-    // Extract sentences that seem like key insights
-    for (const sentence of sentences) {
-      if (
-        sentence &&
-        sentence.length > 20 &&
-        (sentence.toLowerCase().includes('key') ||
-          sentence.toLowerCase().includes('important') ||
-          sentence.toLowerCase().includes('significant'))
-      ) {
-        highlights.push(sentence.trim());
-      }
-    }
-  } catch (error) {
-    console.error('Error extracting highlights:', error);
-  }
-
-  return highlights.slice(0, 5); // Limit to 5 highlights
 }

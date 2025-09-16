@@ -24,7 +24,7 @@ import { ApiIntegration } from '@/hooks/useIntegrations';
 const DEFAULT_FORM_DATA: Partial<ApiIntegration> = {
   id: '',
   name: '',
-  type: 'azure_openai',
+  type: 'google_vertex_ai',
   endpoint: '',
   api_key: '',
   config: {},

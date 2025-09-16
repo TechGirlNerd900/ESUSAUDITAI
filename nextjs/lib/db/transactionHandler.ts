@@ -170,7 +170,7 @@ export class TransactionHandler {
       // 1. Create organization
       const { data: organization, error: orgError } = await client
         .from('organizations')
-        .insert([{ name: organizationData.name.trim() }])
+        .insert([{ name: organizationData.name.trim() }] as any)
         .select()
         .single();
 
@@ -186,7 +186,7 @@ export class TransactionHandler {
           data: {
             first_name: adminData.firstName,
             last_name: adminData.lastName,
-            organization_id: organization.id,
+            organization_id: (organization as any).id,
             role: 'admin',
           },
         },
@@ -197,12 +197,24 @@ export class TransactionHandler {
       }
 
       // 3. Create user profile
-      const { data: userProfile, error: profileError } = await client
+      interface UserProfile {
+        id: string;
+        auth_user_id: string;
+        organization_id: string;
+        email: string;
+        first_name: string;
+        last_name: string;
+        role: string;
+        is_active: boolean;
+        created_at: string;
+        updated_at: string;
+      }
+      const { data: userProfile, error: profileError }: { data: UserProfile | null; error: any } = await client
         .from('users')
         .insert([
           {
             auth_user_id: authUser.user!.id,
-            organization_id: organization.id,
+            organization_id: (organization as any).id,
             email: adminData.email.toLowerCase().trim(),
             first_name: adminData.firstName.trim(),
             last_name: adminData.lastName.trim(),
@@ -211,7 +223,7 @@ export class TransactionHandler {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
-        ])
+        ] as any)
         .select()
         .single();
 
@@ -220,21 +232,24 @@ export class TransactionHandler {
       }
 
       // 4. Create audit log
+      if (!userProfile || !userProfile.id || userProfile.id === '00000000-0000-0000-0000-000000000000') {
+        throw new DatabaseError('audit_log_creation', 'Invalid user profile id for audit log');
+      }
       await client.from('audit_logs').insert([
         {
-          organization_id: organization.id,
-          user_id: userProfile.id,
+          organization_id: (organization as any).id,
+          user_id: (userProfile as any).id,
           action: 'organization_created',
           resource_type: 'organization',
-          resource_id: organization.id,
+          resource_id: (organization as any).id,
           details: {
-            organization_name: organization.name,
+            organization_name: (organization as any).name,
             admin_email: adminData.email,
             admin_name: `${adminData.firstName} ${adminData.lastName}`,
           },
           created_at: new Date().toISOString(),
         },
-      ]);
+      ] as any);
 
       return {
         organization,
@@ -285,7 +300,7 @@ export class TransactionHandler {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
-        ])
+        ] as any)
         .select()
         .single();
 
@@ -300,15 +315,15 @@ export class TransactionHandler {
           user_id: documentData.userId,
           action: 'document_uploaded',
           resource_type: 'document',
-          resource_id: document.id,
+          resource_id: (document as any).id,
           details: {
-            document_name: document.name,
+            document_name: (document as any).name,
             file_path: fileData.path,
             project_id: documentData.projectId,
           },
           created_at: new Date().toISOString(),
         },
-      ]);
+      ] as any);
 
       return {
         document,
@@ -336,7 +351,7 @@ export class TransactionHandler {
   ): Promise<TransactionResult<{ document: any; analysis: any }>> {
     return this.executeTransaction(async (client) => {
       // 1. Update document status to processing
-      const { data: document, error: statusError } = await client
+      const { data: document, error: statusError } = await (client as any)
         .from('documents')
         .update({
           status: 'processing',
@@ -363,7 +378,7 @@ export class TransactionHandler {
             analyzed_by: userId,
             created_at: new Date().toISOString(),
           },
-        ])
+        ] as any)
         .select()
         .single();
 
@@ -372,7 +387,7 @@ export class TransactionHandler {
       }
 
       // 3. Update document status to analyzed
-      const { error: finalStatusError } = await client
+      const { error: finalStatusError } = await (client as any)
         .from('documents')
         .update({
           status: 'analyzed',
@@ -393,14 +408,14 @@ export class TransactionHandler {
           resource_type: 'document',
           resource_id: documentId,
           details: {
-            document_name: document.name,
-            analysis_id: analysis.id,
+            document_name: (document as any).name,
+            analysis_id: (analysis as any).id,
             findings_count: analysisData.key_findings.length,
             recommendations_count: analysisData.recommendations.length,
           },
           created_at: new Date().toISOString(),
         },
-      ]);
+      ] as any);
 
       return {
         document,

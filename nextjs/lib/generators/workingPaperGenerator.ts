@@ -73,12 +73,12 @@ export interface WorkingPaperData {
 
   // Review and completion
   preparedBy: string;
-  reviewedBy?: string;
+  reviewedBy?: string | undefined;  // Make explicitly optional
   completionStatus: 'draft' | 'complete' | 'reviewed' | 'approved';
 
   // Metadata
   workingPaperReference: string;
-  dateCompleted?: string;
+  dateCompleted?: string | undefined;  // Make explicitly optional
   hoursSpent: number;
   organizationId: string;
 }
@@ -613,7 +613,7 @@ export class WorkingPaperGenerator {
    * Utility formatting methods
    */
   private formatProcedureType(type: string): string {
-    const typeMap = {
+    const typeMap: Record<string, string> = {
       analytical: 'Analytical Procedure',
       substantive: 'Substantive Test',
       test_of_controls: 'Test of Controls',
@@ -625,7 +625,7 @@ export class WorkingPaperGenerator {
   }
 
   private formatStatus(status: string): string {
-    const statusMap = {
+    const statusMap: Record<string, string> = {
       not_started: 'Not Started',
       in_progress: 'In Progress',
       complete: 'Complete',

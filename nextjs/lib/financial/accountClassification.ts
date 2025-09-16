@@ -349,8 +349,10 @@ export class AccountClassificationEngine {
       analytics.byCategory[account.category] = (analytics.byCategory[account.category] || 0) + 1;
 
       // Count by risk level
-      analytics.byRiskLevel[account.auditAttributes.riskLevel] =
-        (analytics.byRiskLevel[account.auditAttributes.riskLevel] || 0) + 1;
+      if (account.auditAttributes) {
+        analytics.byRiskLevel[account.auditAttributes.riskLevel] =
+          (analytics.byRiskLevel[account.auditAttributes.riskLevel] || 0) + 1;
+      }
 
       // Count by standard
       if (account.ifrsMapping) analytics.byStandard.ifrs++;
@@ -365,7 +367,7 @@ export class AccountClassificationEngine {
     });
 
     // Generate recommendations
-    if (analytics.byRiskLevel.critical > 0) {
+    if (analytics.byRiskLevel?.critical && analytics.byRiskLevel?.critical > 0) {
       analytics.recommendedActions.push('Review critical risk accounts for enhanced controls');
     }
     if (analytics.byStandard.frs < accounts.length * 0.5) {
@@ -572,10 +574,7 @@ export function classifyAccountsByType(
 ): Record<string, AccountMapping[]> {
   return accounts.reduce(
     (acc, account) => {
-      if (!acc[account.accountType]) {
-        acc[account.accountType] = [];
-      }
-      acc[account.accountType].push(account);
+      (acc[account.accountType] = acc[account.accountType] || []).push(account);
       return acc;
     },
     {} as Record<string, AccountMapping[]>

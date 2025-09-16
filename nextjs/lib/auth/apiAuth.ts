@@ -34,7 +34,7 @@ export async function authenticateApiRequest(
   const { data: profile, error: profileError } = await supabase
     .from('users')
     .select('*')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .single();
 
   if (profileError || !profile) {
@@ -45,7 +45,7 @@ export async function authenticateApiRequest(
   }
 
   if (options?.requireRole) {
-    const isAuthorized = await authorize(profile, options.requireRole);
+    const isAuthorized = authorize(profile, options.requireRole);
     if (!isAuthorized) {
       return {
         success: false,
@@ -59,6 +59,22 @@ export async function authenticateApiRequest(
     user,
     profile,
   };
+}
+
+/**
+ * Role-based authorization function
+ */
+export function authorize(profile: any, requiredRole: string): boolean {
+  const roleHierarchy = {
+    admin: 3,
+    auditor: 2,
+    reviewer: 1,
+  };
+
+  const userRoleLevel = roleHierarchy[profile.role as keyof typeof roleHierarchy] || 0;
+  const requiredRoleLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0;
+
+  return userRoleLevel >= requiredRoleLevel;
 }
 
 export async function checkOrganizationAccess(

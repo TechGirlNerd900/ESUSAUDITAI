@@ -124,12 +124,12 @@ export function generateFinancialStatements(
     incomeStatement,
     cashFlowStatement,
     metadata: {
-      companyName: metadata.companyName,
       reportingPeriodStart: metadata.reportingPeriodStart,
       reportingPeriodEnd: metadata.reportingPeriodEnd,
       presentationCurrency: metadata.presentationCurrency || 'NGN',
       accountingStandard: metadata.accountingStandard || 'IFRS',
       generatedAt: new Date().toISOString(),
+      ...(metadata.companyName && { companyName: metadata.companyName }),
     },
   };
 }

@@ -88,8 +88,13 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     }
 
     // Create user profile record
-    if (authUser.user) {
-      const { error: profileError } = await supabaseAdmin.from('users').insert({
+    if (!authUser.user || !authUser.user.id) {
+      await supabaseAdmin.from('organizations').delete().eq('id', organization.id);
+      throw new ApiError('Auth user not created properly', 500);
+    }
+
+    const { data: createdProfile, error: profileError } = await supabaseAdmin.from('users')
+      .insert({
         auth_user_id: authUser.user.id,
         email: authUser.user.email,
         first_name: firstName,
@@ -100,23 +105,24 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      })
+      .select()
+      .single();
 
-      if (profileError) {
-        console.error('Failed to create user profile:', profileError);
-        // Clean up auth user and organization if profile creation fails
-        await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
-        await supabaseAdmin.from('organizations').delete().eq('id', organization.id);
-        throw new ApiError('Failed to create user profile', 500);
-      }
+    if (profileError || !createdProfile || !createdProfile.id) {
+      console.error('Failed to create user profile:', profileError);
+      // Clean up auth user and organization if profile creation fails
+      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+      await supabaseAdmin.from('organizations').delete().eq('id', organization.id);
+      throw new ApiError('Failed to create user profile', 500);
     }
 
     return successResponse(
       {
         message: 'Account created successfully. Please check your email to verify your account.',
         user: {
-          id: authUser.user?.id,
-          email: authUser.user?.email,
+          id: authUser.user.id,
+          email: authUser.user.email,
           role: 'admin',
           organization_id: organization.id,
         },

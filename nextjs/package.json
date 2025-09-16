@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3002",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -16,10 +16,10 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "@azure/ai-form-recognizer": "^5.1.0",
-    "@azure/core-auth": "^1.9.0",
-    "@azure/search-documents": "^12.1.0",
-    "@azure/service-bus": "^7.9.3",
+    "@google-cloud/discoveryengine": "^2.4.0",
+    "@google-cloud/documentai": "^9.4.0",
+    "@google-cloud/storage": "^7.7.0",
+    "@google-cloud/vertexai": "^1.10.0",
     "@google/generative-ai": "^0.15.0",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
@@ -33,7 +33,6 @@
     "@supabase/supabase-js": "^2.52.1",
     "@upstash/ratelimit": "^2.0.5",
     "@upstash/redis": "^1.35.0",
-    "applicationinsights": "^2.9.1",
     "axios": "^1.9.0",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",

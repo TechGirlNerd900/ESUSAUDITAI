@@ -2,24 +2,30 @@ import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { GeminiServices } from '@/lib/gemini/geminiServices';
 import { generateChatResponse } from '@/lib/geminiClient';
+import { calculateConfidenceScore } from '@/lib/analysis/confidenceScoring';
+import {
+  authenticateUserAndFetchProfile,
+  fetchAndValidateDocument,
+  checkExistingAnalysis,
+  initializeGeminiServices,
+  performDocumentAnalysisAndSummary,
+  saveAnalysisResults,
+  updateDocumentStatus,
+  handleAnalysisError,
+  extractRedFlags, // Keep this import as it's used in saveAnalysisResults
+  extractHighlights, // Keep this import as it's used in saveAnalysisResults
+} from '@/lib/api/analysisUtils';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Declare supabase and documentId outside try block for error handling access
   let supabase: Awaited<ReturnType<typeof createClient>> | undefined;
   let documentId: string | undefined;
 
   try {
-    // Await params since they're now a Promise in newer Next.js versions
     const resolvedParams = await params;
     documentId = resolvedParams.id;
 
     supabase = await createClient();
 
-    // SECURITY: Multi-step operations require careful error handling
-    // PostgreSQL transactions are handled implicitly by Supabase client
-    // We implement compensating transactions for failure scenarios
-
-    // Check if user is authenticated
     const {
       data: { user },
       error: authError,
@@ -29,258 +35,74 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch user profile with organization_id for multi-tenant security
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('organization_id, role')
-      .eq('auth_user_id', user.id)
-      .single();
-
+    const { userProfile, error: profileError } = await authenticateUserAndFetchProfile(supabase, user.id);
     if (profileError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
+      return NextResponse.json({ error: profileError || 'User profile not found' }, { status: 403 });
     }
 
-    // Get document details
-    const { data: document, error: docError } = await supabase
-      .from('documents')
-      .select(
-        `
-        *,
-        projects!inner(id, created_by, assigned_to, deleted_at)
-      `
-      )
-      .eq('id', documentId)
-      .eq('deleted_at', null)
-      .single();
-
-    if (docError) {
-      console.error('Document fetch error:', docError);
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    const { document, error: documentError } = await fetchAndValidateDocument(
+      supabase,
+      documentId,
+      userProfile.organization_id,
+      user.id
+    );
+    if (documentError || !document) {
+      return NextResponse.json({ error: documentError || 'Document not found' }, { status: 404 });
     }
 
-    if (!document || document.projects.deleted_at) {
-      return NextResponse.json(
-        { error: 'Document or project not found or archived' },
-        { status: 404 }
-      );
+    const { analysis: existingAnalysis, message: existingAnalysisMessage, error: existingAnalysisError } = await checkExistingAnalysis(
+      supabase,
+      documentId,
+      userProfile.organization_id
+    );
+    if (existingAnalysisError) {
+      console.error('Existing analysis check failed:', existingAnalysisError);
+    }
+    if (existingAnalysis) {
+      return NextResponse.json({ analysis: existingAnalysis, message: existingAnalysisMessage });
     }
 
-    // Validate organization access - CRITICAL for multi-tenant security
-    if (document.organization_id !== userProfile.organization_id) {
-      return NextResponse.json({ error: 'Cross-organization access denied' }, { status: 403 });
-    }
+    await updateDocumentStatus(supabase, documentId, 'processing');
 
-    // Check access to project
-    const project = document.projects;
-    const hasAccess =
-      userProfile.role === 'admin' ||
-      project.created_by === user.id ||
-      (project.assigned_to && project.assigned_to.includes(user.id));
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    // Check if analysis already exists and is recent - with organization filtering
-    const { data: existingAnalysis, error: analysisCheckError } = await supabase
-      .from('analysis_results')
-      .select('*')
-      .eq('document_id', documentId)
-      .eq('organization_id', userProfile.organization_id) // CRITICAL: Filter by organization
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (analysisCheckError) {
-      console.error('Analysis check error:', analysisCheckError);
-    }
-
-    if (existingAnalysis && existingAnalysis.length > 0) {
-      return NextResponse.json({
-        analysis: existingAnalysis[0],
-        message: 'Analysis already exists',
-      });
-    }
-
-    // Validate document blob_url
-    if (!document.blob_url) {
-      return NextResponse.json(
-        {
-          error: 'Document URL not available',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Update document status to processing
-    const { error: statusUpdateError } = await supabase
-      .from('documents')
-      .update({ status: 'processing' })
-      .eq('id', documentId);
-
-    if (statusUpdateError) {
-      console.error('Status update error:', statusUpdateError);
-    }
-
-    // Initialize Gemini services
-    const cookieStore = {
-      getAll: () => [],
-      setAll: () => {},
-    };
-
-    let geminiServices: GeminiServices;
-    try {
-      geminiServices = new GeminiServices(cookieStore);
-    } catch (geminiError) {
-      console.error('Gemini services initialization error:', geminiError);
-
-      // Compensating transaction: reset document status
-
-      // Update document status to error (outside transaction)
-      await supabase.from('documents').update({ status: 'error' }).eq('id', documentId);
-
-      return NextResponse.json(
-        { error: 'Failed to initialize document analysis service' },
-        { status: 500 }
-      );
+    const { geminiServices, error: geminiInitError } = await initializeGeminiServices();
+    if (geminiInitError || !geminiServices) {
+      await updateDocumentStatus(supabase, documentId, 'error');
+      return NextResponse.json({ error: geminiInitError || 'Failed to initialize document analysis service' }, { status: 500 });
     }
 
     const startTime = Date.now();
 
-    try {
-      // Analyze document with Gemini
-      let documentAnalysis;
-      try {
-        documentAnalysis = await geminiServices.analyzeDocument(
-          document.blob_url,
-          'prebuilt-document'
-        );
-      } catch (geminiAnalysisError: unknown) {
-        console.error('Gemini document analysis error:', geminiAnalysisError);
-        let errorMessage = 'Document analysis failed';
-        if (geminiAnalysisError instanceof Error) {
-          errorMessage += ': ' + geminiAnalysisError.message;
-        } else if (typeof geminiAnalysisError === 'string') {
-          errorMessage += ': ' + geminiAnalysisError;
-        }
-        throw new Error(errorMessage);
-      }
-
-      // Validate analysis results
-      if (!documentAnalysis) {
-        throw new Error('No analysis results received from Gemini');
-      }
-
-      // Generate AI summary and insights using Gemini
-      const aiAnalysisPrompt = `
-        Analyze this financial document data and provide:
-        1. A comprehensive summary
-        2. Key financial insights
-        3. Potential red flags or areas of concern
-        4. Important highlights
-        
-        Document Data:
-        ${JSON.stringify(documentAnalysis, null, 2)}
-      `;
-
-      let aiSummary: string;
-      try {
-        const completion = await generateChatResponse([], {}, aiAnalysisPrompt);
-
-        aiSummary = completion.answer || 'Analysis completed';
-      } catch (geminiError) {
-        console.error('Gemini analysis error:', geminiError);
-        aiSummary = 'AI analysis unavailable - using extracted data only';
-      }
-
-      // Calculate confidence score based on data completeness
-      const confidence = calculateConfidenceScore(documentAnalysis);
-
-      // Save analysis results
-      const { data: analysisResult, error: analysisError } = await supabase
-        .from('analysis_results')
-        .insert([
-          {
-            document_id: documentId,
-            organization_id: userProfile.organization_id, // CRITICAL: Add organization_id for multi-tenant isolation
-            extracted_data: documentAnalysis,
-            ai_summary: aiSummary,
-            red_flags: extractRedFlags(aiSummary),
-            highlights: extractHighlights(aiSummary),
-            confidence_score: confidence,
-            processing_time_ms: Date.now() - startTime,
-            analysis_type: 'document_analysis',
-            model_version: 'gemini-pro',
-            metadata: {
-              file_type: document.file_type,
-              file_size: document.file_size || null,
-              processing_duration: Date.now() - startTime,
-            },
-          },
-        ])
-        .select()
-        .single();
-
-      if (analysisError) {
-        console.error('Analysis save error:', analysisError);
-        // Compensating transaction: reset document status on analysis save failure
-        throw new Error('Failed to save analysis results: ' + analysisError.message);
-      }
-
-      // Update document status to analyzed
-      const { error: finalStatusError } = await supabase
-        .from('documents')
-        .update({ status: 'analyzed' })
-        .eq('id', documentId);
-
-      if (finalStatusError) {
-        console.error('Final status update error:', finalStatusError);
-        // Compensating transaction: clean up analysis result if status update fails
-        await supabase.from('analysis_results').delete().eq('document_id', documentId);
-        return NextResponse.json({ error: 'Failed to update document status' }, { status: 500 });
-      }
-
-      // All operations completed successfully - no explicit commit needed
-      // PostgreSQL automatically commits single operations
-
-      return NextResponse.json({
-        analysis: analysisResult,
-        message: 'Document analyzed successfully',
-      });
-    } catch (analysisError) {
-      console.error('Analysis processing error:', analysisError);
-
-      // Compensating transaction: reset document status
-
-      // Update document status to error (outside transaction)
-      await supabase.from('documents').update({ status: 'error' }).eq('id', documentId);
-
-      return NextResponse.json(
-        {
-          error: 'Analysis failed',
-          details:
-            analysisError instanceof Error ? analysisError.message : 'Unknown analysis error',
-        },
-        { status: 500 }
-      );
+    const { documentAnalysis, aiSummary, error: analysisSummaryError } = await performDocumentAnalysisAndSummary(geminiServices, document);
+    if (analysisSummaryError || !documentAnalysis || !aiSummary) {
+      await updateDocumentStatus(supabase, documentId, 'error');
+      return NextResponse.json({ error: analysisSummaryError || 'Document analysis or summary failed' }, { status: 500 });
     }
+
+    const { analysisResult, error: saveError } = await saveAnalysisResults(
+      supabase,
+      documentId,
+      userProfile.organization_id,
+      documentAnalysis,
+      aiSummary,
+      document,
+      startTime
+    );
+    if (saveError || !analysisResult) {
+      await updateDocumentStatus(supabase, documentId, 'error');
+      return NextResponse.json({ error: saveError || 'Failed to save analysis results' }, { status: 500 });
+    }
+
+    await updateDocumentStatus(supabase, documentId, 'analyzed');
+
+    return NextResponse.json({
+      analysis: analysisResult,
+      message: 'Document analyzed successfully',
+    });
   } catch (error) {
-    console.error('Document analysis error:', error);
-
-    try {
-      // Attempt compensating transaction cleanup if supabase is available
-      if (supabase) {
-        // Reset document status and clean up any partial results
-        await supabase.from('documents').update({ status: 'error' }).eq('id', documentId);
-      }
-
-      // If we have a document ID and supabase client, update its status to error
-      if (documentId && supabase) {
-        await supabase.from('documents').update({ status: 'error' }).eq('id', documentId);
-      }
-    } catch (cleanupError) {
-      console.error('Error during error cleanup:', cleanupError);
+    console.error('Document analysis error in route:', error);
+    if (supabase && documentId) {
+      await updateDocumentStatus(supabase, documentId, 'error');
     }
-
     return NextResponse.json(
       {
         error: 'Internal server error',
@@ -289,69 +111,4 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       { status: 500 }
     );
   }
-}
-
-function calculateConfidenceScore(analysisData: any): number {
-  // Simple confidence calculation based on data completeness
-  let score = 0.5; // Base score
-
-  try {
-    if (analysisData?.tables && analysisData.tables.length > 0) score += 0.2;
-    if (analysisData?.keyValuePairs && Object.keys(analysisData.keyValuePairs).length > 0)
-      score += 0.2;
-    if (analysisData?.content && analysisData.content.length > 100) score += 0.1;
-  } catch (error) {
-    console.error('Error calculating confidence score:', error);
-  }
-
-  return Math.min(score, 1.0);
-}
-
-function extractRedFlags(summary: string): string[] {
-  if (!summary || typeof summary !== 'string') {
-    return [];
-  }
-
-  const redFlags = [];
-  const lowerSummary = summary.toLowerCase();
-
-  try {
-    if (lowerSummary.includes('discrepanc')) redFlags.push('Potential discrepancies detected');
-    if (lowerSummary.includes('inconsisten')) redFlags.push('Inconsistencies found');
-    if (lowerSummary.includes('unusual')) redFlags.push('Unusual patterns identified');
-    if (lowerSummary.includes('concern')) redFlags.push('Areas of concern noted');
-  } catch (error) {
-    console.error('Error extracting red flags:', error);
-  }
-
-  return redFlags;
-}
-
-function extractHighlights(summary: string): string[] {
-  if (!summary || typeof summary !== 'string') {
-    return [];
-  }
-
-  const highlights = [];
-
-  try {
-    const sentences = summary.split(/[.!?]+/);
-
-    // Extract sentences that seem like key insights
-    for (const sentence of sentences) {
-      if (
-        sentence &&
-        sentence.length > 20 &&
-        (sentence.toLowerCase().includes('key') ||
-          sentence.toLowerCase().includes('important') ||
-          sentence.toLowerCase().includes('significant'))
-      ) {
-        highlights.push(sentence.trim());
-      }
-    }
-  } catch (error) {
-    console.error('Error extracting highlights:', error);
-  }
-
-  return highlights.slice(0, 5); // Limit to 5 highlights
 }

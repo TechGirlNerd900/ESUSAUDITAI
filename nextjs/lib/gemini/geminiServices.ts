@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import NodeCache from 'node-cache';
-import { promiseWithTimeout } from '../helpers';
+import { promiseWithTimeout } from '@/lib/core/helpers';
 import type { CookieOptions } from '@supabase/ssr';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -64,8 +64,8 @@ export class GeminiServices {
     this.maxRetries = process.env.NODE_ENV === 'production' ? 3 : 1;
     this.retryDelay = 1000; // Start with 1 second delay
 
-    // Initialize Gemini
-    this.generativeAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+    // Initialize Gemini with fallback for development
+    this.generativeAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy-key-for-dev');
 
     this.bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'documents';
 

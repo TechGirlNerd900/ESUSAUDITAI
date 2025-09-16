@@ -377,12 +377,12 @@ class SupabaseDatabaseService implements DatabaseService {
 class DocumentProcessingService implements DocumentService {
   private supabase: any;
   private logger: any;
-  private azureCircuitBreaker: CircuitBreaker;
+  private googleCircuitBreaker: CircuitBreaker;
 
   constructor(supabase: any) {
     this.supabase = supabase;
     this.logger = getLogger('DocumentService');
-    this.azureCircuitBreaker = new CircuitBreaker(3, 60000, 2);
+    this.googleCircuitBreaker = new CircuitBreaker(3, 60000, 2);
   }
 
   async analyzeDocument(documentId: string, userId: string): Promise<any> {

@@ -36,7 +36,7 @@ interface ProjectData {
 }
 
 export class Database {
-  private client: SupabaseClient;
+  private client: any; // Use any type to avoid strict typing issues
   constructor(cookieStore: CookieStore) {
     // Initialize Supabase client with SSR support
     this.client = createServerClient(

@@ -8,12 +8,8 @@ export const GET = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
     const { id } = context.params;
 
-    // Authenticate request with rate limiting
-    const auth = await authenticateApiRequest(request, {
-      allowSelf: true,
-      targetUserId: id,
-      rateLimit: 60,
-    });
+    // Authenticate request
+    const auth = await authenticateApiRequest(request);
 
     if (!auth.success) {
       return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
@@ -54,12 +50,8 @@ export const PUT = withErrorHandling(
   async (request: NextRequest, context: { params: { id: string } }) => {
     const { id } = context.params;
 
-    // Authenticate request with rate limiting
-    const auth = await authenticateApiRequest(request, {
-      allowSelf: true,
-      targetUserId: id,
-      rateLimit: 20,
-    });
+    // Authenticate request
+    const auth = await authenticateApiRequest(request);
 
     if (!auth.success) {
       return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
@@ -123,7 +115,6 @@ export const DELETE = withErrorHandling(
 
     // Authenticate request with admin role requirement
     const auth = await authenticateApiRequest(request, {
-      rateLimit: 10,
       requireRole: 'admin',
     });
 
