@@ -357,6 +357,60 @@ export class Database {
     });
   }
 
+  async getDocuments(
+    userId: string,
+    options: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    } = {}
+  ) {
+    return await withRetry(async () => {
+      const {
+        page = 1,
+        pageSize = 10,
+        search = undefined,
+        sortBy = 'created_at',
+        sortOrder = 'desc',
+      } = options;
+
+      const offset = (page - 1) * pageSize;
+
+      let query = this.client.from('documents').select('*', { count: 'exact' });
+
+      // RLS should handle security, but we can add an explicit filter for clarity
+      // This assumes documents are linked to users directly or through projects.
+      // As there's no direct user_id on documents, we'll rely on RLS.
+
+      if (search) {
+        query = query.ilike('name', `%${search}%`);
+      }
+
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+      query = query.range(offset, offset + pageSize - 1);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        throw new DatabaseError('select', error.message, { table: 'documents' });
+      }
+
+      const totalPages = Math.ceil((count as number) / pageSize);
+
+      return {
+        data,
+        pagination: {
+          total: count,
+          page,
+          pageSize,
+          totalPages,
+        },
+      };
+    });
+  }
+
   // Storage operations
   async getStorageUrl(bucket: string, path: string) {
     return await withRetry(async () => {

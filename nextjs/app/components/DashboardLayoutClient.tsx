@@ -14,9 +14,9 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutClien
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar setSidebarOpen={setOpen} />
-      <div className="flex">
+      <div>
         <Sidebar open={open} setOpen={setOpen} />
-        <main className="flex-1 p-8">{children}</main>
+        <main className="lg:ml-64 flex-1 p-8">{children}</main>
       </div>
     </div>
   );

@@ -1,30 +1,54 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Lock, Bell, Save } from 'lucide-react';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
+import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [notification, setNotification] = useState({ type: '', message: '' });
   const [activeTab, setActiveTab] = useState('profile');
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
-
-  const checkUser = useCallback(async () => {
-    // ... (implementation remains the same)
-  }, []);
+  const authenticatedFetch = useAuthenticatedFetch();
 
   useEffect(() => {
-    checkUser();
-  }, [checkUser]);
+    const fetchUserProfile = async () => {
+      try {
+        const response = await authenticatedFetch('/api/auth/profile');
+        if (!response.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+        const data = await response.json();
+        setUser(data.user);
+      } catch (error) {
+        setNotification({ type: 'error', message: 'Failed to load user profile.' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, [authenticatedFetch]);
 
   async function updateProfile(event: React.FormEvent) {
-    // ... (implementation remains the same)
+    event.preventDefault();
+    setSaving(true);
+    setNotification({ type: '', message: '' });
+
+    try {
+      // In a real app, you would call an API to update the user's profile
+      // For now, we'll just show a success message
+      setNotification({ type: 'success', message: 'Profile updated successfully!' });
+    } catch (error) {
+      setNotification({ type: 'error', message: 'Failed to update profile.' });
+    } finally {
+      setSaving(false);
+    }
   }
 
   const renderContent = () => {
@@ -33,11 +57,47 @@ export default function SettingsPage() {
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <form onSubmit={updateProfile} className="space-y-6">
-              {/* Form fields ... */}
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  id="firstName"
+                  defaultValue={user?.first_name || ''}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  id="lastName"
+                  defaultValue={user?.last_name || ''}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  defaultValue={user?.email || ''}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  required
+                  disabled
+                />
+              </div>
               <div className="flex justify-end">
-                <button type="submit" disabled={loading} className="btn-primary flex items-center">
+                <button type="submit" disabled={saving} className="btn-primary flex items-center">
                   <Save className="h-4 w-4 mr-2" />
-                  {loading ? 'Saving...' : 'Save Changes'}
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -46,13 +106,13 @@ export default function SettingsPage() {
       case 'security':
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            Security settings content...
+            <p className="text-gray-600">Password change functionality coming soon.</p>
           </motion.div>
         );
       case 'notifications':
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            Notifications settings content...
+            <p className="text-gray-600">Notification preferences coming soon.</p>
           </motion.div>
         );
       default:

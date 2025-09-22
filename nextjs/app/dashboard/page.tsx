@@ -1,23 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
 import {
-  LayoutDashboard,
-  Briefcase,
-  Users,
-  Settings,
-  Bell,
   PlusCircle,
-  ChevronDown,
+  Upload,
+  ShieldCheck,
+  FileBarChart,
+  Calendar,
   FileText,
-  Activity,
-  TrendingUp,
   AlertTriangle,
-  CheckCircle2,
+  CheckCircle,
+  Brain,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -29,157 +23,193 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import ErrorBoundary from '../components/ErrorBoundary';
 import CreateProjectModal from '../components/CreateProjectModal';
 import WelcomeModal from '../components/WelcomeModal';
 import ChatWidget from '../components/ChatWidget';
+import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch';
+import UploadDocumentModal from '../components/UploadDocumentModal';
 
+// --- Interfaces ---
 interface Project {
   id: string;
   name: string;
-  description?: string;
   client_name: string;
   status: 'active' | 'completed' | 'on_hold' | 'cancelled';
-  created_by: string;
-  organization_id: string;
   created_at: string;
-  updated_at: string;
-  tags?: string[];
-  custom_fields?: Record<string, any>;
+  due_date?: string;
 }
 
-interface UserProfile {
+interface Document {
   id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: 'admin' | 'auditor' | 'reviewer';
-  organization_id: string;
+  name: string;
+  uploaded_at: string;
 }
 
-interface NewsArticle {
-  title: string;
-  description: string;
-  published_at: string;
-  url: string;
+interface ComplianceStatus {
+  overall_score: number;
+  passed_checks: number;
+  total_checks: number;
 }
 
+interface AIInsight {
+  id: string;
+  message: string;
+}
+
+// --- Dashboard Component ---
 const Dashboard: React.FC = () => {
-  const router = useRouter();
+  const authenticatedFetch = useAuthenticatedFetch();
+  
+  // --- Modal States ---
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [news, setNews] = useState<NewsArticle[]>([]);
-  const [newsLoading, setNewsLoading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
+  // --- Data States ---
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [complianceStatus, setComplianceStatus] = useState<ComplianceStatus | null>(null);
+  const [aiInsight, setAiInsight] = useState<AIInsight | null>(null);
+
+  // --- Loading States ---
+  const [isLoading, setIsLoading] = useState(true);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [complianceLoading, setComplianceLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  // --- Error States ---
+  const [error, setError] = useState<string | null>(null);
+
+  // --- Data Fetching Functions ---
+  const fetchUserProfile = useCallback(async () => {
+    try {
+      const response = await authenticatedFetch('/api/auth/profile');
+      if (!response.ok) throw new Error('Failed to fetch profile');
+      const data = await response.json();
+      setUserProfile(data.user);
+    } catch (err) {
+      setError('Failed to load user profile');
+      console.error(err);
+    }
+  }, [authenticatedFetch]);
+
+  const fetchProjects = useCallback(async () => {
+    setProjectsLoading(true);
+    try {
+      const response = await authenticatedFetch('/api/projects');
+      if (!response.ok) throw new Error('Failed to fetch projects');
+      const data = await response.json();
+      setProjects(data);
+    } catch (err) {
+      setError('Failed to load projects');
+      console.error(err);
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, [authenticatedFetch]);
+
+  const fetchDocuments = useCallback(async () => {
+    setDocumentsLoading(true);
+    try {
+      const response = await authenticatedFetch('/api/documents');
+      if (!response.ok) throw new Error('Failed to fetch documents');
+      const data = await response.json();
+      setDocuments(data);
+    } catch (err) {
+      setError('Failed to load documents');
+      console.error(err);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }, [authenticatedFetch]);
+
+  const fetchComplianceStatus = useCallback(async () => {
+    setComplianceLoading(true);
+    try {
+      const response = await authenticatedFetch('/api/compliance/status');
+      if (!response.ok) throw new Error('Failed to fetch compliance status');
+      const data = await response.json();
+      setComplianceStatus(data);
+    } catch (err) {
+      setError('Failed to load compliance status');
+      console.error(err);
+    } finally {
+      setComplianceLoading(false);
+    }
+  }, [authenticatedFetch]);
+
+  const fetchAIInsight = useCallback(async () => {
+    setAiLoading(true);
+    try {
+      const response = await authenticatedFetch('/api/ai/insights');
+      if (!response.ok) throw new Error('Failed to fetch AI insights');
+      const data = await response.json();
+      setAiInsight(data);
+    } catch (err) {
+      // Don't show error for AI insights as it's non-critical
+      console.error('Failed to load AI insights:', err);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [authenticatedFetch]);
+
+  // --- Effect Hooks ---
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
-        const [userRes, projectsRes] = await Promise.all([
-          fetch('/api/auth/profile'),
-          fetch('/api/projects'),
+        await Promise.all([
+          fetchUserProfile(),
+          fetchProjects(),
+          fetchDocuments(),
+          fetchComplianceStatus(),
+          fetchAIInsight(),
         ]);
-
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setUserProfile(userData.profile);
-          const hasSeenWelcome = localStorage.getItem(`welcome_seen_${userData.profile.id}`);
-          if (!hasSeenWelcome) {
-            setShowWelcomeModal(true);
-          }
-        }
-
-        if (projectsRes.ok) {
-          const projectsData = await projectsRes.json();
-          setProjects(projectsData.projects || []);
-        } else {
-          const errorData = await projectsRes.json();
-          throw new Error(errorData.error || 'Failed to load projects');
-        }
-
-        loadNews();
       } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
+        setError('Failed to load dashboard data.');
+        console.error(err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    fetchDashboardData();
+  }, [
+    fetchUserProfile,
+    fetchProjects,
+    fetchDocuments,
+    fetchComplianceStatus,
+    fetchAIInsight
+  ]);
+
+  // --- Event Handlers ---
+  const handleProjectCreated = useCallback((newProject: Project) => {
+    setProjects(prev => [newProject, ...prev]);
   }, []);
 
-  const loadNews = async () => {
-    setNewsLoading(true);
-    try {
-      const response = await fetch('/api/news');
-      if (response.ok) {
-        const data = await response.json();
-        setNews(data.articles || []);
-      }
-    } catch (err) {
-      console.error('Failed to load news:', err);
-    } finally {
-      setNewsLoading(false);
-    }
-  };
-
-  const handleProjectCreated = (newProject: Project) => {
-    setProjects((prev) => [newProject, ...prev]);
-  };
-
-  const handleWelcomeTaskSelect = (taskId: string) => {
+  const handleWelcomeTaskSelect = useCallback((taskId: string) => {
     if (userProfile) {
       localStorage.setItem(`welcome_seen_${userProfile.id}`, 'true');
     }
     setShowWelcomeModal(false);
-    // Navigation logic based on taskId
-    switch (taskId) {
-      case 'create_project':
-        setShowCreateModal(true);
-        break;
-      case 'view_projects':
-        router.push('/projects');
-        break;
-      case 'settings':
-        router.push('/settings');
-        break;
-      default:
-        break;
+    if (taskId === 'create_project') {
+      setShowCreateModal(true);
     }
-  };
+  }, [userProfile]);
 
-  const stats = [
-    { name: 'Total Projects', value: projects.length, icon: Briefcase, trend: '+12%' },
-    {
-      name: 'Active Projects',
-      value: projects.filter((p) => p.status === 'active').length,
-      icon: Activity,
-      trend: '+8%',
-    },
-    {
-      name: 'Completed',
-      value: projects.filter((p) => p.status === 'completed').length,
-      icon: CheckCircle2,
-      trend: '+25%',
-    },
-    { name: 'Issues Found', value: 12, icon: AlertTriangle, trend: '-15%' },
-  ];
-
+  // --- Render Logic ---
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Card className="w-full max-w-md mx-auto">
+      <div className="flex items-center justify-center h-full">
+        <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-destructive">Unable to Load Dashboard</CardTitle>
-            <CardDescription>{error.message}</CardDescription>
+            <CardTitle className="text-destructive">Dashboard Error</CardTitle>
+            <CardDescription>{error}</CardDescription>
           </CardHeader>
           <CardContent>
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
@@ -194,338 +224,288 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Quick Actions Bar Skeleton */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-16 rounded-lg" />
+          ))}
+        </div>
+        {/* Cards Grid Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {[...Array(2)].map((_, i) => (
+              <Skeleton key={i} className="h-64 rounded-lg" />
+            ))}
+          </div>
+          <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-64 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
-      <div className="flex h-screen bg-background font-sans">
-        {/* Sidebar */}
-        <aside className="w-64 bg-card shadow-md flex flex-col">
-          <div className="p-4 border-b">
-            <h1 className="text-2xl font-bold text-foreground">Esus Audit AI</h1>
-          </div>
-          <nav className="flex-grow p-4 space-y-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/dashboard"
-                    className="flex items-center px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg"
-                  >
-                    <LayoutDashboard className="mr-3 h-5 w-5" />
-                    Dashboard
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Dashboard Overview</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/projects"
-                    className="flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg"
-                  >
-                    <Briefcase className="mr-3 h-5 w-5" />
-                    Projects
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Manage Projects</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {userProfile?.role === 'admin' && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href="/admin"
-                      className="flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg"
-                    >
-                      <Users className="mr-3 h-5 w-5" />
-                      Admin
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>User Management</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/settings"
-                    className="flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg"
-                  >
-                    <Settings className="mr-3 h-5 w-5" />
-                    Settings
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Application Settings</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </nav>
-          <div className="p-4 border-t">
-            <Button variant="secondary" className="w-full">
-              Help & Support
-            </Button>
-          </div>
-        </aside>
+      <div className="flex flex-col space-y-6">
+        {/* --- Quick Actions Bar --- */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-card rounded-lg shadow-sm"
+        >
+          <Button size="lg" className="flex-col items-start space-y-2 py-6" onClick={() => setShowCreateModal(true)}>
+            <PlusCircle className="h-5 w-5" />
+            <span>New Project</span>
+          </Button>
+          <Button variant="secondary" size="lg" className="flex-col items-start space-y-2 py-6" onClick={() => setShowUploadModal(true)}>
+            <Upload className="h-5 w-5" />
+            <span>Upload Document</span>
+          </Button>
+          <Button variant="secondary" size="lg" className="flex-col items-start space-y-2 py-6">
+            <ShieldCheck className="h-5 w-5" />
+            <span>Run Compliance</span>
+          </Button>
+          <Button variant="secondary" size="lg" className="flex-col items-start space-y-2 py-6">
+            <FileBarChart className="h-5 w-5" />
+            <span>Generate Report</span>
+          </Button>
+        </motion.div>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          {/* Header */}
-          <header className="bg-card shadow-sm sticky top-0 z-10">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                <div className="flex items-center">
-                  <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button onClick={() => setShowCreateModal(true)}>
-                          <PlusCircle className="h-5 w-5 mr-2" />
-                          New Project
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Create New Project</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <Bell className="h-6 w-6" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Notifications</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <div className="relative">
-                    <button className="flex items-center space-x-2">
-                      <Avatar>
-                        <AvatarImage
-                          src={
-                            userProfile?.email
-                              ? `https://i.pravatar.cc/150?u=${userProfile.email}`
-                              : '/avatar-placeholder.svg'
-                          }
-                        />
-                        <AvatarFallback>
-                          {userProfile?.first_name?.[0]}
-                          {userProfile?.last_name?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium text-foreground hidden md:block">
-                        {userProfile?.first_name} {userProfile?.last_name}
-                      </span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </button>
+        {/* --- Main Content Grid --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* --- Column 1: Work Overview --- */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Current Projects Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CheckCircle className="mr-2 h-5 w-5 text-green-600" />
+                  Current Projects
+                  <span className="ml-auto text-sm font-normal text-muted-foreground">
+                    {projects.filter(p => p.status === 'active').length} active
+                  </span>
+                </CardTitle>
+                <CardDescription>
+                  Your most recent and active audit projects.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {projectsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-16" />
+                    ))}
                   </div>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          {/* Page Content */}
-          <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <AnimatePresence>
-                {isLoading ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-24" />
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      <div className="lg:col-span-2">
-                        <Skeleton className="h-80" />
+                ) : projects && projects.length > 0 ? (
+                  <div className="space-y-4">
+                    {projects.slice(0, 3).map((project) => (
+                      <div
+                        key={project.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                      >
+                        <div>
+                          <p className="font-medium">{project.name}</p>
+                          <p className="text-sm text-muted-foreground">{project.client_name}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              project.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}
+                          >
+                            {project.status}
+                          </span>
+                          <Button size="sm" variant="ghost">
+                            Open
+                          </Button>
+                        </div>
                       </div>
-                      <div>
-                        <Skeleton className="h-80" />
-                      </div>
-                    </div>
-                  </motion.div>
+                    ))}
+                  </div>
                 ) : (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                      {stats.map((stat, i) => (
-                        <motion.div
-                          key={stat.name}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.1 }}
-                        >
-                          <Card>
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                              <CardTitle className="text-sm font-medium">{stat.name}</CardTitle>
-                              <stat.icon className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                              <div className="text-2xl font-bold">{stat.value}</div>
-                              <p className="text-xs text-muted-foreground">
-                                {stat.trend} vs last month
-                              </p>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    {/* Main Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      {/* Recent Projects */}
-                      <Card className="lg:col-span-2">
-                        <CardHeader>
-                          <CardTitle className="flex items-center">
-                            <Briefcase className="mr-2 h-5 w-5" />
-                            Recent Projects
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            {projects.slice(0, 5).map((p) => (
-                              <Link key={p.id} href={`/projects/${p.id}`}>
-                                <motion.div
-                                  whileHover={{ scale: 1.02 }}
-                                  className="p-4 rounded-lg border hover:bg-accent flex items-center justify-between"
-                                >
-                                  <div>
-                                    <p className="font-semibold text-foreground">{p.name}</p>
-                                    <p className="text-sm text-muted-foreground">{p.client_name}</p>
-                                  </div>
-                                  <div className="flex items-center space-x-4">
-                                    <span
-                                      className={`px-2 py-1 text-xs font-medium rounded-full bg-secondary text-secondary-foreground`}
-                                    >
-                                      {p.status}
-                                    </span>
-                                    <p className="text-sm text-muted-foreground">
-                                      {new Date(p.created_at).toLocaleDateString()}
-                                    </p>
-                                  </div>
-                                </motion.div>
-                              </Link>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* News & Activity */}
-                      <div className="space-y-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <FileText className="mr-2 h-5 w-5" />
-                              Financial News
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            {newsLoading ? (
-                              <div className="space-y-3">
-                                {Array.from({ length: 3 }).map((_, i) => (
-                                  <Skeleton key={i} className="h-16" />
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="space-y-4">
-                                {news.slice(0, 3).map((article, index) => (
-                                  <div key={index} className="border-b pb-3 last:border-b-0">
-                                    <h4 className="font-medium text-sm text-foreground mb-1">
-                                      {article.title}
-                                    </h4>
-                                    <p className="text-xs text-muted-foreground mb-2">
-                                      {article.description}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {new Date(article.published_at).toLocaleDateString()}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <Activity className="mr-2 h-5 w-5" />
-                              Recent Activity
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              <div className="flex items-center text-sm">
-                                <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                                <span className="text-muted-foreground">
-                                  Project &quot;Q3 Financial Review&quot; was created
-                                </span>
-                              </div>
-                              <div className="flex items-center text-sm">
-                                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                                <span className="text-muted-foreground">
-                                  Audit findings uploaded for &quot;ABC Corp Review&quot;
-                                </span>
-                              </div>
-                              <div className="flex items-center text-sm">
-                                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
-                                <span className="text-muted-foreground">
-                                  Review deadline approaching for &quot;XYZ Analysis&quot;
-                                </span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  </motion.div>
+                  <div className="text-center py-10">
+                    <CheckCircle className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground">No active projects. Create one to get started.</p>
+                    <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
+                      Create Project
+                    </Button>
+                  </div>
                 )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </main>
+              </CardContent>
+            </Card>
 
-        {/* Modals & Widgets */}
-        <AnimatePresence>
-          {showCreateModal && (
-            <CreateProjectModal
-              isOpen={showCreateModal}
-              onClose={() => setShowCreateModal(false)}
-              onSuccess={handleProjectCreated}
-            />
-          )}
-          {showWelcomeModal && userProfile && (
-            <WelcomeModal
-              isOpen={showWelcomeModal}
-              onClose={() => setShowWelcomeModal(false)}
-              user={userProfile}
-              onTaskSelect={handleWelcomeTaskSelect}
-            />
-          )}
-        </AnimatePresence>
-        <ChatWidget />
+            {/* Upcoming Deadlines Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Calendar className="mr-2 h-5 w-5 text-blue-600" />
+                  Upcoming Deadlines
+                </CardTitle>
+                <CardDescription>
+                  Stay on top of your upcoming tasks and milestones.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {projectsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-12" />
+                    ))}
+                  </div>
+                ) : projects.filter(p => p.due_date).length > 0 ? (
+                  <div className="space-y-4">
+                    {projects
+                      .filter(p => p.due_date)
+                      .slice(0, 3)
+                      .map((project) => (
+                        <div key={project.id} className="flex items-center justify-between">
+                          <span className="font-medium">{project.name}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {project.due_date ? new Date(project.due_date).toLocaleDateString() : 'No date'}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No upcoming deadlines.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* --- Column 2: Activity & Insights --- */}
+          <div className="space-y-6">
+            {/* Recent Documents Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="mr-2 h-5 w-5 text-purple-600" />
+                  Recent Documents
+                </CardTitle>
+                <CardDescription>
+                  Your latest uploaded files for review.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {documentsLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-12" />
+                    ))}
+                  </div>
+                ) : documents && documents.length > 0 ? (
+                  <div className="space-y-3">
+                    {documents.slice(0, 3).map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-accent/50 rounded transition-colors">
+                        <span className="text-sm truncate">{doc.name}</span>
+                        <Button size="sm" variant="ghost">
+                          View
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No documents uploaded yet.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Compliance Status Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ShieldCheck className="mr-2 h-5 w-5 text-green-600" />
+                  Compliance Status
+                </CardTitle>
+                <CardDescription>
+                  Overview of your audit compliance.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {complianceLoading ? (
+                  <div className="flex justify-center items-center h-24">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                  </div>
+                ) : complianceStatus ? (
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-primary">{complianceStatus.overall_score}%</div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {complianceStatus.passed_checks} of {complianceStatus.total_checks} checks passed
+                    </p>
+                    <Button variant="outline" className="mt-4 w-full">
+                      View Details
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No compliance data available.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* AI Assistant Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Brain className="mr-2 h-5 w-5 text-indigo-600" />
+                  AI Assistant Insights
+                </CardTitle>
+                <CardDescription>
+                  Recommendations from your AI assistant.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {aiLoading ? (
+                  <Skeleton className="h-20" />
+                ) : aiInsight ? (
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <p className="text-sm">{aiInsight.message}</p>
+                    <Button variant="link" className="p-0 h-auto mt-3">
+                      Chat with AI
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No new insights from AI.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
+
+      {/* --- Modals & Widgets --- */}
+      <AnimatePresence>
+        {showCreateModal && (
+          <CreateProjectModal
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            onSuccess={handleProjectCreated}
+          />
+        )}
+        {showUploadModal && (
+          <UploadDocumentModal
+            isOpen={showUploadModal}
+            onClose={() => setShowUploadModal(false)}
+            onSuccess={() => fetchDocuments()} // Refresh documents after upload
+          />
+        )}
+        {showWelcomeModal && userProfile && (
+          <WelcomeModal
+            isOpen={showWelcomeModal}
+            onClose={() => setShowWelcomeModal(false)}
+            user={userProfile}
+            onTaskSelect={handleWelcomeTaskSelect}
+          />
+        )}
+      </AnimatePresence>
+      <ChatWidget />
     </ErrorBoundary>
   );
 };
