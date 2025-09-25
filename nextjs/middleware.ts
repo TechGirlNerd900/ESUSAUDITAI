@@ -1,6 +1,6 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { createClient } from '@/utils/supabase/middleware';
-import { addSecurityHeaders } from './lib/securityHeaders';
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+import { addSecurityHeaders } from './lib/securityHeaders'
 
 // Define public paths that don't require auth check
 const publicPaths = [
@@ -92,53 +92,19 @@ function applyRateLimit(
   return undefined;
 }
 
-/**
- * Check if a user has admin role using service role client to bypass RLS
- * @param supabase Supabase client
- * @param userId User ID to check
- * @returns Whether the user has admin role
- */
-async function isUserAdmin(supabase: any, userId: string): Promise<boolean> {
-  try {
-    // Use service role client to bypass RLS and prevent recursion
-    const { createClient: createServiceClient } = await import('@supabase/supabase-js');
-    const serviceClient = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
-    const { data: user, error } = await serviceClient
-      .from('users')
-      .select('role')
-      .eq('auth_user_id', userId)
-      .eq('is_active', true)
-      .eq('status', 'active')
-      .is('deleted_at', null)
-      .single();
-
-    if (error || !user) {
-      console.error('Error checking admin role:', error);
-      return false;
-    }
-
-    return user.role === 'admin' || user.role === 'super_admin';
-  } catch (error) {
-    console.error('Error checking admin role:', error);
-    return false;
-  }
-}
 
 export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
-  const isApiRoute = pathname.startsWith('/api');
+  const pathname = request.nextUrl.pathname
+  const isApiRoute = pathname.startsWith('/api')
 
   // Apply rate limiting for API routes
   if (isApiRoute) {
-    let rateLimitConfig = apiRateLimit.standard;
+    let rateLimitConfig = apiRateLimit.standard
 
     // Use stricter rate limits for auth endpoints
     if (pathname.startsWith('/api/auth/')) {
-      rateLimitConfig = apiRateLimit.auth;
+      rateLimitConfig = apiRateLimit.auth
     }
     // Use stricter rate limits for sensitive operations
     else if (
@@ -146,17 +112,17 @@ export async function middleware(request: NextRequest) {
       pathname.includes('/delete') ||
       pathname.includes('/update')
     ) {
-      rateLimitConfig = apiRateLimit.sensitive;
+      rateLimitConfig = apiRateLimit.sensitive
     }
 
     const rateLimitResponse = applyRateLimit(
       request,
       rateLimitConfig.maxRequests,
       rateLimitConfig.windowMs
-    );
+    )
 
     if (rateLimitResponse) {
-      return rateLimitResponse;
+      return rateLimitResponse
     }
   }
 
@@ -180,13 +146,50 @@ export async function middleware(request: NextRequest) {
   // For protected API routes, let them handle their own authentication
   // but still apply security headers
   if (isApiRoute) {
-    const response = NextResponse.next();
-    return addSecurityHeaders(response);
+    const response = NextResponse.next()
+    return addSecurityHeaders(response)
   }
 
-  try {
-    const { supabase, response } = createClient(request);
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          request.cookies.set({ name, value, ...options })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: any) {
+          request.cookies.set({ name, value: '', ...options })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
+
+  // Refresh session if expired
+  await supabase.auth.getUser()
+
+  try {
     // Add security headers to the response
     const secureResponse = addSecurityHeaders(response);
 
@@ -220,15 +223,16 @@ export async function middleware(request: NextRequest) {
     }
 
     // Check for admin-only paths
+    // Check admin access for admin routes
     if (adminPaths.some((path) => pathname.startsWith(path))) {
-      const isAdmin = await isUserAdmin(supabase, user.id);
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('auth_user_id', user.id)
+        .single()
 
-      if (!isAdmin) {
-        // Redirect non-admin users trying to access admin pages
-        const url = request.nextUrl.clone();
-        url.pathname = '/dashboard';
-        url.searchParams.set('error', 'Access denied: Admin privileges required');
-        return NextResponse.redirect(url);
+      if (!profile || profile.role !== 'admin') {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
       }
     }
 

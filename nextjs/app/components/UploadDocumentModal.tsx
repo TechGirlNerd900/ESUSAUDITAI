@@ -8,10 +8,12 @@ import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
+  onUploadComplete?: () => void;
+  projectId?: string;
 }
 
-export default function UploadDocumentModal({ isOpen, onClose, onSuccess }: Props) {
+export default function UploadDocumentModal({ isOpen, onClose, onSuccess, onUploadComplete, projectId }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,25 +31,34 @@ export default function UploadDocumentModal({ isOpen, onClose, onSuccess }: Prop
     setUploading(true);
     setError(null);
 
-    const formData = new FormData();
-    files.forEach(file => {
-      formData.append('files', file);
-    });
-
     try {
-      const response = await authenticatedFetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (projectId) {
+          formData.append('projectId', projectId);
+        }
 
-      if (!response.ok) {
-        throw new Error('Upload failed');
+        const response = await authenticatedFetch('/api/documents/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || `Failed to upload ${file.name}`);
+        }
       }
 
-      onSuccess();
+      // Call success callbacks
+      onSuccess?.();
+      onUploadComplete?.();
+      
+      // Reset state and close
+      setFiles([]);
       onClose();
-    } catch (err) {
-      setError('An error occurred during upload. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during upload. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -67,40 +78,73 @@ export default function UploadDocumentModal({ isOpen, onClose, onSuccess }: Prop
         <div className="p-6">
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer ${
+            className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
               isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
             }`}
           >
-            <input {...getInputProps()} />
-            <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
+            <input {...getInputProps()} accept=".pdf,.docx,.doc,.xlsx,.xls,.csv" />
+            <UploadCloud className={`mx-auto h-12 w-12 transition-colors ${
+              isDragActive ? 'text-blue-500' : 'text-gray-400'
+            }`} />
             <p className="mt-2 text-sm text-gray-600">
-              {isDragActive ? 'Drop the files here ...' : "Drag 'n' drop some files here, or click to select files"}
+              {isDragActive ? 'Drop the files here ...' : "Drag 'n' drop documents here, or click to select"}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Supported: PDF, Word, Excel, CSV (max 50MB)
             </p>
           </div>
-          <div className="mt-4">
-            {files.map((file, i) => (
-              <div key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg mb-2">
-                <div className="flex items-center">
-                  <FileIcon className="h-5 w-5 text-gray-500 mr-2" />
-                  <span className="text-sm">{file.name}</span>
+          {files.length > 0 && (
+            <div className="mt-4 max-h-32 overflow-y-auto">
+              {files.map((file, i) => (
+                <div key={i} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg mb-2">
+                  <div className="flex items-center flex-1 min-w-0">
+                    <FileIcon className="h-5 w-5 text-gray-500 mr-2 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium text-gray-900 truncate block">{file.name}</span>
+                      <span className="text-xs text-gray-500">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setFiles(files.filter((_, index) => index !== i))}
+                    className="ml-2 p-1 hover:bg-gray-200 rounded"
+                  >
+                    <X className="h-4 w-4 text-gray-400" />
+                  </button>
                 </div>
-                <button onClick={() => setFiles(files.filter((_, index) => index !== i))}>
-                  <X className="h-4 w-4 text-gray-400" />
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
         </div>
-        <div className="p-6 border-t flex justify-end">
-          <button onClick={onClose} className="mr-2 px-4 py-2 rounded text-sm">Cancel</button>
-          <button
-            onClick={handleUpload}
-            disabled={files.length === 0 || uploading}
-            className="px-4 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-blue-300"
-          >
-            {uploading ? 'Uploading...' : 'Upload'}
-          </button>
+        <div className="p-6 border-t flex justify-between items-center">
+          <div className="text-sm text-gray-500">
+            {files.length === 0 ? 'No files selected' : `${files.length} file(s) selected`}
+          </div>
+          <div className="flex space-x-2">
+            <button 
+              onClick={onClose} 
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              disabled={uploading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={files.length === 0 || uploading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+            >
+              {uploading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Uploading...
+                </div>
+              ) : (
+                `Upload ${files.length > 0 ? `(${files.length})` : ''}`
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

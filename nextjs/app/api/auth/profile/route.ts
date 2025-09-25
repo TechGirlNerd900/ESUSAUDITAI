@@ -1,42 +1,18 @@
-// User Profile API Endpoint
-// Returns current user's profile information for dashboard initialization
+import { withAuth } from '@/lib/auth/apiAuth'
+import { NextRequest } from 'next/server'
 
-import { authenticateApiRequest } from '@/lib/auth/apiAuth';
-import { NextRequest, NextResponse } from 'next/server';
-
-export async function GET(request: NextRequest) {
-  try {
-    // Authenticate the user
-    const auth = await authenticateApiRequest(request);
-    if (!auth.success) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Return user profile data
-    return NextResponse.json({
-      profile: {
-        id: auth.profile.id,
-        auth_user_id: auth.profile.auth_user_id,
-        email: auth.profile.email,
-        first_name: auth.profile.first_name,
-        last_name: auth.profile.last_name,
-        role: auth.profile.role,
-        organization_id: auth.profile.organization_id,
-        status: auth.profile.status,
-        is_active: auth.profile.is_active,
-        company: auth.profile.company,
-        created_at: auth.profile.created_at,
-        updated_at: auth.profile.updated_at,
-      },
+export const GET = withAuth(async (request: NextRequest, user) => {
+  return new Response(
+    JSON.stringify({ 
       user: {
-        id: auth.user.id,
-        email: auth.user.email,
-        email_confirmed_at: auth.user.email_confirmed_at,
-        last_sign_in_at: auth.user.last_sign_in_at,
-      },
-    });
-  } catch (error) {
-    console.error('Profile API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        organizationId: user.organizationId
+      }
+    }),
+    { headers: { 'Content-Type': 'application/json' } }
+  )
+})

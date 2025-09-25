@@ -89,3 +89,21 @@ export async function GET(request: NextRequest) {
     },
   });
 }
+
+export const GET = withAuth(async (request: NextRequest, user) => {
+  // Return placeholder general insights for now
+  return new Response(
+    JSON.stringify({ 
+      insights: [
+        {
+          id: '1',
+          type: 'general',
+          title: 'Welcome to EsusAuditAI',
+          message: 'Start by creating your first project and uploading documents for analysis.',
+          priority: 'info'
+        }
+      ]
+    }),
+    { headers: { 'Content-Type': 'application/json' } }
+  )
+})

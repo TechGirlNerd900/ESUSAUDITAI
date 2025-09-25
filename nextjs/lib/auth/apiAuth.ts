@@ -1,104 +1,121 @@
-import { createClient } from '@/utils/supabase/server';
-import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr'
+import { NextRequest } from 'next/server'
+import { cookies } from 'next/headers'
 
-export interface AuthSuccess {
-  success: true;
-  user: any;
-  profile: any;
+export interface AuthenticatedUser {
+  id: string
+  email: string
+  role: 'admin' | 'auditor' | 'reviewer'
+  organizationId: string
+  firstName: string
+  lastName: string
 }
 
-export interface AuthFailure {
-  success: false;
-  response: NextResponse;
+export interface AuthResult {
+  success: boolean
+  user?: AuthenticatedUser
+  error?: string
 }
 
-export type AuthResult = AuthSuccess | AuthFailure;
+export async function authenticateApiRequest(requireRole?: string[]): Promise<AuthResult> {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          }
+        }
+      }
+    )
 
-export async function authenticateApiRequest(
-  request: NextRequest,
-  options?: { requireRole?: string }
-): Promise<AuthResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' }
+    }
 
-  if (authError || !user) {
+    // Fetch user profile with organization
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        role,
+        organization_id,
+        status,
+        organizations!inner (
+          id,
+          name,
+          status
+        )
+      `)
+      .eq('auth_user_id', user.id)
+      .eq('status', 'active')
+      .single()
+
+    if (profileError || !profile) {
+      return { success: false, error: 'User profile not found' }
+    }
+
+    // Check organization status
+    if (Array.isArray(profile.organizations) && profile.organizations[0]?.status !== 'active') {
+      return { success: false, error: 'Organization inactive' }
+    } else if (!Array.isArray(profile.organizations) && profile.organizations?.status !== 'active') {
+      return { success: false, error: 'Organization inactive' }
+    }
+
+    // Check role requirements
+    if (requireRole && !requireRole.includes(profile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
     return {
-      success: false,
-      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    };
+      success: true,
+      user: {
+        id: profile.id,
+        email: user.email!,
+        role: profile.role,
+        organizationId: profile.organization_id,
+        firstName: profile.first_name,
+        lastName: profile.last_name
+      }
+    }
+  } catch (error) {
+    console.error('Authentication error:', error)
+    return { success: false, error: 'Authentication failed' }
   }
+}
 
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single();
+// Higher-order function to wrap API routes with authentication
+export function withAuth(
+  handler: (request: NextRequest, user: AuthenticatedUser, params?: any) => Promise<Response>,
+  requireRole?: string[]
+) {
+  return async (request: NextRequest, context?: { params: any }) => {
+    const authResult = await authenticateApiRequest(requireRole)
+    
+    if (!authResult.success || !authResult.user) {
+      return new Response(
+        JSON.stringify({ error: authResult.error || 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
-  if (profileError || !profile) {
-    return {
-      success: false,
-      response: NextResponse.json({ error: 'User profile not found' }, { status: 401 }),
-    };
-  }
-
-  if (options?.requireRole) {
-    const isAuthorized = authorize(profile, options.requireRole);
-    if (!isAuthorized) {
-      return {
-        success: false,
-        response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
-      };
+    try {
+      return await handler(request, authResult.user, context?.params)
+    } catch (error) {
+      console.error('API handler error:', error)
+      return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
     }
   }
-
-  return {
-    success: true,
-    user,
-    profile,
-  };
 }
 
-/**
- * Role-based authorization function
- */
-export function authorize(profile: any, requiredRole: string): boolean {
-  const roleHierarchy = {
-    admin: 3,
-    auditor: 2,
-    reviewer: 1,
-  };
 
-  const userRoleLevel = roleHierarchy[profile.role as keyof typeof roleHierarchy] || 0;
-  const requiredRoleLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0;
-
-  return userRoleLevel >= requiredRoleLevel;
-}
-
-export async function checkOrganizationAccess(
-  supabase: any,
-  profile: any,
-  organizationId: string
-): Promise<boolean> {
-  if (profile.role === 'admin' || profile.organization_id === organizationId) {
-    return true;
-  }
-  return false;
-}
-
-export async function getUserProfile(userId: string): Promise<any> {
-  const supabase = await createClient();
-  const { data: profile, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (error) {
-    return null;
-  }
-
-  return profile;
-}

@@ -17,7 +17,7 @@ export default function ChatRAG({ projectId, user }: ChatRAGProps) {
     {
       role: 'assistant',
       content:
-        "Hello! I'm Esus, your AI audit assistant. How can I help you with your documents today?",
+        "Hello! I'm Esus, your AI audit assistant. I can help you analyze documents, find patterns, identify potential audit issues, and answer questions about your financial data. What would you like to explore?",
     },
   ]);
   const [input, setInput] = useState('');
@@ -28,26 +28,57 @@ export default function ChatRAG({ projectId, user }: ChatRAGProps) {
 
   const sendMessage = async () => {
     if (!input.trim()) return;
+    
+    const userMessage = input.trim();
     setLoading(true);
     setError(null);
-    const userMsg = { role: 'user', content: input };
+    
+    const userMsg = { role: 'user', content: userMessage };
     setMessages((msgs) => [...msgs, userMsg]);
     setInput('');
+    
     try {
       const res = await fetch(`/api/chat/${projectId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: userMessage }),
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `Server error: ${res.status}`);
+      }
+      
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const aiMsg = { role: 'assistant', content: data.message.content, citations: data.citations };
+      
+      const aiMsg = { 
+        role: 'assistant', 
+        content: data.message?.answer || data.message?.content || 'I received your message but couldn\'t generate a proper response.', 
+        citations: data.citations || []
+      };
+      
       setMessages((msgs) => [...msgs, aiMsg]);
+      
+      // Smooth scroll to bottom
       setTimeout(() => {
-        if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+        if (chatRef.current) {
+          chatRef.current.scrollTo({
+            top: chatRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
       }, 100);
     } catch (e: any) {
-      setError(e.message || 'Failed to send message');
+      console.error('Chat error:', e);
+      setError(e.message || 'Failed to send message. Please try again.');
+      
+      // Add error message to chat
+      const errorMsg = {
+        role: 'assistant',
+        content: 'I\'m sorry, I encountered an error processing your request. Please try again or rephrase your question.',
+        isError: true
+      };
+      setMessages((msgs) => [...msgs, errorMsg]);
     } finally {
       setLoading(false);
     }
@@ -122,7 +153,11 @@ export default function ChatRAG({ projectId, user }: ChatRAGProps) {
                   : 'bg-gray-50 text-gray-900 rounded-tl-none'
               )}
             >
-              <div className="message-content text-sm whitespace-pre-wrap">{msg.content}</div>
+              <div className={`message-content text-sm whitespace-pre-wrap ${
+                msg.isError ? 'text-red-600 italic' : ''
+              }`}>
+                {msg.content}
+              </div>
               {/* Citations for AI answers */}
               {msg.role === 'assistant' && msg.citations && msg.citations.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -151,23 +186,42 @@ export default function ChatRAG({ projectId, user }: ChatRAGProps) {
           </div>
         ))}
         {loading && (
-          <div className="flex items-center gap-2 text-blue-600 text-sm mt-2">
-            <span className="loader"></span> Esus is thinking...
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div className="bg-gray-50 rounded-xl rounded-tl-none p-4 max-w-md">
+              <div className="flex items-center gap-2 text-blue-600 text-sm">
+                <span className="loader"></span> Esus is analyzing your question...
+              </div>
+            </div>
           </div>
         )}
-        {error && <div className="text-red-500 text-xs mt-2">{error}</div>}
+        {error && (
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-xl rounded-tl-none p-4 max-w-md">
+              <div className="text-red-600 text-sm">{error}</div>
+            </div>
+          </div>
+        )}
       </main>
       {/* Input Area */}
       <footer className="p-4 border-t border-gray-200 bg-white">
         <div className="relative">
           <input
             type="text"
-            placeholder="Ask a follow-up question..."
-            className="w-full bg-gray-100 text-gray-900 placeholder:text-gray-400 rounded-lg py-3 pl-4 pr-12 border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-400 transition-shadow"
+            placeholder="Ask about financial statements, audit procedures, compliance..."
+            className="w-full bg-gray-100 text-gray-900 placeholder:text-gray-400 rounded-lg py-3 pl-4 pr-12 border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-400 transition-shadow disabled:opacity-50"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={loading}
+            maxLength={500}
           />
           <button
             className="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-gray-400 hover:text-blue-600 transition-colors"

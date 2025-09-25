@@ -12,20 +12,19 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // SECURITY: Multi-step operations require careful error handling
-    // PostgreSQL transactions are handled implicitly by Supabase client
-    // We implement compensating transactions for failure scenarios
-
     // SECURITY: Authenticate with proper role-based access
-    const auth = await authenticateApiRequest(request, {
-      requireRole: 'auditor', // Only auditors and admins can upload files
-    });
+    const auth = await authenticateApiRequest(['auditor', 'admin']);
 
-    if (!auth.success) {
-      return auth.response;
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { user, profile: userProfile } = auth;
+    const { user } = auth;
+    const userProfile = {
+      organization_id: user.organizationId,
+      role: user.role,
+      id: user.id
+    };
 
     // Get form data
     const formData = await request.formData();

@@ -7,6 +7,7 @@ import {
   EntityType,
   ComplianceAssessment,
 } from '@/lib/nigerian/nigerianCompliance';
+import { withAuth } from '@/lib/auth/apiAuth'
 
 interface ComplianceAssessmentRequest {
   projectId: string;
@@ -383,3 +384,26 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withAuth(async (request: NextRequest, user) => {
+  // Return placeholder compliance data for now
+  return new Response(
+    JSON.stringify({ 
+      compliance: {
+        overall_score: 85,
+        status: 'compliant',
+        framework: 'nigerian_frs',
+        last_updated: new Date().toISOString(),
+        checks: {
+          passed: 17,
+          total: 20
+        },
+        recommendations: [
+          'Review financial statement disclosures',
+          'Update chart of accounts mapping'
+        ]
+      }
+    }),
+    { headers: { 'Content-Type': 'application/json' } }
+  )
+})

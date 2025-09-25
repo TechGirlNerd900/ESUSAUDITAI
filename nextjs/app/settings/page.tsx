@@ -1,190 +1,322 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, Bell, Save } from 'lucide-react';
-import LoadingSpinner from '@/app/components/LoadingSpinner';
-import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch';
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Switch } from '../components/ui/switch'
+import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch'
+import { Skeleton } from '../components/ui/skeleton'
+import { Alert, AlertDescription } from '../components/ui/alert'
+import { User, Shield, Bell, Building } from 'lucide-react'
+
+interface UserProfile {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  role: string
+  organizationId: string
+}
 
 export default function SettingsPage() {
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [notification, setNotification] = useState({ type: '', message: '' });
-  const [activeTab, setActiveTab] = useState('profile');
-  const [saving, setSaving] = useState(false);
-  const router = useRouter();
-  const authenticatedFetch = useAuthenticatedFetch();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  
+  const authenticatedFetch = useAuthenticatedFetch()
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const response = await authenticatedFetch('/api/auth/profile');
-        if (!response.ok) {
-          throw new Error('Failed to fetch user profile');
-        }
-        const data = await response.json();
-        setUser(data.user);
-      } catch (error) {
-        setNotification({ type: 'error', message: 'Failed to load user profile.' });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, [authenticatedFetch]);
-
-  async function updateProfile(event: React.FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setNotification({ type: '', message: '' });
-
+  const fetchUserProfile = async () => {
     try {
-      // In a real app, you would call an API to update the user's profile
-      // For now, we'll just show a success message
-      setNotification({ type: 'success', message: 'Profile updated successfully!' });
+      setLoading(true)
+      const response = await authenticatedFetch('/api/auth/profile')
+      if (response.ok) {
+        const data = await response.json()
+        setUserProfile(data.user)
+      } else {
+        setError('Failed to load user profile')
+      }
     } catch (error) {
-      setNotification({ type: 'error', message: 'Failed to update profile.' });
+      console.error('Error fetching profile:', error)
+      setError('Failed to load user profile')
     } finally {
-      setSaving(false);
+      setLoading(false)
     }
   }
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'profile':
-        return (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <form onSubmit={updateProfile} className="space-y-6">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  id="firstName"
-                  defaultValue={user?.first_name || ''}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  id="lastName"
-                  defaultValue={user?.last_name || ''}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  defaultValue={user?.email || ''}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                  required
-                  disabled
-                />
-              </div>
-              <div className="flex justify-end">
-                <button type="submit" disabled={saving} className="btn-primary flex items-center">
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        );
-      case 'security':
-        return (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <p className="text-gray-600">Password change functionality coming soon.</p>
-          </motion.div>
-        );
-      case 'notifications':
-        return (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <p className="text-gray-600">Notification preferences coming soon.</p>
-          </motion.div>
-        );
-      default:
-        return null;
-    }
-  };
+  useEffect(() => {
+    fetchUserProfile()
+  }, [])
 
-  if (loading && !user) {
+  const handleProfileUpdate = async (updatedData: Partial<UserProfile>) => {
+    try {
+      setSaving(true)
+      setError(null)
+      setSuccess(null)
+      
+      const response = await authenticatedFetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setUserProfile(data.user)
+        setSuccess('Profile updated successfully')
+      } else {
+        setError('Failed to update profile')
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      setError('Failed to update profile')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <LoadingSpinner />
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-8 w-32" />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-24" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-32" />
+          </CardContent>
+        </Card>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="p-6 sm:p-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-lg text-gray-600">Manage your account and preferences</p>
-      </header>
+    <div className="p-6 space-y-6">
+      <h1 className="text-3xl font-bold">Settings</h1>
+      
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      {success && (
+        <Alert>
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
 
-      <AnimatePresence>
-        {notification.message && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className={`p-4 rounded-lg mb-6 text-white ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}
-          >
-            {notification.message}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Tabs defaultValue="profile" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="profile">
+            <User className="mr-2 h-4 w-4" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="security">
+            <Shield className="mr-2 h-4 w-4" />
+            Security
+          </TabsTrigger>
+          <TabsTrigger value="notifications">
+            <Bell className="mr-2 h-4 w-4" />
+            Notifications
+          </TabsTrigger>
+          <TabsTrigger value="organization">
+            <Building className="mr-2 h-4 w-4" />
+            Organization
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        <aside className="md:w-1/4">
-          <nav className="space-y-1">
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`w-full text-left flex items-center px-4 py-2 rounded-lg ${activeTab === 'profile' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-            >
-              <User className="h-5 w-5 mr-3" /> Profile
-            </button>
-            <button
-              onClick={() => setActiveTab('security')}
-              className={`w-full text-left flex items-center px-4 py-2 rounded-lg ${activeTab === 'security' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-            >
-              <Lock className="h-5 w-5 mr-3" /> Security
-            </button>
-            <button
-              onClick={() => setActiveTab('notifications')}
-              className={`w-full text-left flex items-center px-4 py-2 rounded-lg ${activeTab === 'notifications' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-            >
-              <Bell className="h-5 w-5 mr-3" /> Notifications
-            </button>
-          </nav>
-        </aside>
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    value={userProfile?.firstName || ''}
+                    onChange={(e) => setUserProfile(prev => prev ? { ...prev, firstName: e.target.value } : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    value={userProfile?.lastName || ''}
+                    onChange={(e) => setUserProfile(prev => prev ? { ...prev, lastName: e.target.value } : null)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={userProfile?.email || ''}
+                  onChange={(e) => setUserProfile(prev => prev ? { ...prev, email: e.target.value } : null)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Input
+                  id="role"
+                  value={userProfile?.role || ''}
+                  disabled
+                  className="bg-gray-50"
+                />
+                <p className="text-sm text-gray-500">
+                  Contact your administrator to change your role
+                </p>
+              </div>
+              <Button 
+                onClick={() => userProfile && handleProfileUpdate(userProfile)}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <main className="flex-1 card p-6 sm:p-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              {renderContent()}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-      </div>
+        <TabsContent value="security">
+          <Card>
+            <CardHeader>
+              <CardTitle>Security Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium mb-2">Change Password</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Password change functionality coming soon. Please contact support for password changes.
+                  </p>
+                  <Button variant="outline" disabled>
+                    Change Password
+                  </Button>
+                </div>
+                
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2">Two-Factor Authentication</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Add an extra layer of security to your account
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <Switch id="2fa" disabled />
+                    <Label htmlFor="2fa">Enable 2FA (Coming Soon)</Label>
+                  </div>
+                </div>
+                
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2">Login History</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    View your recent login activity
+                  </p>
+                  <Button variant="outline" disabled>
+                    View Login History
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Preferences</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Email Notifications</Label>
+                    <p className="text-sm text-gray-500">Receive email updates about your projects</p>
+                  </div>
+                  <Switch disabled />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Document Processing</Label>
+                    <p className="text-sm text-gray-500">Get notified when document analysis is complete</p>
+                  </div>
+                  <Switch disabled />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Report Generation</Label>
+                    <p className="text-sm text-gray-500">Alerts when reports are ready for review</p>
+                  </div>
+                  <Switch disabled />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Team Updates</Label>
+                    <p className="text-sm text-gray-500">Notifications about team member activities</p>
+                  </div>
+                  <Switch disabled />
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-500 mt-4">
+                Notification preferences coming soon. All notifications are currently enabled by default.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="organization">
+          <Card>
+            <CardHeader>
+              <CardTitle>Organization Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <Label>Organization ID</Label>
+                  <Input
+                    value={userProfile?.organizationId || ''}
+                    disabled
+                    className="bg-gray-50"
+                  />
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-2">Team Management</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Manage team members and their roles
+                  </p>
+                  <Button variant="outline" disabled>
+                    Manage Team (Admin Only)
+                  </Button>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-2">Billing & Subscription</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    View and manage your subscription
+                  </p>
+                  <Button variant="outline" disabled>
+                    View Billing (Coming Soon)
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
-  );
+  )
 }

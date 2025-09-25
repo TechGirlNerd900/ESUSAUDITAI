@@ -1,167 +1,121 @@
-import { NextRequest } from 'next/server';
-import { Database } from '@/lib/db/database';
-import { cookies } from 'next/headers';
-import { authenticateApiRequest } from '@/lib/auth/apiAuth';
-import { withErrorHandling } from '@/lib/errorHandler';
-import { successResponse, errorResponse, createdResponse } from '@/lib/api/apiResponse';
-import {
-  parsePaginationParams,
-  createPaginatedResponse,
-  validatePaginationParams,
-} from '@/lib/api/pagination';
-import { createClient } from '@/utils/supabase/server';
+import { withAuth } from '@/lib/auth/apiAuth'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { NextRequest } from 'next/server'
 
-/**
- * GET handler for projects
- * Retrieves projects with optimized pagination and filtering
- */
-export const GET = withErrorHandling(async (request: NextRequest) => {
-  // Parse and validate pagination parameters
-  const searchParams = request.nextUrl.searchParams;
-  const paginationParams = parsePaginationParams(searchParams);
+export const GET = withAuth(async (request: NextRequest, user) => {
+  const { searchParams } = new URL(request.url)
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '20')
+  const status = searchParams.get('status')
+  const offset = (page - 1) * limit
 
-  const validation = validatePaginationParams(paginationParams);
-  if (!validation.isValid) {
-    return errorResponse(validation.errors.join(', '), 400);
-  }
-
-  // Authenticate request
-  const auth = await authenticateApiRequest(request);
-
-  if (!auth.success) {
-    return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
-  }
-
-  // Initialize database
-  const cookieStore = await cookies();
-  const db = new Database(cookieStore);
-
-  // Get projects with optimized pagination
-  const searchParam = searchParams.get('search');
-  const statusParam = searchParams.get('status');
-
-  const queryOptions: any = {
-    page: paginationParams.page || 1,
-    pageSize: paginationParams.pageSize || 10,
-    sortBy: paginationParams.sortBy || 'created_at',
-    sortOrder: paginationParams.sortOrder || 'desc',
-  };
-
-  if (searchParam) {
-    queryOptions.search = searchParam;
-  }
-
-  if (statusParam) {
-    queryOptions.status = statusParam;
-  }
-
-  const result = await db.getProjects(auth.user.id, queryOptions);
-
-  // Transform data for compatibility
-  const transformedProjects = result.data.map((project: any) => ({
-    ...project,
-    document_count: project.documents?.length || 0,
-    due_date: project.end_date,
-    audit_type: project.project_type || 'general',
-  }));
-
-  // Create paginated response
-  const paginatedResponse = createPaginatedResponse(
-    transformedProjects,
-    paginationParams,
-    result.pagination.total || 0
-  );
-
-  return successResponse(paginatedResponse);
-});
-
-/**
- * POST handler for projects
- * Creates a new project
- */
-export const POST = withErrorHandling(async (request: NextRequest) => {
-  // Authenticate request
-  const auth = await authenticateApiRequest(request, {
-    requireRole: 'auditor', // Only auditors and admins can create projects
-  });
-
-  if (!auth.success) {
-    // Type assertion to help TypeScript understand the auth object structure
-    return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
-  }
-
-  // Parse request body
-  const body = await request.json();
-
-  // Extract fields
-  const {
-    name,
-    description,
-    client_name,
-    client_email,
-    start_date,
-    end_date,
-    assigned_to,
-    status,
-    project_type,
-  } = body;
-
-  // Validate required fields
-  if (!name || !client_name) {
-    return errorResponse('Project name and client name are required', 400);
-  }
-
-  // Validate assigned_to array
-  const assignedToArray = assigned_to || [auth.user.id];
-  if (!Array.isArray(assignedToArray) || assignedToArray.length === 0) {
-    return errorResponse('Project must have at least one assignee', 400);
-  }
-
-  // Validate email format if provided
-  if (client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client_email)) {
-    return errorResponse('Invalid email format', 400);
-  }
-
-  // Validate dates if provided
-  if (start_date && end_date && new Date(start_date) > new Date(end_date)) {
-    return errorResponse('Start date cannot be after end date', 400);
-  }
-
-  // Initialize database
-  const cookieStore = await cookies();
-  const db = new Database(cookieStore);
-
-  // Create project
-  const project = await db.createProject({
-    name,
-    description,
-    clientName: client_name,
-    clientEmail: client_email,
-    startDate: start_date,
-    endDate: end_date,
-    status: status || 'active',
-    projectType: project_type || 'general',
-    userId: auth.user.id,
-    assignedTo: assignedToArray,
-    organizationId: auth.profile.organization_id,
-  });
-
-  const supabase = await createClient();
-  // Create audit log entry for the project creation
-  await supabase.from('audit_logs').insert([
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      organization_id: auth.profile.organization_id,
-      user_id: auth.profile.id,
-      action: 'project_created',
-      resource_type: 'project',
-      resource_id: project.id,
-      details: {
-        project_name: project.name,
-        client_name: project.client_name,
-        creation_time: new Date().toISOString(),
-      },
-    },
-  ]);
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        }
+      }
+    }
+  )
 
-  return createdResponse(project, 'Project created successfully');
-});
+  let query = supabase
+    .from('projects')
+    .select(`
+      id,
+      name,
+      client_name,
+      client_email,
+      description,
+      status,
+      start_date,
+      end_date,
+      created_at,
+      updated_at,
+      created_by:users!projects_created_by_fkey (
+        first_name,
+        last_name
+      )
+    `, { count: 'exact' })
+    .eq('organization_id', user.organizationId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (status) {
+    query = query.eq('status', status)
+  }
+
+  const { data: projects, error, count } = await query
+
+  if (error) {
+    console.error('Error fetching projects:', error)
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch projects' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  return new Response(
+    JSON.stringify({
+      projects: projects || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        pages: Math.ceil((count || 0) / limit)
+      }
+    }),
+    { headers: { 'Content-Type': 'application/json' } }
+  )
+})
+
+export const POST = withAuth(async (request: NextRequest, user) => {
+  const body = await request.json()
+  
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        }
+      }
+    }
+  )
+
+  const { data: project, error } = await supabase
+    .from('projects')
+    .insert({
+      name: body.name,
+      client_name: body.client_name,
+      client_email: body.client_email,
+      description: body.description,
+      start_date: body.start_date,
+      end_date: body.end_date,
+      organization_id: user.organizationId,
+      created_by: user.id,
+      status: 'active'
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating project:', error)
+    return new Response(
+      JSON.stringify({ error: 'Failed to create project' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  return new Response(
+    JSON.stringify({ project }),
+    { status: 201, headers: { 'Content-Type': 'application/json' } }
+  )
+})
