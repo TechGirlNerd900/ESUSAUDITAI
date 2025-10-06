@@ -4,9 +4,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { paginatedResponse } from '@/lib/api/apiResponse';
 
 export async function GET(request: NextRequest) {
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -16,6 +17,19 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
     const offset = (page - 1) * limit;
+
+    const { count, error: countError } = await supabaseAdmin
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', auth.profile.organization_id);
+
+    if (countError) {
+      console.error('Error fetching user count:', countError);
+      return NextResponse.json({ error: 'Failed to fetch user count' }, { status: 500 });
+    }
+
+    const totalUsers = count || 0;
+
     // Get all users in the same organization
     const { data: users, error } = await supabaseAdmin
       .from('users')
@@ -44,7 +58,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    return NextResponse.json({ users });
+    // Ensure users is an array and use the paginatedResponse helper
+    return paginatedResponse(users || [], page, limit, totalUsers);
   } catch (error) {
     console.error('Users fetch error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -52,7 +67,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

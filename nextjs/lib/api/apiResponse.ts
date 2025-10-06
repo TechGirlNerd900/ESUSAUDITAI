@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 /**
  * Standard API response helpers to ensure consistent response formats
  * across all API endpoints.
+ *
+ * These helpers should return HTTP 200 status for empty lists, not 404.
+ * A 404 status is reserved for when a specific, singular resource is not found.
  */
 
 /**
@@ -81,6 +84,60 @@ export function notFoundResponse(resource: string = 'Resource') {
  */
 export function serverErrorResponse(message: string = 'Internal server error') {
   return errorResponse(message, 500);
+}
+
+/**
+ * Returns a paginated success response.
+ * Use this for list endpoints that support pagination.
+ * Always returns 200 OK, even if the data array is empty.
+ *
+ * @param data The array of results (will be coerced to empty array if null/undefined).
+ * @param page Current page number.
+ * @param limit Items per page.
+ * @param total Total count of items.
+ * @param message Optional success message.
+ * @returns A standardized paginated response.
+ */
+export function paginatedResponse(
+  data: any[] | null | undefined,
+  page: number,
+  limit: number,
+  total: number,
+  message: string = 'Success'
+) {
+  const actualData = data || [];
+  const totalPages = Math.ceil(total / limit);
+  return NextResponse.json({
+    success: true,
+    message,
+    data: actualData,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    },
+  });
+}
+
+/**
+ * Returns a list success response for non-paginated lists.
+ * Always returns 200 OK, even if the data array is empty.
+ *
+ * @param data The array of results (will be coerced to empty array if null/undefined).
+ * @param message Optional success message.
+ * @returns A standardized list response.
+ */
+export function listResponse(data: any[] | null | undefined, message: string = 'Success') {
+  const actualData = data || [];
+  return NextResponse.json({
+    success: true,
+    message,
+    data: actualData,
+    total: actualData.length,
+  });
 }
 
 /**

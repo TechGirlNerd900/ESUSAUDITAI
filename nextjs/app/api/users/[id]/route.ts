@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
-import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/auth/apiAuth';
+import { NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler';
 import { createClient } from '@/utils/supabase/server';
 import { successResponse } from '@/lib/api/apiResponse';
@@ -12,7 +12,7 @@ export const GET = withErrorHandling(
     const auth = await authenticateApiRequest(request);
 
     if (!auth.success) {
-      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = await createClient();
@@ -30,14 +30,8 @@ export const GET = withErrorHandling(
     }
 
     // Check organization access for non-self requests
-    if (auth.user.id !== targetUser.auth_user_id) {
-      const hasAccess = await checkOrganizationAccess(
-        supabase,
-        auth.profile,
-        targetUser.organization_id
-      );
-
-      if (!hasAccess || auth.profile.role !== 'admin') {
+    if (auth.user!.id !== targetUser.auth_user_id) {
+      if (auth.profile.organization_id !== targetUser.organization_id || auth.profile.role !== 'admin') {
         throw new AuthorizationError('You do not have permission to access this user');
       }
     }
@@ -54,7 +48,7 @@ export const PUT = withErrorHandling(
     const auth = await authenticateApiRequest(request);
 
     if (!auth.success) {
-      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = await createClient();
@@ -74,14 +68,8 @@ export const PUT = withErrorHandling(
     }
 
     // Check organization access for non-self requests
-    if (auth.user.id !== targetUser.auth_user_id) {
-      const hasAccess = await checkOrganizationAccess(
-        supabase,
-        auth.profile,
-        targetUser.organization_id
-      );
-
-      if (!hasAccess || auth.profile.role !== 'admin') {
+    if (auth.user!.id !== targetUser.auth_user_id) {
+      if (auth.profile.organization_id !== targetUser.organization_id || auth.profile.role !== 'admin') {
         throw new AuthorizationError('You do not have permission to update this user');
       }
     }
@@ -114,12 +102,10 @@ export const DELETE = withErrorHandling(
     const { id } = context.params;
 
     // Authenticate request with admin role requirement
-    const auth = await authenticateApiRequest(request, {
-      requireRole: 'admin',
-    });
+    const auth = await authenticateApiRequest(request, ['admin']);
 
     if (!auth.success) {
-      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = await createClient();
@@ -136,13 +122,7 @@ export const DELETE = withErrorHandling(
     }
 
     // Check organization access
-    const hasAccess = await checkOrganizationAccess(
-      supabase,
-      auth.profile,
-      targetUser.organization_id
-    );
-
-    if (!hasAccess) {
+    if (auth.profile.organization_id !== targetUser.organization_id) {
       throw new AuthorizationError('You do not have permission to delete this user');
     }
 
@@ -152,7 +132,7 @@ export const DELETE = withErrorHandling(
         table_name: 'users',
         row_id: id,
         org_id: targetUser.organization_id,
-        user_id: auth.user.id,
+        user_id: auth.user!.id,
       });
 
       if (softDeleteError) {
@@ -174,7 +154,7 @@ export const DELETE = withErrorHandling(
       // Create audit log entry
       await supabase.from('audit_logs').insert([
         {
-          user_id: auth.user.id,
+          user_id: auth.user!.id,
           action: 'user_deleted',
           resource_type: 'user',
           resource_id: id,

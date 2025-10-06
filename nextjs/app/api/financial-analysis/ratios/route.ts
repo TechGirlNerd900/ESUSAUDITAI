@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { getUserProfile } from '@/lib/auth/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth'; // Using authenticateApiRequest to get user profile
 import {
   calculateAllFinancialRatios,
   TrialBalanceData,
@@ -23,23 +23,13 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Get user profile
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    // Authenticate and get user profile using authenticateApiRequest
+    const auth = await authenticateApiRequest(request);
+    if (!auth.success || !auth.user || !auth.profile) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const userProfile = await getUserProfile(user.id);
-    if (!userProfile) {
-      return NextResponse.json(
-        { error: 'User not authenticated or profile not found' },
-        { status: 401 }
-      );
-    }
+    const userProfile = auth.profile;
+    const user = auth.user; // Extract user from auth result
 
     // Parse request body
     const body: CalculateRatiosRequest = await request.json();
@@ -166,23 +156,13 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Get user profile
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    // Authenticate and get user profile using authenticateApiRequest
+    const auth = await authenticateApiRequest(request);
+    if (!auth.success || !auth.user || !auth.profile) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const userProfile = await getUserProfile(user.id);
-    if (!userProfile) {
-      return NextResponse.json(
-        { error: 'User not authenticated or profile not found' },
-        { status: 401 }
-      );
-    }
+    const userProfile = auth.profile;
+    const user = auth.user; // Extract user from auth result
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');

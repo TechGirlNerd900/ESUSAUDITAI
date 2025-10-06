@@ -3,16 +3,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/auth/apiAuth';
-import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: NextRequest) {
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
+  const { supabase } = auth;
   try {
-    const supabase = await createClient();
     const organizationId = auth.profile.organization_id;
 
     // Get user statistics
@@ -26,8 +24,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch user stats' }, { status: 500 });
     }
 
-    const totalUsers = users.length;
-    const activeUsers = users.filter((user) => user.is_active).length;
+    const totalUsers = users?.length || 0;
+    const activeUsers = (users || []).filter((user) => user.is_active).length;
 
     // Get project statistics
     const { data: projects, error: projectsError } = await supabase
@@ -40,8 +38,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch project stats' }, { status: 500 });
     }
 
-    const totalProjects = projects.length;
-    const activeProjects = projects.filter((project) => project.status === 'active').length;
+    const totalProjects = projects?.length || 0;
+    const activeProjects = (projects || []).filter((project) => project.status === 'active').length;
 
     // Get document statistics
     const { count: totalDocuments, error: documentsError } = await supabase
@@ -67,7 +65,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch invitation stats' }, { status: 500 });
     }
 
-    const pendingInvitations = invitations.length;
+    const pendingInvitations = invitations?.length || 0;
 
     const stats = {
       totalUsers,

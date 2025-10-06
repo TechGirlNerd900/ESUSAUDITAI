@@ -2,10 +2,23 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle, Search, Archive, RotateCw, FileText, Filter } from 'lucide-react';
+import { PlusCircle, Search, Archive, RotateCw, FileText, Filter, AlertTriangle, RefreshCw } from 'lucide-react'; // Added AlertTriangle, RefreshCw
 import AuditLogViewer from '../components/AuditLogViewer';
+import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch'; // Added useAuthenticatedFetch
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'; // Added AlertTitle
+import { Button } from '@/components/ui/button'; // Added Button for retry
+import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton for loading state
+import CreateProjectModal from '../components/CreateProjectModal'; // Added CreateProjectModal
 
-// ... (interface definitions remain the same)
+import { 
+  handleApiError, 
+  handleApiSuccess, 
+  showToast, // Renamed from showErrorToast
+  shouldRetryError, 
+  ErrorCategory,
+  ApiErrorResult 
+} from '@/lib/utils/errorHandler'; // Added error handling utility
+
 interface Project {
   id: string;
   name: string;
@@ -33,28 +46,98 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorResult | null>(null); // Changed error type
   const [auditProject, setAuditProject] = useState<Project | null>(null);
+  const [retryCount, setRetryCount] = useState(0); // Added retry count state
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false); // Added state for create project modal
+  const [archivingProjectId, setArchivingProjectId] = useState<string | null>(null); // Added state for archiving/restoring
+
+  const authenticatedFetch = useAuthenticatedFetch(); // Initialize authenticatedFetch
+
+  const fetchProjects = async () => {
+    setLoading(true);
+    setError(null); // Clear previous errors
+    try {
+      const response = await authenticatedFetch('/api/projects');
+      if (!response.ok) {
+        const errorResult = await handleApiError(response, { 
+          endpoint: 'projects', 
+          showToast: false, // Don't show toast for initial load errors, display inline
+          resourceType: 'projects',
+          isListEndpoint: true // Treat 404 as empty state for list endpoints
+        });
+        if (errorResult.isEmptyState) {
+          setProjects([]); // Set projects to empty array for empty state
+          setError(null); // Clear error to show empty state UI
+        } else {
+          setError(errorResult);
+        }
+      } else {
+        const successResult = await handleApiSuccess<{ projects: Project[] }>(response); // Specify expected type
+        setProjects(successResult.data?.projects || []);
+        setError(null); // Clear error on success
+      }
+    } catch (e) {
+      // Network errors or other unexpected fetch issues
+      const errorResult = await handleApiError(null, { 
+        endpoint: 'projects', 
+        showToast: true,
+        customMessage: 'Failed to connect to the server. Please check your internet connection.'
+      });
+      setError(errorResult);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch('/api/projects');
-        if (!response.ok) throw new Error('Failed to fetch projects');
-        const data = await response.json();
-        setProjects(data.projects || []);
-      } catch (err) {
-        setError('Failed to load projects. Please refresh the page.');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProjects();
-  }, []);
+  }, [retryCount]); // Added retryCount to dependencies
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   const handleArchiveRestore = async (project: Project) => {
-    // ... (implementation remains the same)
+    setArchivingProjectId(project.id); // Set archiving project ID
+    try {
+      const endpoint = `/api/projects/${project.id}/archive`;
+      const method = project.deleted_at ? 'DELETE' : 'POST'; // DELETE to restore, POST to archive
+      
+      const response = await authenticatedFetch(endpoint, { method });
+
+      if (!response.ok) {
+        await handleApiError(response, { 
+          endpoint: 'archive/restore project', 
+          showToast: true 
+        });
+      } else {
+        await handleApiSuccess(response);
+        setProjects(prevProjects => 
+          prevProjects.map(p => 
+            p.id === project.id ? { ...p, deleted_at: project.deleted_at ? null : new Date().toISOString() } : p
+          )
+        );
+        showToast(
+          project.deleted_at ? 'Project restored successfully!' : 'Project archived successfully!', 
+          'default'
+        );
+      }
+    } catch (e) {
+      await handleApiError(null, { 
+        endpoint: 'archive/restore project', 
+        showToast: true,
+        customMessage: 'Failed to connect to the server. Please check your internet connection.'
+      });
+    } finally {
+      setArchivingProjectId(null); // Clear archiving project ID
+    }
+  };
+
+  const handleProjectCreated = (newProject: Project) => {
+    setProjects(prev => [...prev, newProject]);
+    setShowCreateProjectModal(false);
+    // Success toast is now handled within CreateProjectModal as per Comment 3
   };
 
   const filteredProjects = projects.filter(
@@ -71,10 +154,10 @@ export default function ProjectsPage() {
           <p className="text-lg text-gray-600">Manage your audit projects</p>
         </div>
         <Tooltip text="Create a new project">
-          <button className="btn-primary flex items-center">
+          <Button onClick={() => setShowCreateProjectModal(true)} className="btn-primary flex items-center">
             <PlusCircle className="h-5 w-5 mr-2" />
             New Project
-          </button>
+          </Button>
         </Tooltip>
       </header>
 
@@ -100,15 +183,29 @@ export default function ProjectsPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white p-6 rounded-lg shadow-md animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-            </div>
+            <Skeleton key={i} className="h-40 w-full bg-gray-200 rounded-lg shadow-md" />
           ))}
         </div>
       ) : error ? (
-        <div className="text-center py-12 text-red-500">{error}</div>
+        <Alert variant="destructive" className="max-w-md mx-auto">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription className="flex justify-between items-center">
+            {error.message}
+            {error.shouldRetry && shouldRetryError(error.category, retryCount) && (
+              <Button variant="ghost" onClick={handleRetry} className="ml-4">
+                <RefreshCw className="mr-2 h-4 w-4" /> Retry
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : filteredProjects.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <p className="text-lg mb-4">No projects found.</p>
+          <Button onClick={() => setShowCreateProjectModal(true)} className="btn-primary">
+            <PlusCircle className="h-5 w-5 mr-2" /> Create Your First Project
+          </Button>
+        </div>
       ) : (
         <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence>
@@ -119,7 +216,7 @@ export default function ProjectsPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className={`card p-6 flex flex-col justify-between ${project.deleted_at ? 'opacity-60' : ''}`}
+                className={`card p-6 flex flex-col justify-between ${project.deleted_at ? 'opacity-60 bg-gray-50' : 'bg-white'}`}
               >
                 <div>
                   <h3 className="font-bold text-lg mb-2">{project.name}</h3>
@@ -127,29 +224,34 @@ export default function ProjectsPage() {
                 </div>
                 <div className="flex items-center justify-between text-sm text-gray-500">
                   <div className="flex space-x-2">
-                    <Tooltip text={project.deleted_at ? 'Restore' : 'Archive'}>
-                      <button
+                    <Tooltip text={project.deleted_at ? 'Restore Project' : 'Archive Project'}>
+                      <Button
                         onClick={() => handleArchiveRestore(project)}
-                        className="p-2 hover:bg-gray-100 rounded-full"
+                        variant="ghost"
+                        size="icon"
+                        disabled={archivingProjectId === project.id}
                       >
-                        {project.deleted_at ? (
+                        {archivingProjectId === project.id ? (
+                          <RotateCw className="h-4 w-4 animate-spin" />
+                        ) : project.deleted_at ? (
                           <RotateCw className="h-4 w-4" />
                         ) : (
                           <Archive className="h-4 w-4" />
                         )}
-                      </button>
+                      </Button>
                     </Tooltip>
                     <Tooltip text="View Audit Trail">
-                      <button
+                      <Button
                         onClick={() => setAuditProject(project)}
-                        className="p-2 hover:bg-gray-100 rounded-full"
+                        variant="ghost"
+                        size="icon"
                       >
                         <FileText className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </Tooltip>
                   </div>
                   <span className="text-xs">
-                    {new Date(project.created_at).toLocaleDateString()}
+                    Created: {new Date(project.created_at).toLocaleDateString()}
                   </span>
                 </div>
               </motion.div>
@@ -187,6 +289,12 @@ export default function ProjectsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <CreateProjectModal
+        isOpen={showCreateProjectModal}
+        onClose={() => setShowCreateProjectModal(false)}
+        onProjectCreated={handleProjectCreated}
+      />
     </div>
   );
 }

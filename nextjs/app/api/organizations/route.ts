@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

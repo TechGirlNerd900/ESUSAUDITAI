@@ -1,7 +1,7 @@
 import { withAuth } from '@/lib/auth/apiAuth'
 import { NextRequest } from 'next/server'
 
-export const GET = withAuth(async (request: NextRequest, user) => {
+export const GET = withAuth(async (request: NextRequest, user, supabase) => {
   return new Response(
     JSON.stringify({ 
       user: {

@@ -1,27 +1,14 @@
 import { withAuth } from '@/lib/auth/apiAuth'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
+import { SupabaseClient } from '@supabase/supabase-js'
 
-export const GET = withAuth(async (request: NextRequest, user) => {
+export const GET = withAuth(async (request: NextRequest, user, supabase: SupabaseClient) => {
   const { searchParams } = new URL(request.url)
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
   const status = searchParams.get('status')
   const offset = (page - 1) * limit
 
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        }
-      }
-    }
-  )
 
   let query = supabase
     .from('projects')
@@ -60,6 +47,8 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     )
   }
 
+  // Standard empty state handling: Always return 200 with empty array and pagination
+  // Never return 404 for empty results - 404 is only for missing specific resources
   return new Response(
     JSON.stringify({
       projects: projects || [],
@@ -74,21 +63,9 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   )
 })
 
-export const POST = withAuth(async (request: NextRequest, user) => {
+export const POST = withAuth(async (request: NextRequest, user, supabase: SupabaseClient) => {
   const body = await request.json()
   
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        }
-      }
-    }
-  )
 
   const { data: project, error } = await supabase
     .from('projects')

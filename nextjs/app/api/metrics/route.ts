@@ -1,46 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
 import { withErrorHandling, AuthorizationError } from '@/lib/errorHandler';
 import { getJobQueue } from '@/lib/jobQueue';
+import { withAuth, AuthenticatedUser } from '@/lib/auth/apiAuth';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * GET handler for metrics
  * Returns system metrics for monitoring
  * Restricted to admin users only
  */
-export const GET = withErrorHandling(async (_request: NextRequest) => {
-  // Initialize Supabase client
-  const supabase = await createClient();
-
-  // Check authentication
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
-    throw new AuthorizationError('Authentication required to access metrics');
-  }
-
-  // Check if user is admin
-  const { data: userProfile, error: userError } = await supabase
-    .from('users')
-    .select('role')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (userError || !userProfile) {
-    throw new AuthorizationError('User profile not found');
-  }
-
-  if (userProfile.role !== 'admin' && userProfile.role !== 'super_admin') {
-    throw new AuthorizationError('Admin privileges required to access metrics');
-  }
-
+export const GET = withAuth(async (_request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
   // Get metrics from various sources
   const metrics = await collectMetrics(supabase);
 
   return NextResponse.json(metrics);
-});
+}, ['admin', 'super_admin']);
 
 /**
  * Collect metrics from various sources

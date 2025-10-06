@@ -1,4 +1,3 @@
-import { createClient } from '@/utils/supabase/server';
 import { ChatMessage } from '@/types/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { generateChatResponse } from '@/lib/geminiClient';
@@ -13,6 +12,7 @@ import {
 } from '@/lib/errorHandler';
 import { createQueryOptimizer } from '@/lib/db/queryOptimizer';
 import { parsePaginationParams, validatePaginationParams } from '@/lib/api/pagination';
+import { authenticateApiRequest, AuthenticatedUser } from '@/lib/auth/apiAuth';
 
 /**
  * POST handler for chat messages
@@ -23,35 +23,16 @@ export const POST = withErrorHandling(
     // Await params since they're now a Promise in newer Next.js versions
     const { projectId } = await params;
 
-    const supabase = await createClient();
+    const authResult = await authenticateApiRequest(request);
+    if (!authResult.success || !authResult.user) {
+      // Only access authResult.error if authResult.success is false
+      throw new AuthenticationError(authResult.success === false ? authResult.error : 'Authentication required');
+    }
+    const { user, supabase } = authResult;
     const queryOptimizer = createQueryOptimizer(supabase);
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      throw new AuthenticationError('Authentication required to access chat');
-    }
-
-    // Fetch user profile with retry for potential network issues
-    const userProfile = await withRetry(
-      async () => {
-        const { data, error } = await supabase
-          .from('users')
-          .select('organization_id, role, deleted_at')
-          .eq('auth_user_id', user.id)
-          .eq('deleted_at', null)
-          .single();
-
-        if (error) throw new DatabaseError('select', error.message, { table: 'users' });
-        if (!data) throw new AuthorizationError('User profile not found or archived');
-        return data;
-      },
-      { maxRetries: 2 }
-    );
+    // userProfile is now directly available from authResult.user
+    const userProfile = user;
 
     // Fetch project with retry
     const project = await withRetry(
@@ -76,13 +57,13 @@ export const POST = withErrorHandling(
     );
 
     // Verify organization access for multi-tenant security
-    if (project.organization_id !== userProfile.organization_id) {
+    if (project.organization_id !== user.organizationId) {
       throw new AuthorizationError('Cross-organization access denied');
     }
 
     // Verify user has access to this project
     const hasAccess =
-      userProfile.role === 'admin' ||
+      user.role === 'admin' ||
       project.created_by === user.id ||
       (project.assigned_to && project.assigned_to.includes(user.id));
 
@@ -109,7 +90,7 @@ export const POST = withErrorHandling(
       async () => {
         const { error } = await supabase.from('chat_history').insert({
           project_id: projectId,
-          organization_id: userProfile.organization_id,
+          organization_id: user.organizationId,
           user_id: user.id,
           question: message.trim(),
           answer: '',
@@ -129,7 +110,7 @@ export const POST = withErrorHandling(
           .from('chat_history')
           .select('*')
           .eq('project_id', projectId)
-          .eq('organization_id', userProfile.organization_id)
+          .eq('organization_id', user.organizationId)
           .order('created_at', { ascending: true })
           .limit(50);
 
@@ -173,7 +154,7 @@ export const POST = withErrorHandling(
           .from('chat_history')
           .insert({
             project_id: projectId,
-            organization_id: userProfile.organization_id,
+            organization_id: user.organizationId,
             user_id: user.id,
             question: '',
             answer: aiResponse.answer,
@@ -208,35 +189,15 @@ export const GET = withErrorHandling(
     // Await params since they're now a Promise in newer Next.js versions
     const { projectId } = await params;
 
-    const supabase = await createClient();
+    const authResult = await authenticateApiRequest(request);
+    if (!authResult.success) {
+      throw new AuthenticationError(authResult.error || 'Authentication required');
+    }
+    const { user, supabase } = authResult;
     const queryOptimizer = createQueryOptimizer(supabase);
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      throw new AuthenticationError('Authentication required to access chat history');
-    }
-
-    // Fetch user profile
-    const userProfile = await withRetry(
-      async () => {
-        const { data, error } = await supabase
-          .from('users')
-          .select('organization_id, role, deleted_at')
-          .eq('auth_user_id', user.id)
-          .eq('deleted_at', null)
-          .single();
-
-        if (error) throw new DatabaseError('select', error.message, { table: 'users' });
-        if (!data) throw new AuthorizationError('User profile not found or archived');
-        return data;
-      },
-      { maxRetries: 2 }
-    );
+    // userProfile is now directly available from authResult.user
+    const userProfile = user;
 
     // Fetch project
     const project = await withRetry(
@@ -261,13 +222,13 @@ export const GET = withErrorHandling(
     );
 
     // Verify organization access for multi-tenant security
-    if (project.organization_id !== userProfile.organization_id) {
+    if (project.organization_id !== user.organizationId) {
       throw new AuthorizationError('Cross-organization access denied');
     }
 
     // Verify user has access to this project
     const hasAccess =
-      userProfile.role === 'admin' ||
+      user.role === 'admin' ||
       project.created_by === user.id ||
       (project.assigned_to && project.assigned_to.includes(user.id));
 
@@ -295,7 +256,7 @@ export const GET = withErrorHandling(
       sortOrder: paginationParams.sortOrder || 'asc',
       filters: {
         project_id: projectId,
-        organization_id: userProfile.organization_id,
+        organization_id: user.organizationId,
       },
       cache: true,
       cacheTTL: 60, // Cache for 60 seconds

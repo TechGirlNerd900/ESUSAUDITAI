@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { withAuth, AuthenticatedUser } from '@/lib/auth/apiAuth';
+import { SupabaseClient } from '@supabase/supabase-js';
 import {
   accountClassificationEngine,
   AccountMapping,
@@ -11,146 +12,90 @@ import {
  * Handles chart of accounts, account mapping, and automated classification
  */
 
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+export const GET = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get('action');
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-    const organizationId = searchParams.get('organizationId');
-
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-    }
-
-    switch (action) {
-      case 'list':
-        return await handleListAccounts(supabase, organizationId);
-
-      case 'template': {
-        const industryType = searchParams.get('industryType') || 'trading';
-        const standard = (searchParams.get('standard') as 'IFRS' | 'GAAP' | 'FRS') || 'IFRS';
-        return await handleGetTemplate(industryType, standard, organizationId);
-      }
-      case 'analytics':
-        return await handleGetAnalytics(supabase, organizationId);
-
-      default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-    }
-  } catch (error) {
-    console.error('Account classification API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  if (!organizationId) {
+    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
   }
-}
 
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+  switch (action) {
+    case 'list':
+      return await handleListAccounts(supabase, organizationId);
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    case 'template': {
+      const industryType = searchParams.get('industryType') || 'trading';
+      const standard = (searchParams.get('standard') as 'IFRS' | 'GAAP' | 'FRS') || 'IFRS';
+      return await handleGetTemplate(industryType, standard, organizationId);
     }
+    case 'analytics':
+      return await handleGetAnalytics(supabase, organizationId);
 
-    const body = await request.json();
-    const { action, organizationId } = body;
-
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-    }
-
-    switch (action) {
-      case 'categorize':
-        return await handleCategorizeAccount(body);
-
-      case 'bulkImport':
-        return await handleBulkImport(supabase, body, user.id);
-
-      case 'createTemplate':
-        return await handleCreateTemplate(supabase, body, user.id);
-
-      case 'validate':
-        return await handleValidateClassification(body);
-
-      default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-    }
-  } catch (error) {
-    console.error('Account classification POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    default:
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
-}
+});
 
-export async function PUT(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+export const POST = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const body = await request.json();
+  const { action } = body; // organizationId will come from user object
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
 
-    const body = await request.json();
-    const { accountId, updates, organizationId } = body;
-
-    if (!accountId || !organizationId) {
-      return NextResponse.json(
-        { error: 'Account ID and Organization ID required' },
-        { status: 400 }
-      );
-    }
-
-    return await handleUpdateAccount(supabase, accountId, updates, organizationId, user.id);
-  } catch (error) {
-    console.error('Account classification PUT error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  if (!organizationId) {
+    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
   }
-}
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+  switch (action) {
+    case 'categorize':
+      return await handleCategorizeAccount(body);
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    case 'bulkImport':
+      return await handleBulkImport(supabase, { ...body, organizationId }, user.id);
 
-    const { searchParams } = new URL(request.url);
-    const accountId = searchParams.get('accountId');
-    const organizationId = searchParams.get('organizationId');
+    case 'createTemplate':
+      return await handleCreateTemplate(supabase, { ...body, organizationId }, user.id);
 
-    if (!accountId || !organizationId) {
-      return NextResponse.json(
-        { error: 'Account ID and Organization ID required' },
-        { status: 400 }
-      );
-    }
+    case 'validate':
+      return await handleValidateClassification(body);
 
-    return await handleDeleteAccount(supabase, accountId, organizationId);
-  } catch (error) {
-    console.error('Account classification DELETE error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    default:
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
-}
+});
+
+export const PUT = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const body = await request.json();
+  const { accountId, updates } = body; // organizationId will come from user object
+
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
+
+  if (!accountId || !organizationId) {
+    return NextResponse.json(
+      { error: 'Account ID and Organization ID required' },
+      { status: 400 }
+    );
+  }
+
+  return await handleUpdateAccount(supabase, accountId, updates, organizationId, user.id);
+});
+
+export const DELETE = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const { searchParams } = new URL(request.url);
+  const accountId = searchParams.get('accountId');
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
+
+  if (!accountId || !organizationId) {
+    return NextResponse.json(
+      { error: 'Account ID and Organization ID required' },
+      { status: 400 }
+    );
+  }
+
+  return await handleDeleteAccount(supabase, accountId, organizationId);
+});
 
 /**
  * Handler Functions

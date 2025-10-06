@@ -13,14 +13,40 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'; // Corrected Alert components import path
+import { AlertTriangle, RefreshCw } from 'lucide-react'; // Added icons
+import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch'; // Added authenticated fetch
+
+import { 
+  handleApiError, 
+  handleApiSuccess, 
+  showToast, // Renamed from showErrorToast
+  shouldRetryError, 
+  ErrorCategory,
+  ApiErrorResult 
+} from '@/lib/utils/errorHandler'; // Added error handling utility
+
+interface Project { // Re-defined Project interface for consistency
+  id: string;
+  name: string;
+  client_name: string;
+  organization_id: string;
+  created_at: string;
+  deleted_at: string | null;
+  tags?: string[];
+  custom_fields?: Record<string, any>;
+  document_count?: number;
+  due_date?: string;
+  audit_type?: string;
+}
 
 interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (project?: any) => void;
+  onProjectCreated: (project: Project) => void; // Renamed onSuccess to onProjectCreated
 }
 
-const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalProps) => {
+const CreateProjectModal = ({ isOpen, onClose, onProjectCreated }: CreateProjectModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -32,17 +58,39 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
     tags: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ApiErrorResult | null>(null); // Changed error type
+  const [fieldErrors, setFieldErrors] = useState<{ field: string; message: string }[] | null>(null); // Added field errors state
+  const [retryCount, setRetryCount] = useState(0); // Added retry count state
+
+  const authenticatedFetch = useAuthenticatedFetch(); // Initialize authenticatedFetch
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null); // Clear previous errors
+    setFieldErrors(null); // Clear previous field errors
+
     if (!formData.name || !formData.client_name) {
-      setError('Project name and client name are required');
+      setError({
+        message: 'Project name and client name are required',
+        category: ErrorCategory.VALIDATION_ERROR,
+        statusCode: 400,
+        shouldRetry: false,
+        fieldErrors: [
+          { field: 'name', message: 'Project name is required' },
+          { field: 'client_name', message: 'Client name is required' }
+        ],
+        error: new Error('Validation Error'), // Added missing property
+        isEmptyState: false, // Added missing property
+        retryAfter: null // Corrected to null
+      });
       return;
     }
 
     setIsSubmitting(true);
-    setError('');
 
     try {
       const body = {
@@ -56,7 +104,7 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
           : [],
       };
 
-      const response = await fetch('/api/projects', {
+      const response = await authenticatedFetch('/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,25 +113,38 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create project');
+        const errorResult = await handleApiError(response, { 
+          endpoint: 'create project', 
+          showToast: false 
+        });
+        setError(errorResult);
+        setFieldErrors(errorResult.fieldErrors || null);
+      } else {
+        const successResult = await handleApiSuccess<{ project: Project }>(response);
+        onProjectCreated(successResult.data!.project); // Use onProjectCreated
+        showToast('Project created successfully!', 'default'); // Show success toast within the modal
+        onClose();
+        setFormData({
+          name: '',
+          description: '',
+          client_name: '',
+          client_email: '',
+          start_date: '',
+          end_date: '',
+          custom_fields: '{}',
+          tags: '',
+        });
+        setError(null); // Clear error on success
+        setFieldErrors(null); // Clear field errors on success
       }
-
-      const data = await response.json();
-      onSuccess(data.project);
-      onClose();
-      setFormData({
-        name: '',
-        description: '',
-        client_name: '',
-        client_email: '',
-        start_date: '',
-        end_date: '',
-        custom_fields: '{}',
-        tags: '',
+    } catch (e) {
+      const errorResult = await handleApiError(null, { 
+        endpoint: 'create project', 
+        showToast: true,
+        customMessage: 'Failed to connect to the server. Please check your internet connection.'
       });
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An unknown error occurred');
+      setError(errorResult);
+      setFieldErrors(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -104,9 +165,18 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
           <DialogDescription>Fill in the details below to create a new project.</DialogDescription>
         </DialogHeader>
         {error && (
-          <div className="bg-destructive/10 border border-destructive/50 text-destructive p-3 rounded-md">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription className="flex justify-between items-center">
+              {error.message}
+              {error.shouldRetry && shouldRetryError(error.category, retryCount) && (
+                <Button variant="ghost" onClick={handleRetry} className="ml-4">
+                  <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                </Button>
+              )}
+            </AlertDescription>
+          </Alert>
         )}
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
@@ -118,9 +188,12 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="col-span-3"
+              className={`col-span-3 ${fieldErrors?.some(err => err.field === 'name') ? 'border-red-500' : ''}`}
               required
             />
+            {fieldErrors?.find(err => err.field === 'name') && (
+              <p className="col-span-4 text-right text-sm text-red-500">{fieldErrors.find(err => err.field === 'name')?.message}</p>
+            )}
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="client_name" className="text-right">
@@ -131,9 +204,12 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
               name="client_name"
               value={formData.client_name}
               onChange={handleChange}
-              className="col-span-3"
+              className={`col-span-3 ${fieldErrors?.some(err => err.field === 'client_name') ? 'border-red-500' : ''}`}
               required
             />
+            {fieldErrors?.find(err => err.field === 'client_name') && (
+              <p className="col-span-4 text-right text-sm text-red-500">{fieldErrors.find(err => err.field === 'client_name')?.message}</p>
+            )}
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="client_email" className="text-right">
@@ -145,8 +221,11 @@ const CreateProjectModal = ({ isOpen, onClose, onSuccess }: CreateProjectModalPr
               type="email"
               value={formData.client_email}
               onChange={handleChange}
-              className="col-span-3"
+              className={`col-span-3 ${fieldErrors?.some(err => err.field === 'client_email') ? 'border-red-500' : ''}`}
             />
+            {fieldErrors?.find(err => err.field === 'client_email') && (
+              <p className="col-span-4 text-right text-sm text-red-500">{fieldErrors.find(err => err.field === 'client_email')?.message}</p>
+            )}
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="description" className="text-right">

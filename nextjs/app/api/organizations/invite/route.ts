@@ -7,7 +7,7 @@ import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { randomBytes } from 'crypto';
 
 export async function POST(request: NextRequest) {
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 
 // Get pending invitations for the organization
 export async function GET(request: NextRequest) {
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

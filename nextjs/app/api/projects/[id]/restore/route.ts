@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/auth/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler';
 
 export const POST = withErrorHandling(
@@ -11,7 +11,7 @@ export const POST = withErrorHandling(
     const auth = await authenticateApiRequest(request);
 
     if (!auth.success) {
-      return auth.response;
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = await createClient();
@@ -28,13 +28,7 @@ export const POST = withErrorHandling(
     }
 
     // Check if user has access to this project's organization
-    const hasAccess = await checkOrganizationAccess(
-      supabase,
-      auth.profile,
-      project.organization_id
-    );
-
-    if (!hasAccess) {
+    if (auth.profile.organization_id !== project.organization_id) {
       throw new AuthorizationError('You do not have permission to restore this project');
     }
 
@@ -52,7 +46,7 @@ export const POST = withErrorHandling(
     // Create audit log entry
     await supabase.from('audit_logs').insert([
       {
-        user_id: auth.user.id,
+        user_id: auth.user!.id,
         action: 'project_restored',
         resource_type: 'project',
         resource_id: projectId,

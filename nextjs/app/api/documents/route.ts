@@ -1,43 +1,34 @@
 import { withAuth } from '@/lib/auth/apiAuth'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
+import { SupabaseClient } from '@supabase/supabase-js'
 
-export const GET = withAuth(async (request: NextRequest, user) => {
+export const GET = withAuth(async (request: NextRequest, user, supabase: SupabaseClient) => {
   const { searchParams } = new URL(request.url)
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
   const projectId = searchParams.get('projectId')
   const offset = (page - 1) * limit
 
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        }
-      }
-    }
-  )
+  
 
   let query = supabase
     .from('documents')
     .select(`
       id,
       name,
+      original_name,
       file_type,
       file_size,
+      document_type,
       processing_status,
       uploaded_at,
+      processed_at,
       analysis_results,
       projects!inner (
         id,
         name
       ),
-      uploaded_by:users!documents_uploaded_by_fkey (
+      uploaded_by:users!uploaded_by (
         first_name,
         last_name
       )
@@ -61,6 +52,8 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     )
   }
 
+  // Standard empty state handling: Always return 200 with empty array and pagination
+  // Never return 404 for empty results - 404 is only for missing specific resources
   return new Response(
     JSON.stringify({
       documents: documents || [],
@@ -75,7 +68,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   )
 })
 
-export const POST = withAuth(async (request: NextRequest, user) => {
+export const POST = withAuth(async (request: NextRequest, user, supabase: SupabaseClient) => {
   // Document upload logic will be implemented here
   return new Response(
     JSON.stringify({ message: 'Document upload endpoint' }),

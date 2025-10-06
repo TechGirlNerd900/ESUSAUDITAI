@@ -12,7 +12,9 @@ import {
   Eye, 
   Search,
   MoreHorizontal,
-  Trash2
+  Trash2,
+  AlertTriangle, // Added for error display
+  RefreshCw // Added for retry button
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -30,6 +32,15 @@ import {
 import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch'
 import UploadDocumentModal from '../components/UploadDocumentModal'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert' // Corrected import path for error display
+import { 
+  handleApiError, 
+  handleApiSuccess, 
+  showToast, // Renamed from showErrorToast
+  shouldRetryError, 
+  ErrorCategory,
+  ApiErrorResult 
+} from '@/lib/utils/errorHandler' // Added error handling utility
 
 interface Document {
   id: string
@@ -55,12 +66,17 @@ export default function DocumentsPage() {
     total: 0,
     pages: 0
   })
+  const [error, setError] = useState<ApiErrorResult | null>(null) // Added error state
+  const [retryCount, setRetryCount] = useState(0) // Added retry count state
   
   const authenticatedFetch = useAuthenticatedFetch()
 
+  const defaultPagination = { page: 1, limit: 20, total: 0, pages: 0 }; // Define default pagination
+
   const fetchDocuments = async (page = 1) => {
+    setLoading(true)
+    setError(null) // Clear previous errors
     try {
-      setLoading(true)
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pagination.limit.toString()
@@ -71,21 +87,51 @@ export default function DocumentsPage() {
       }
       
       const response = await authenticatedFetch(`/api/documents?${params}`)
-      if (response.ok) {
-        const data = await response.json()
-        setDocuments(data.documents || [])
-        setPagination(data.pagination || pagination)
+      
+      if (!response.ok) {
+        const errorResult = await handleApiError(response, { 
+          endpoint: 'documents', 
+          showToast: true, 
+          isListEndpoint: true,
+          resourceType: 'documents'
+        })
+        if (errorResult.isEmptyState) {
+          setDocuments([])
+          setPagination(defaultPagination)
+          setError(null) // No error for empty state
+        } else {
+          setError(errorResult)
+          setDocuments([])
+          setPagination(defaultPagination)
+        }
+      } else {
+        const successResult = await handleApiSuccess<any>(response)
+        setDocuments(successResult.data?.documents || [])
+        setPagination(successResult.data?.pagination || defaultPagination)
+        setError(null) // Clear error on success
       }
-    } catch (error) {
-      console.error('Failed to fetch documents:', error)
+    } catch (e) {
+      // Network errors or other unexpected fetch issues
+      const errorResult = await handleApiError(null, { 
+        endpoint: 'documents', 
+        showToast: true,
+        customMessage: 'Failed to connect to the server. Please check your internet connection.'
+      })
+      setError(errorResult)
+      setDocuments([])
+      setPagination(defaultPagination)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchDocuments()
-  }, [statusFilter])
+    fetchDocuments(pagination.page)
+  }, [statusFilter, retryCount, pagination.limit, pagination.page]) // Added retryCount to dependencies
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1)
+  }
 
   const handleDocumentUploaded = () => {
     fetchDocuments()
@@ -179,21 +225,37 @@ export default function DocumentsPage() {
         </Select>
       </div>
 
+      {/* Error Display */}
+      {error && !error.isEmptyState && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription className="flex justify-between items-center">
+            {error.message}
+            {error.shouldRetry && shouldRetryError(error.category, retryCount) && (
+              <Button variant="ghost" onClick={handleRetry} className="ml-4">
+                <RefreshCw className="mr-2 h-4 w-4" /> Retry
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Documents List */}
-      {filteredDocuments.length === 0 ? (
+      {filteredDocuments.length === 0 && !loading && !error?.isEmptyState ? ( // Show empty state only if no documents, not loading, and not an empty state error
         <Card>
           <CardContent className="p-12 text-center">
             <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium mb-2">
-              {documents.length === 0 ? 'No documents uploaded' : 'No documents match your filters'}
+              {searchTerm || statusFilter !== 'all' ? 'No documents match your filters' : 'No documents uploaded yet'}
             </h3>
             <p className="text-gray-500 mb-4">
-              {documents.length === 0 
-                ? 'Upload your first document to get started with AI-powered analysis'
-                : 'Try adjusting your search or filter criteria'
+              {searchTerm || statusFilter !== 'all'
+                ? 'Try adjusting your search or filter criteria'
+                : 'Upload your first document to get started with AI-powered analysis'
               }
             </p>
-            {documents.length === 0 && (
+            {documents.length === 0 && ( // Only show upload button if truly no documents
               <Button onClick={() => setShowUploadModal(true)}>
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Document
@@ -237,21 +299,24 @@ export default function DocumentsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => showToast('View Details functionality coming soon!', 'default')}>
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => showToast('Download functionality coming soon!', 'default')}>
                           <Download className="mr-2 h-4 w-4" />
                           Download
                         </DropdownMenuItem>
                         {document.processing_status === 'completed' && (
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => showToast('View Analysis functionality coming soon!', 'default')}>
                             <FileText className="mr-2 h-4 w-4" />
                             View Analysis
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                          className="text-red-600" 
+                          onClick={() => showToast('Delete functionality coming soon!', 'destructive')}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                         </DropdownMenuItem>
@@ -271,7 +336,7 @@ export default function DocumentsPage() {
           <Button
             variant="outline"
             onClick={() => fetchDocuments(pagination.page - 1)}
-            disabled={pagination.page === 1}
+            disabled={pagination.page === 1 || loading}
           >
             Previous
           </Button>
@@ -281,7 +346,7 @@ export default function DocumentsPage() {
           <Button
             variant="outline"
             onClick={() => fetchDocuments(pagination.page + 1)}
-            disabled={pagination.page === pagination.pages}
+            disabled={pagination.page === pagination.pages || loading}
           >
             Next
           </Button>

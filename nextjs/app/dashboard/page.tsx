@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch'
-import { Skeleton } from '../components/ui/skeleton'
-import { Alert, AlertDescription } from '../components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert' // Added AlertTitle
+import { toast } from '../components/ui/use-toast'
 import { 
   Users, 
   FileText, 
@@ -15,9 +16,19 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Plus
+  Plus,
+  RefreshCw
 } from 'lucide-react'
 import CreateProjectModal from '../components/CreateProjectModal'
+
+import { 
+  handleApiError, 
+  handleApiSuccess, 
+  showToast, // Renamed from showErrorToast
+  shouldRetryError, 
+  ErrorCategory,
+  ApiErrorResult 
+} from '@/lib/utils/errorHandler' // Added error handling utility
 
 interface DashboardStats {
   totalProjects: number
@@ -49,8 +60,9 @@ export default function Dashboard() {
   const [recentDocuments, setRecentDocuments] = useState<Document[]>([])
   const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ApiErrorResult | null>(null) // Changed error type
   const [showCreateProject, setShowCreateProject] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   
   const authenticatedFetch = useAuthenticatedFetch()
 
@@ -58,42 +70,120 @@ export default function Dashboard() {
     setLoading(true)
     setError(null)
 
+    let fetchedProjects: Project[] = []
+    let fetchedDocuments: Document[] = []
+    let profileData: any = null
+
     try {
       // Fetch user profile
-      const profileResponse = await authenticatedFetch('/api/auth/profile')
-      if (profileResponse.ok) {
-        const profileData = await profileResponse.json()
-        setUserProfile(profileData.user)
+      try {
+        const profileResponse = await authenticatedFetch('/api/auth/profile')
+        if (!profileResponse.ok) {
+          const errorResult = await handleApiError(profileResponse, { 
+            endpoint: 'user profile', 
+            showToast: true, 
+            resourceType: 'user profile' 
+          })
+          setError(errorResult)
+        } else {
+          const successResult = await handleApiSuccess<any>(profileResponse)
+          profileData = successResult.data
+          setUserProfile(profileData?.user)
+          console.log('[Dashboard] Fetched user profile:', profileData?.user?.firstName);
+        }
+      } catch (e) {
+        const errorResult = await handleApiError(null, { 
+          endpoint: 'user profile', 
+          showToast: true,
+          customMessage: 'Failed to connect to the server for profile. Please check your internet connection.'
+        })
+        setError(errorResult)
       }
 
       // Fetch projects with graceful handling
-      const projectsResponse = await authenticatedFetch('/api/projects?limit=5')
-      if (projectsResponse.ok) {
-        const projectsData = await projectsResponse.json()
-        setRecentProjects(projectsData.projects || [])
+      try {
+        const projectsResponse = await authenticatedFetch('/api/projects?limit=5')
+        if (!projectsResponse.ok) {
+          const errorResult = await handleApiError(projectsResponse, { 
+            endpoint: 'projects', 
+            showToast: false, // Don't show toast for list endpoint 404s
+            resourceType: 'projects',
+            isListEndpoint: true // Treat 404 as empty state for list endpoints
+          })
+          if (errorResult.isEmptyState) {
+            fetchedProjects = [] // Set projects to empty array for empty state
+            setRecentProjects([])
+            // Do not set global error state for empty list
+          } else {
+            setError(errorResult)
+          }
+        } else {
+          const successResult = await handleApiSuccess<{ projects: Project[] }>(projectsResponse)
+          fetchedProjects = Array.isArray(successResult.data?.projects) ? successResult.data.projects : []
+          setRecentProjects(fetchedProjects)
+          console.log('[Dashboard] Fetched', fetchedProjects.length, 'projects');
+        }
+      } catch (e) {
+        const errorResult = await handleApiError(null, { 
+          endpoint: 'projects', 
+          showToast: true,
+          customMessage: 'Failed to connect to the server for projects. Please check your internet connection.'
+        })
+        setError(errorResult)
       }
 
       // Fetch documents with graceful handling
-      const documentsResponse = await authenticatedFetch('/api/documents?limit=5')
-      if (documentsResponse.ok) {
-        const documentsData = await documentsResponse.json()
-        setRecentDocuments(documentsData.documents || [])
+      try {
+        const documentsResponse = await authenticatedFetch('/api/documents?limit=5')
+        if (!documentsResponse.ok) {
+          const errorResult = await handleApiError(documentsResponse, { 
+            endpoint: 'documents', 
+            showToast: false, // Don't show toast for list endpoint 404s
+            resourceType: 'documents',
+            isListEndpoint: true // Treat 404 as empty state for list endpoints
+          })
+          if (errorResult.isEmptyState) {
+            fetchedDocuments = [] // Set documents to empty array for empty state
+            setRecentDocuments([])
+            // Do not set global error state for empty list
+          } else {
+            setError(errorResult)
+          }
+        } else {
+          const successResult = await handleApiSuccess<{ documents: Document[] }>(documentsResponse)
+          fetchedDocuments = Array.isArray(successResult.data?.documents) ? successResult.data.documents : []
+          setRecentDocuments(fetchedDocuments)
+          console.log('[Dashboard] Fetched', fetchedDocuments.length, 'documents');
+        }
+      } catch (e) {
+        const errorResult = await handleApiError(null, { 
+          endpoint: 'documents', 
+          showToast: true,
+          customMessage: 'Failed to connect to the server for documents. Please check your internet connection.'
+        })
+        setError(errorResult)
       }
 
-      // Calculate stats from fetched data
+      // Calculate stats from freshly fetched data
       const calculatedStats: DashboardStats = {
-        totalProjects: recentProjects.length,
-        activeProjects: recentProjects.filter(p => p.status === 'active').length,
-        totalDocuments: recentDocuments.length,
-        processingDocuments: recentDocuments.filter(d => d.processing_status === 'processing').length,
-        completedAnalyses: recentDocuments.filter(d => d.processing_status === 'completed').length,
+        totalProjects: fetchedProjects.length,
+        activeProjects: fetchedProjects.filter(p => p.status === 'active').length,
+        totalDocuments: fetchedDocuments.length,
+        processingDocuments: fetchedDocuments.filter(d => d.processing_status === 'processing').length,
+        completedAnalyses: fetchedDocuments.filter(d => d.processing_status === 'completed').length,
         pendingReviews: 0 // This would come from a reports endpoint
       }
       setStats(calculatedStats)
 
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error)
-      setError('Failed to load dashboard data. Please try refreshing the page.')
+    } catch (err) {
+      // This catch block is for any unexpected errors not caught by individual fetch blocks
+      console.error('Unexpected error fetching dashboard data:', err)
+      const errorResult = await handleApiError(null, { 
+        endpoint: 'dashboard data', 
+        showToast: true,
+        customMessage: 'An unexpected error occurred while fetching dashboard data.'
+      })
+      setError(errorResult)
     } finally {
       setLoading(false)
     }
@@ -101,11 +191,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [retryCount]) // Re-fetch data when retryCount changes
 
   const handleProjectCreated = () => {
     setShowCreateProject(false)
+    // Success toast is now handled within CreateProjectModal as per Comment 3
     fetchDashboardData() // Refresh data
+  }
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1)
+    setError(null) // Clear previous error
   }
 
   if (loading) {
@@ -134,7 +230,16 @@ export default function Dashboard() {
       <div className="p-6">
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertTitle>Error</AlertTitle> {/* Added AlertTitle */}
+          <AlertDescription className="flex justify-between items-center"> {/* Added flex for retry button */}
+            {error.message}
+            {error.shouldRetry && shouldRetryError(error.category, retryCount) && (
+              <Button onClick={handleRetry} variant="ghost" size="sm" className="ml-4"> {/* Adjusted button */}
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            )}
+          </AlertDescription>
         </Alert>
       </div>
     )
@@ -221,7 +326,7 @@ export default function Dashboard() {
             <CardTitle>Recent Projects</CardTitle>
           </CardHeader>
           <CardContent>
-            {recentProjects.length === 0 ? (
+            {(!recentProjects || recentProjects.length === 0) ? (
               <div className="text-center py-6">
                 <FolderOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <h3 className="text-sm font-medium text-gray-900 mb-2">
@@ -261,7 +366,7 @@ export default function Dashboard() {
             <CardTitle>Recent Documents</CardTitle>
           </CardHeader>
           <CardContent>
-            {recentDocuments.length === 0 ? (
+            {(!recentDocuments || recentDocuments.length === 0) ? (
               <div className="text-center py-6">
                 <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <h3 className="text-sm font-medium text-gray-900 mb-2">

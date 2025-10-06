@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { getUserProfile } from '@/lib/auth/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth'; // Add authenticateApiRequest
 import {
   performComplianceAssessment,
   generateComplianceReport,
@@ -94,19 +94,10 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Get user profile and verify access
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userProfile = await getUserProfile(user.id);
-    if (!userProfile) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Authenticate and get user profile
+    const auth = await authenticateApiRequest(request);
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
     const body: ComplianceAssessmentRequest = await request.json();
@@ -124,7 +115,7 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .select('id, name, organization_id')
       .eq('id', body.projectId)
-      .eq('organization_id', userProfile.organization_id)
+      .eq('organization_id', auth.profile.organization_id)
       .single();
 
     if (projectError || !project) {
@@ -171,7 +162,7 @@ export async function POST(request: NextRequest) {
           .from('compliance_assessments')
           .insert({
             project_id: body.projectId,
-            organization_id: userProfile.organization_id,
+            organization_id: auth.profile.organization_id,
             entity_type: body.entityType,
             reporting_period: body.reportingPeriod,
             assessment_date: assessment.assessmentDate,
@@ -196,7 +187,7 @@ export async function POST(request: NextRequest) {
             recommended_actions: assessment.recommendedActions,
 
             // Metadata
-            created_by: userProfile.id,
+            created_by: auth.profile.id,
             processing_time_ms: processingTime,
           })
           .select('id')
@@ -215,8 +206,8 @@ export async function POST(request: NextRequest) {
 
     // Log the assessment
     await supabase.from('audit_logs').insert({
-      organization_id: userProfile.organization_id,
-      user_id: userProfile.id,
+      organization_id: auth.profile.organization_id,
+      user_id: auth.profile.id,
       action: 'compliance_assessment_performed',
       resource_type: 'compliance_assessment',
       resource_id: savedAssessmentId || body.projectId,
@@ -283,109 +274,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * GET /api/compliance/nigerian?projectId=xxx&assessmentId=xxx
- * Retrieve saved compliance assessments
- */
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createClient();
 
-    // Get user profile
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userProfile = await getUserProfile(user.id);
-    if (!userProfile) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const projectId = searchParams.get('projectId');
-    const assessmentId = searchParams.get('assessmentId');
-
-    if (!projectId && !assessmentId) {
-      return NextResponse.json(
-        { error: 'Either projectId or assessmentId is required' },
-        { status: 400 }
-      );
-    }
-
-    let query = supabase
-      .from('compliance_assessments')
-      .select(
-        `
-        id,
-        project_id,
-        entity_type,
-        reporting_period,
-        assessment_date,
-        overall_compliance_score,
-        frs_compliance_score,
-        cama_compliance_score,
-        critical_issues_count,
-        high_priority_issues_count,
-        total_frs_rules,
-        compliant_frs_rules,
-        total_cama_rules,
-        compliant_cama_rules,
-        company_data,
-        assessment_results,
-        compliance_report,
-        recommended_actions,
-        processing_time_ms,
-        created_at,
-        created_by,
-        projects!inner(name, organization_id)
-      `
-      )
-      .eq('organization_id', userProfile.organization_id);
-
-    if (assessmentId) {
-      query = query.eq('id', assessmentId);
-    } else {
-      query = query.eq('project_id', projectId);
-    }
-
-    const { data: assessments, error } = await query
-      .order('created_at', { ascending: false })
-      .limit(assessmentId ? 1 : 10);
-
-    if (error) {
-      return NextResponse.json(
-        { error: 'Failed to retrieve compliance assessments' },
-        { status: 500 }
-      );
-    }
-
-    if (assessmentId && (!assessments || assessments.length === 0)) {
-      return NextResponse.json({ error: 'Compliance assessment not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: assessmentId ? assessments[0] : assessments,
-    });
-  } catch (error) {
-    console.error('Error retrieving compliance assessment:', error);
-
-    return NextResponse.json(
-      {
-        error: 'Internal server error retrieving compliance assessment',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export const GET = withAuth(async (request: NextRequest, user) => {
+export const GET = withAuth(async (request: NextRequest, user, supabase) => {
   // Return placeholder compliance data for now
   return new Response(
     JSON.stringify({ 

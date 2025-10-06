@@ -1,7 +1,9 @@
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server'; // Re-add for POST handler
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling } from '@/lib/errorHandler';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { paginatedResponse } from '@/lib/api/apiResponse';
+import { withAuth, AuthenticatedUser } from '@/lib/auth/apiAuth';
 
 // Function to insert an audit log (can be called internally or via a POST endpoint)
 async function insertAuditLog(
@@ -44,30 +46,9 @@ async function insertAuditLog(
   return data;
 }
 
-export const GET = withErrorHandling(async (request: NextRequest) => {
-  const supabase: SupabaseClient = await createClient(); // Await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { data: userProfile, error: userError } = await supabase
-    .from('users')
-    .select('role, organization_id')
-    .eq('auth_user_id', user.id)
-    .single();
-  if (userError || !userProfile) {
-    return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
-  }
-  if (userProfile.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: admin access required' }, { status: 403 });
-  }
-
+export const GET = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
   const { searchParams } = new URL(request.url);
-  const organization_id = userProfile.organization_id;
+  const organization_id = user.organizationId; // Use organizationId from authenticated user
 
   const event_type = searchParams.get('event_type');
   const severity = searchParams.get('severity');
@@ -79,15 +60,28 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
   const offset = (page - 1) * pageSize;
 
-  const { count, error: countError } = await supabase
+  let countQuery = supabase
     .from('audit_logs')
     .select('*', { count: 'exact', head: true })
-    .eq('organization_id', organization_id)
-    .eq('event_type', event_type || null)
-    .eq('severity', severity || null)
-    .contains(tag ? 'tags' : 'id', tag ? [tag] : [])
-    .eq('resource_type', resource_type || null)
-    .eq('resource_id', resource_id || null);
+    .eq('organization_id', organization_id);
+
+  if (event_type) {
+    countQuery = countQuery.eq('event_type', event_type);
+  }
+  if (severity) {
+    countQuery = countQuery.eq('severity', severity);
+  }
+  if (tag) {
+    countQuery = countQuery.contains('tags', [tag]);
+  }
+  if (resource_type) {
+    countQuery = countQuery.eq('resource_type', resource_type);
+  }
+  if (resource_id) {
+    countQuery = countQuery.eq('resource_id', resource_id);
+  }
+
+  const { count, error: countError } = await countQuery;
 
   if (countError) {
     console.error('Error fetching audit logs count:', countError);
@@ -95,15 +89,14 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   }
 
   const totalLogs = count || 0;
-  const totalPages = Math.ceil(totalLogs / pageSize);
 
   const { data: logs, error: logsError } = await supabase.rpc('search_audit_logs', {
     p_organization_id: organization_id,
-    p_event_type: event_type,
-    p_severity: severity,
-    p_tag: tag,
     p_limit: pageSize,
     p_offset: offset,
+    ...(event_type && { p_event_type: event_type }),
+    ...(severity && { p_severity: severity }),
+    ...(tag && { p_tag: tag }),
     ...(resource_type && { p_resource_type: resource_type }),
     ...(resource_id && { p_resource_id: resource_id }),
   });
@@ -113,11 +106,12 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Failed to fetch audit logs' }, { status: 500 });
   }
 
-  return NextResponse.json({ logs, totalPages, currentPage: page, pageSize });
-});
+  // Ensure logs is an array and use the paginatedResponse helper
+  return NextResponse.json(paginatedResponse(logs || [], page, pageSize, totalLogs));
+}, ['admin', 'super_admin']);
 
 export const POST = withErrorHandling(async (request: NextRequest) => {
-  const supabase: SupabaseClient = await createClient(); // Await createClient()
+  const supabase: SupabaseClient = await createClient(); // Create client for internal use
   const body = await request.json();
 
   if (!body.user_id || !body.organization_id || !body.action) {

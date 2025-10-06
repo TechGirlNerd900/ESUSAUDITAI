@@ -8,9 +8,19 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Switch } from '../components/ui/switch'
 import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch'
-import { Skeleton } from '../components/ui/skeleton'
-import { Alert, AlertDescription } from '../components/ui/alert'
-import { User, Shield, Bell, Building } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'
+import { User, Shield, Bell, Building, AlertTriangle, RefreshCw } from 'lucide-react' // Added AlertTriangle, RefreshCw
+import { useRouter } from 'next/navigation' // Added useRouter
+
+import { 
+  handleApiError, 
+  handleApiSuccess, 
+  showToast, // Renamed from showErrorToast
+  shouldRetryError, 
+  ErrorCategory,
+  ApiErrorResult 
+} from '@/lib/utils/errorHandler' // Added error handling utility
 
 interface UserProfile {
   id: string
@@ -25,24 +35,43 @@ export default function SettingsPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [error, setError] = useState<ApiErrorResult | null>(null) // Changed error type
+  const [successMessage, setSuccessMessage] = useState<string | null>(null) // Changed success state name and type
+  const [retryCount, setRetryCount] = useState(0) // Added retry count state
+  const [fieldErrors, setFieldErrors] = useState<{ field: string; message: string }[] | null>(null) // Added field errors state
   
   const authenticatedFetch = useAuthenticatedFetch()
+  const router = useRouter() // Initialize useRouter
 
   const fetchUserProfile = async () => {
+    setLoading(true)
+    setError(null) // Clear previous errors
     try {
-      setLoading(true)
       const response = await authenticatedFetch('/api/auth/profile')
-      if (response.ok) {
-        const data = await response.json()
-        setUserProfile(data.user)
+      if (!response.ok) {
+        const errorResult = await handleApiError(response, { 
+          endpoint: 'user profile', 
+          showToast: false, // Don't show toast for initial load errors, display inline
+          resourceType: 'user profile'
+        })
+        setError(errorResult)
+        if (errorResult.category === ErrorCategory.AUTHENTICATION_ERROR) {
+          // Redirect to login page for authentication errors
+          router.push('/login') 
+        }
       } else {
-        setError('Failed to load user profile')
+        const successResult = await handleApiSuccess<any>(response)
+        setUserProfile(successResult.data?.user)
+        setError(null) // Clear error on success
       }
-    } catch (error) {
-      console.error('Error fetching profile:', error)
-      setError('Failed to load user profile')
+    } catch (e) {
+      // Network errors or other unexpected fetch issues
+      const errorResult = await handleApiError(null, { 
+        endpoint: 'user profile', 
+        showToast: true,
+        customMessage: 'Failed to connect to the server. Please check your internet connection.'
+      })
+      setError(errorResult)
     } finally {
       setLoading(false)
     }
@@ -50,30 +79,49 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchUserProfile()
-  }, [])
+  }, [retryCount]) // Added retryCount to dependencies
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1)
+  }
 
   const handleProfileUpdate = async (updatedData: Partial<UserProfile>) => {
+    setSaving(true)
+    setError(null)
+    setSuccessMessage(null)
+    setFieldErrors(null) // Clear field errors
+    
     try {
-      setSaving(true)
-      setError(null)
-      setSuccess(null)
-      
       const response = await authenticatedFetch('/api/auth/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData)
       })
       
-      if (response.ok) {
-        const data = await response.json()
-        setUserProfile(data.user)
-        setSuccess('Profile updated successfully')
+      if (!response.ok) {
+        const errorResult = await handleApiError(response, { 
+          endpoint: 'profile update', 
+          showToast: true 
+        })
+        setError(errorResult)
+        setFieldErrors(errorResult.fieldErrors || null)
       } else {
-        setError('Failed to update profile')
+        const successResult = await handleApiSuccess<any>(response)
+        setUserProfile(successResult.data?.user)
+        setSuccessMessage('Profile updated successfully')
+        showToast('Profile updated successfully!', 'default') // Show success toast
+        setError(null) // Clear error on success
+        setFieldErrors(null) // Clear field errors on success
+        setTimeout(() => setSuccessMessage(null), 5000) // Clear success message after 5 seconds
       }
-    } catch (error) {
-      console.error('Error updating profile:', error)
-      setError('Failed to update profile')
+    } catch (e) {
+      // Network errors or other unexpected fetch issues
+      const errorResult = await handleApiError(null, { 
+        endpoint: 'profile update', 
+        showToast: true,
+        customMessage: 'Failed to connect to the server. Please check your internet connection.'
+      })
+      setError(errorResult)
     } finally {
       setSaving(false)
     }
@@ -103,13 +151,22 @@ export default function SettingsPage() {
       
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription className="flex justify-between items-center">
+            {error.message}
+            {error.shouldRetry && shouldRetryError(error.category, retryCount) && (
+              <Button variant="ghost" onClick={handleRetry} className="ml-4">
+                <RefreshCw className="mr-2 h-4 w-4" /> Retry
+              </Button>
+            )}
+          </AlertDescription>
         </Alert>
       )}
       
-      {success && (
+      {successMessage && (
         <Alert>
-          <AlertDescription>{success}</AlertDescription>
+          <AlertDescription>{successMessage}</AlertDescription>
         </Alert>
       )}
 
@@ -146,7 +203,11 @@ export default function SettingsPage() {
                     id="firstName"
                     value={userProfile?.firstName || ''}
                     onChange={(e) => setUserProfile(prev => prev ? { ...prev, firstName: e.target.value } : null)}
+                    className={fieldErrors?.some(err => err.field === 'firstName') ? 'border-red-500' : ''}
                   />
+                  {fieldErrors?.find(err => err.field === 'firstName') && (
+                    <p className="text-sm text-red-500">{fieldErrors.find(err => err.field === 'firstName')?.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
@@ -154,7 +215,11 @@ export default function SettingsPage() {
                     id="lastName"
                     value={userProfile?.lastName || ''}
                     onChange={(e) => setUserProfile(prev => prev ? { ...prev, lastName: e.target.value } : null)}
+                    className={fieldErrors?.some(err => err.field === 'lastName') ? 'border-red-500' : ''}
                   />
+                  {fieldErrors?.find(err => err.field === 'lastName') && (
+                    <p className="text-sm text-red-500">{fieldErrors.find(err => err.field === 'lastName')?.message}</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
@@ -164,7 +229,11 @@ export default function SettingsPage() {
                   type="email"
                   value={userProfile?.email || ''}
                   onChange={(e) => setUserProfile(prev => prev ? { ...prev, email: e.target.value } : null)}
+                  className={fieldErrors?.some(err => err.field === 'email') ? 'border-red-500' : ''}
                 />
+                {fieldErrors?.find(err => err.field === 'email') && (
+                    <p className="text-sm text-red-500">{fieldErrors.find(err => err.field === 'email')?.message}</p>
+                  )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
@@ -219,7 +288,7 @@ export default function SettingsPage() {
                 <div className="border-t pt-4">
                   <h4 className="font-medium mb-2">Login History</h4>
                   <p className="text-sm text-gray-500 mb-4">
-                    View your recent login activity
+                    View your recent login activity (Coming Soon)
                   </p>
                   <Button variant="outline" disabled>
                     View Login History
@@ -296,7 +365,7 @@ export default function SettingsPage() {
                 <div>
                   <h4 className="font-medium mb-2">Team Management</h4>
                   <p className="text-sm text-gray-500 mb-4">
-                    Manage team members and their roles
+                    Manage team members and their roles (Coming Soon)
                   </p>
                   <Button variant="outline" disabled>
                     Manage Team (Admin Only)

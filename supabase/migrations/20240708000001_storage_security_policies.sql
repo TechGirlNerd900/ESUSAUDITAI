@@ -109,66 +109,6 @@ BEGIN
 END
 $$;
 
--- Create data access logs table for compliance tracking
-CREATE TABLE IF NOT EXISTS data_access_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  organization_id UUID NOT NULL REFERENCES organizations(id),
-  resource_type VARCHAR(50) NOT NULL,
-  resource_id UUID NOT NULL,
-  action VARCHAR(50) NOT NULL,
-  access_method VARCHAR(20) NOT NULL,
-  ip_address INET,
-  user_agent TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  
-  CONSTRAINT fk_data_access_user 
-    FOREIGN KEY (user_id) REFERENCES users(id),
-  
-  CONSTRAINT data_access_action_check 
-    CHECK (action IN ('view', 'download', 'upload', 'delete', 'modify')),
-  
-  CONSTRAINT data_access_method_check 
-    CHECK (access_method IN ('api', 'web', 'mobile', 'cli'))
-);
-
--- Enable RLS on data access logs
-ALTER TABLE data_access_logs ENABLE ROW LEVEL SECURITY;
-
--- Create RLS policy for data access logs
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view data access logs from their organization') THEN
-        CREATE POLICY "Users can view data access logs from their organization"
-        ON data_access_logs FOR SELECT
-        USING (
-          organization_id IN (
-            SELECT organization_id FROM users 
-            WHERE auth_user_id = auth.uid() 
-            AND deleted_at IS NULL
-          )
-        );
-    END IF;
-END
-$$;
-
--- Create RLS policy for inserting data access logs
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated users can insert data access logs') THEN
-        CREATE POLICY "Authenticated users can insert data access logs"
-        ON data_access_logs FOR INSERT
-        WITH CHECK (
-          auth.role() = 'authenticated' AND
-          organization_id IN (
-            SELECT organization_id FROM users 
-            WHERE auth_user_id = auth.uid() 
-            AND deleted_at IS NULL
-          )
-        );
-    END IF;
-END
-$$;
 
 -- Create security events table for monitoring
 CREATE TABLE IF NOT EXISTS security_events (
@@ -295,10 +235,6 @@ END
 $$;
 
 -- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_data_access_logs_user_id ON data_access_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_data_access_logs_organization_id ON data_access_logs(organization_id);
-CREATE INDEX IF NOT EXISTS idx_data_access_logs_resource_type ON data_access_logs(resource_type);
-CREATE INDEX IF NOT EXISTS idx_data_access_logs_created_at ON data_access_logs(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_security_events_organization_id ON security_events(organization_id);
 CREATE INDEX IF NOT EXISTS idx_security_events_event_type ON security_events(event_type);
@@ -378,13 +314,11 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant permissions
-GRANT SELECT, INSERT ON data_access_logs TO authenticated;
 GRANT SELECT, INSERT ON security_events TO authenticated;
 GRANT SELECT, INSERT ON file_quarantine TO authenticated;
 GRANT EXECUTE ON FUNCTION auto_quarantine_suspicious_file(UUID, UUID, VARCHAR, VARCHAR, TEXT, UUID) TO authenticated;
 
 -- Add comments
-COMMENT ON TABLE data_access_logs IS 'Tracks all data access events for compliance and security monitoring';
 COMMENT ON TABLE security_events IS 'Logs security-related events and potential threats';
 COMMENT ON TABLE file_quarantine IS 'Manages quarantined files that have been flagged as suspicious';
 COMMENT ON FUNCTION auto_quarantine_suspicious_file(UUID, UUID, VARCHAR, VARCHAR, TEXT, UUID) IS 'Automatically quarantine files detected as suspicious';

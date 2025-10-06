@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { getUserProfile } from '@/lib/auth/apiAuth';
+import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { importTrialBalanceFromExcel } from '@/lib/processing/trialBalanceImporter';
 
 /**
@@ -11,23 +11,13 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Get user profile
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    // Authenticate and get user profile
+    const auth = await authenticateApiRequest(request);
+    if (!auth.success || !auth.user || !auth.profile) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const userProfile = await getUserProfile(user.id);
-    if (!userProfile) {
-      return NextResponse.json(
-        { error: 'User not authenticated or profile not found' },
-        { status: 401 }
-      );
-    }
+    const userProfile = auth.profile;
+    const user = auth.user; // Use the authenticated user from auth result
 
     // Parse form data
     const formData = await request.formData();

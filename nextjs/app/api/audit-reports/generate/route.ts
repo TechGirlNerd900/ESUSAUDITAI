@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { withAuth, AuthenticatedUser } from '@/lib/auth/apiAuth';
+import { SupabaseClient } from '@supabase/supabase-js';
 import {
   auditReportGenerator,
   AuditEngagement,
@@ -13,25 +14,14 @@ import {
  * Handles audit report creation, templates, and automated content generation
  */
 
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+export const GET = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get('action');
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-    const organizationId = searchParams.get('organizationId');
-
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-    }
+  if (!organizationId) {
+    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
+  }
 
     switch (action) {
       case 'templates':
@@ -54,34 +44,21 @@ export async function GET(request: NextRequest) {
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Audit report API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+});
+
+export const POST = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const body = await request.json();
+  const { action } = body; // organizationId will come from user object
+
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
+
+  if (!organizationId) {
+    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
   }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { action, organizationId } = body;
-
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-    }
 
     switch (action) {
       case 'generate':
-        return await handleGenerateReport(supabase, body, user.id);
+        return await handleGenerateReport(supabase, { ...body, organizationId }, user.id);
 
       case 'createEngagement':
         return await handleCreateEngagement(supabase, body, user.id);
@@ -95,40 +72,23 @@ export async function POST(request: NextRequest) {
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Audit report POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+});
+
+export const PUT = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const body = await request.json();
+  const { reportId, updates } = body; // organizationId will come from user object
+
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
+
+  if (!reportId || !organizationId) {
+    return NextResponse.json(
+      { error: 'Report ID and Organization ID required' },
+      { status: 400 }
+    );
   }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { reportId, updates, organizationId } = body;
-
-    if (!reportId || !organizationId) {
-      return NextResponse.json(
-        { error: 'Report ID and Organization ID required' },
-        { status: 400 }
-      );
-    }
 
     return await handleUpdateReport(supabase, reportId, updates, organizationId, user.id);
-  } catch (error) {
-    console.error('Audit report PUT error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
+});
 
 /**
  * Handler Functions

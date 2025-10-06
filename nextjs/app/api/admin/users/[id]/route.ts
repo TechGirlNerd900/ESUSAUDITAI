@@ -3,21 +3,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/auth/apiAuth';
-import { createClient } from '@/utils/supabase/server';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const { id } = await params;
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
+  const { supabase } = auth;
   try {
-    const supabase = await createClient();
-
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
@@ -40,10 +37,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const { id } = await params;
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const { supabase } = auth;
 
   try {
     const { is_active, role } = await request.json();
@@ -59,8 +57,6 @@ export async function PUT(
         { status: 400 }
       );
     }
-
-    const supabase = await createClient();
 
     // Build update object
     const updateData: any = {};
@@ -98,10 +94,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const { id } = await params;
-  const auth = await authenticateApiRequest(request, { requireRole: 'admin' });
+  const auth = await authenticateApiRequest(request, ['admin']);
   if (!auth.success) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const { supabase } = auth;
 
   try {
     const userId = id;
@@ -110,8 +107,6 @@ export async function DELETE(
     if (userId === auth.profile.id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
-
-    const supabase = await createClient();
 
     // Get user to verify organization and get auth_user_id
     const { data: user, error: getUserError } = await supabase

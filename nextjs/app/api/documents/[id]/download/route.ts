@@ -18,15 +18,14 @@ export const GET = withErrorHandling(
     const { id: documentId } = params;
 
     // Authenticate user
-    const auth = await authenticateApiRequest(request, {
-      requireRole: 'reviewer', // Minimum role for file access
-    });
+    const auth = await authenticateApiRequest(request, ['reviewer']);
 
     if (!auth.success) {
-      return auth.response;
+      return NextResponse.json({ error: auth.error || 'Authentication failed' }, { status: 401 });
     }
 
-    const { user, profile: userProfile } = auth;
+    const user = auth.user!;
+    const userProfile = auth.profile!;
 
     try {
       // Get document metadata with organization validation
@@ -138,20 +137,7 @@ export const GET = withErrorHandling(
           user_agent: request.headers.get('user-agent'),
         },
         created_at: new Date().toISOString(),
-      });
-
-      // Create data access log for compliance tracking
-      await supabase.from('data_access_logs').insert({
-        user_id: user.id,
-        organization_id: userProfile.organization_id,
-        resource_type: 'document',
-        resource_id: documentId,
-        action: 'download',
-        access_method: 'api',
-        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('remote-addr'),
-        user_agent: request.headers.get('user-agent'),
-        timestamp: new Date().toISOString(),
-      });
+      }); // Closing the audit_logs insert
 
       // Return secure download information
       return NextResponse.json({

@@ -2,8 +2,29 @@
 
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, File as FileIcon, X } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, AlertTriangle, RefreshCw } from 'lucide-react'; // Added AlertTriangle, RefreshCw
 import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'; // Corrected Alert components import path
+import { Button } from '@/components/ui/button'; // Ensure Button is imported
+
+import { 
+  handleApiError, 
+  handleApiSuccess, 
+  showToast, // Renamed from showErrorToast
+  shouldRetryError, 
+  ErrorCategory,
+  ApiErrorResult 
+} from '@/lib/utils/errorHandler'; // Added error handling utility
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const SUPPORTED_FILE_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'application/msword', // .doc
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+  'application/vnd.ms-excel', // .xls
+  'text/csv',
+];
 
 interface Props {
   isOpen: boolean;
@@ -13,31 +34,95 @@ interface Props {
   projectId?: string;
 }
 
+interface UploadFile extends File {
+  id: string; // Unique ID for tracking
+  progress: number;
+  status: 'pending' | 'uploading' | 'completed' | 'failed';
+  errorMessage?: string;
+}
+
 export default function UploadDocumentModal({ isOpen, onClose, onSuccess, onUploadComplete, projectId }: Props) {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorResult | null>(null); // Changed error type
+  const [retryCount, setRetryCount] = useState(0); // Added retry count state
+  const [uploadingFileId, setUploadingFileId] = useState<string | null>(null); // Track current file being uploaded
+
   const authenticatedFetch = useAuthenticatedFetch();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(prevFiles => [...prevFiles, ...acceptedFiles]);
+    const newFiles: UploadFile[] = acceptedFiles.map(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        showToast(`File ${file.name} exceeds the maximum size of 50MB.`, 'destructive');
+        return null;
+      }
+      if (!SUPPORTED_FILE_TYPES.includes(file.type)) {
+        showToast(`File ${file.name} has an unsupported file type.`, 'destructive');
+        return null;
+      }
+      return {
+        ...file,
+        id: `${file.name}-${file.size}-${Date.now()}`, // Unique ID
+        progress: 0,
+        status: 'pending',
+      };
+    }).filter(Boolean) as UploadFile[]; // Filter out nulls from invalid files
+    setFiles(prevFiles => [...prevFiles, ...newFiles]);
+    setError(null); // Clear previous errors on new file drop
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+    onDrop,
+    accept: SUPPORTED_FILE_TYPES.join(',') as any // Specify accepted file types
+  });
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setError(null); // Clear previous error
+    // Reset status of failed files to pending for retry
+    setFiles(prevFiles => prevFiles.map(file => 
+      file.status === 'failed' ? { ...file, status: 'pending', errorMessage: '', progress: 0 } : file // Changed undefined to ''
+    ));
+  };
 
   const handleUpload = async () => {
-    if (files.length === 0) return;
+    if (files.length === 0) {
+      setError({
+        message: 'No files selected for upload.',
+        category: ErrorCategory.VALIDATION_ERROR,
+        statusCode: 400,
+        shouldRetry: false,
+        error: new Error('No files selected'),
+        isEmptyState: false,
+        retryAfter: null
+      });
+      return;
+    }
 
     setUploading(true);
-    setError(null);
+    setError(null); // Clear any previous errors
+    let allUploadsSuccessful = true;
 
-    try {
-      for (const file of files) {
+    for (const file of files) {
+      if (file.status === 'completed' || file.status === 'uploading') continue; // Skip already completed or ongoing uploads
+
+      setUploadingFileId(file.id);
+      setFiles(prevFiles => prevFiles.map(f => 
+        f.id === file.id ? { ...f, status: 'uploading', progress: 0 } : f
+      ));
+
+      try {
         const formData = new FormData();
         formData.append('file', file);
         if (projectId) {
           formData.append('projectId', projectId);
         }
+
+        // Simulate progress for now, actual progress would require a different API setup
+        // For now, we'll update progress to 100% on success
+        setFiles(prevFiles => prevFiles.map(f => 
+          f.id === file.id ? { ...f, progress: 50 } : f
+        ));
 
         const response = await authenticatedFetch('/api/documents/upload', {
           method: 'POST',
@@ -45,23 +130,49 @@ export default function UploadDocumentModal({ isOpen, onClose, onSuccess, onUplo
         });
 
         if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || `Failed to upload ${file.name}`);
+          const errorResult = await handleApiError(response, { 
+            endpoint: `upload ${file.name}`, 
+            showToast: false, // Show inline
+            resourceType: 'document' 
+          });
+          setError(errorResult);
+          setFiles(prevFiles => prevFiles.map(f => 
+            f.id === file.id ? { ...f, status: 'failed', errorMessage: errorResult.message } : f
+          ));
+          allUploadsSuccessful = false;
+          break; // Stop on first error as per Comment 4
+        } else {
+          await handleApiSuccess(response);
+          setFiles(prevFiles => prevFiles.map(f => 
+            f.id === file.id ? { ...f, status: 'completed', progress: 100 } : f
+          ));
         }
+      } catch (e) {
+        const errorResult = await handleApiError(null, { 
+          endpoint: `upload ${file.name}`, 
+          showToast: true,
+          customMessage: `Failed to connect to the server for ${file.name}. Please check your internet connection.`
+        });
+        setError(errorResult);
+        setFiles(prevFiles => prevFiles.map(f => 
+          f.id === file.id ? { ...f, status: 'failed', errorMessage: errorResult.message } : f
+        ));
+        allUploadsSuccessful = false;
+      } finally {
+        setUploadingFileId(null);
       }
+    }
 
-      // Call success callbacks
+    if (allUploadsSuccessful) {
       onSuccess?.();
       onUploadComplete?.();
-      
-      // Reset state and close
-      setFiles([]);
+      showToast('All documents uploaded successfully!', 'default');
+      setFiles([]); // Clear files on successful upload
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during upload. Please try again.');
-    } finally {
-      setUploading(false);
+    } else {
+      showToast('Some documents failed to upload. Please check the errors.', 'destructive');
     }
+    setUploading(false);
   };
 
   if (!isOpen) return null;
@@ -82,7 +193,7 @@ export default function UploadDocumentModal({ isOpen, onClose, onSuccess, onUplo
               isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
             }`}
           >
-            <input {...getInputProps()} accept=".pdf,.docx,.doc,.xlsx,.xls,.csv" />
+            <input {...getInputProps()} />
             <UploadCloud className={`mx-auto h-12 w-12 transition-colors ${
               isDragActive ? 'text-blue-500' : 'text-gray-400'
             }`} />
@@ -96,19 +207,29 @@ export default function UploadDocumentModal({ isOpen, onClose, onSuccess, onUplo
           {files.length > 0 && (
             <div className="mt-4 max-h-32 overflow-y-auto">
               {files.map((file, i) => (
-                <div key={i} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg mb-2">
+                <div key={file.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg mb-2">
                   <div className="flex items-center flex-1 min-w-0">
                     <FileIcon className="h-5 w-5 text-gray-500 mr-2 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <span className="text-sm font-medium text-gray-900 truncate block">{file.name}</span>
                       <span className="text-xs text-gray-500">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                        {(file.size / 1024 / 1024).toFixed(2)} MB - Status: {file.status}
+                        {file.errorMessage && <span className="text-red-500 ml-2">{file.errorMessage}</span>}
                       </span>
+                      {file.status === 'uploading' && (
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                          <div 
+                            className="bg-blue-600 h-1.5 rounded-full" 
+                            style={{ width: `${file.progress}%` }}
+                          ></div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <button 
-                    onClick={() => setFiles(files.filter((_, index) => index !== i))}
+                    onClick={() => setFiles(files.filter(f => f.id !== file.id))}
                     className="ml-2 p-1 hover:bg-gray-200 rounded"
+                    disabled={uploading}
                   >
                     <X className="h-4 w-4 text-gray-400" />
                   </button>
@@ -116,7 +237,20 @@ export default function UploadDocumentModal({ isOpen, onClose, onSuccess, onUplo
               ))}
             </div>
           )}
-          {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription className="flex justify-between items-center">
+                {error.message}
+                {error.shouldRetry && shouldRetryError(error.category, retryCount) && (
+                  <Button variant="ghost" onClick={handleRetry} className="ml-4">
+                    <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                  </Button>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
         <div className="p-6 border-t flex justify-between items-center">
           <div className="text-sm text-gray-500">

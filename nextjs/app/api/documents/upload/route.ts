@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createClientFromRequest } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 
@@ -9,11 +9,10 @@ function sanitizeFileName(name: string): string {
 
 export async function POST(request: NextRequest) {
   let filePath: string | null = null;
+  const supabase = createClientFromRequest(request);
   try {
-    const supabase = await createClient();
-
     // SECURITY: Authenticate with proper role-based access
-    const auth = await authenticateApiRequest(['auditor', 'admin']);
+    const auth = await authenticateApiRequest(request, ['auditor', 'admin']);
 
     if (!auth.success || !auth.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -218,18 +217,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // SECURITY: Create data access log for compliance tracking
-    await supabase.from('data_access_logs').insert({
-      user_id: user.id,
-      organization_id: userProfile.organization_id,
-      resource_type: 'document',
-      resource_id: document.id,
-      action: 'upload',
-      access_method: 'api',
-      ip_address: request.headers.get('x-forwarded-for') || request.headers.get('remote-addr'),
-      user_agent: request.headers.get('user-agent'),
-      timestamp: new Date().toISOString(),
-    });
 
     return NextResponse.json({
       message: 'Document uploaded successfully',
@@ -240,7 +227,7 @@ export async function POST(request: NextRequest) {
 
     if (filePath) {
       try {
-        const supabase = await createClient();
+        const supabase = createClientFromRequest(request);
         await supabase.storage.from('documents').remove([filePath]);
       } catch (cleanupError) {
         console.error('Error during error cleanup:', cleanupError);

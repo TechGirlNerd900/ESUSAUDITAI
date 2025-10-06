@@ -1,6 +1,7 @@
 // General Chat API Endpoint - Not project-specific
 // This allows users to chat with Esus AI assistant about general audit topics
 
+import { createClient } from '@/utils/supabase/server';
 import { authenticateApiRequest } from '@/lib/auth/apiAuth';
 import { NextRequest, NextResponse } from 'next/server';
 import { vertexAIService } from '@/lib/google/vertexAI';
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
   // Authenticate the user
   const auth = await authenticateApiRequest(request);
   if (!auth.success) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: auth.error }, { status: 401 });
   }
 
   try {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
 Provide helpful, accurate, and professional responses. When discussing specific regulations or standards, be precise. If you're unsure about something, say so rather than guessing.
 
-Current user: ${auth.profile.first_name} ${auth.profile.last_name} (${auth.profile.role})`;
+Current user: ${auth.user.role} (ID: ${auth.user.id})`;
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -69,7 +70,7 @@ Current user: ${auth.profile.first_name} ${auth.profile.last_name} (${auth.profi
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (!auth.success) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: auth.error }, { status: 401 });
   }
 
   return NextResponse.json({
@@ -84,26 +85,8 @@ export async function GET(request: NextRequest) {
       'Financial statement analysis',
     ],
     user: {
-      name: `${auth.profile.first_name} ${auth.profile.last_name}`,
-      role: auth.profile.role,
+      name: `User Role: ${auth.user.role}`,
+      role: auth.user.role,
     },
   });
 }
-
-export const GET = withAuth(async (request: NextRequest, user) => {
-  // Return placeholder general insights for now
-  return new Response(
-    JSON.stringify({ 
-      insights: [
-        {
-          id: '1',
-          type: 'general',
-          title: 'Welcome to EsusAuditAI',
-          message: 'Start by creating your first project and uploading documents for analysis.',
-          priority: 'info'
-        }
-      ]
-    }),
-    { headers: { 'Content-Type': 'application/json' } }
-  )
-})

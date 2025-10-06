@@ -1,255 +1,194 @@
-/**
- * Project Details API Route
- * Handles operations for a specific project with proper authentication and validation
- */
-
-import { NextRequest } from 'next/server';
-import { Database } from '@/lib/db/database';
-import { cookies } from 'next/headers';
-import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/auth/apiAuth';
-import { withErrorHandling, NotFoundError, AuthorizationError } from '@/lib/errorHandler';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { successResponse, errorResponse } from '@/lib/api/apiResponse';
+import { authenticateApiRequest, checkOrganizationAccess } from '@/lib/auth/apiAuth';
+import {
+  successResponse,
+  errorResponse,
+  validationErrorResponse,
+} from '@/lib/api/apiResponse';
+import { z } from 'zod';
 
-/**
- * GET handler for a specific project
- * Retrieves project details with related data
- *
- */
-export const GET = withErrorHandling(
-  async (request: NextRequest, context: { params: { id: string } }) => {
-    const projectId = context.params.id;
+// Zod schema for project creation/update
+const projectSchema = z.object({
+  name: z.string().min(3, 'Project name must be at least 3 characters'),
+  description: z.string().optional(),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+  status: z.enum(['active', 'completed', 'on_hold']).optional(),
+});
 
-    // Authenticate request
-    const auth = await authenticateApiRequest(request);
-
-    if (!auth.success) {
-      // Type assertion to help TypeScript understand the auth object structure
-      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
-    }
-
-    // Initialize database
-    const cookieStore = await cookies();
-    const db = new Database(cookieStore);
-
-    // Get project with related data
-    const project = await db.getProject(projectId, auth.user.id);
-
-    // Transform data for compatibility
-    const transformedProject = {
-      ...project,
-      document_count: project.documents?.length || 0,
-      due_date: project.end_date,
-      audit_type: project.project_type || 'general',
-    };
-
-    return successResponse(transformedProject);
+// GET /api/projects/[id] - Get a single project
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await authenticateApiRequest(request);
+  if (!auth.success) {
+    return errorResponse(auth.error || 'Unauthorized', 401);
   }
-);
 
-/**
- * PUT handler for a specific project
- * Updates project details
- */
-export const PUT = withErrorHandling(
-  async (request: NextRequest, context: { params: { id: string } }) => {
-    const projectId = context.params.id;
+  const { supabase } = auth;
+  const projectId = params.id;
 
-    // Authenticate request
-    const auth = await authenticateApiRequest(request);
-
-    if (!auth.success) {
-      // Type assertion to help TypeScript understand the auth object structure
-      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
-    }
-
-    // Parse request body
-    const updates = await request.json();
-
-    // Initialize Supabase client for organization access check
-    const supabase = await createClient();
-
-    // Get project to check access and organization
+  try {
     const { data: project, error } = await supabase
       .from('projects')
-      .select('organization_id, created_by')
+      .select('*')
       .eq('id', projectId)
+      .eq('organization_id', auth.user.organizationId)
       .single();
 
     if (error || !project) {
-      throw new NotFoundError('Project');
+      return errorResponse('Project not found', 404);
     }
 
-    // Check if user has access to this project's organization
-    const hasAccess = await checkOrganizationAccess(
-      supabase,
-      auth.profile,
-      project.organization_id
-    );
+    return successResponse(project);
+  } catch (error) {
+    console.error('Error fetching project:', error);
+    return errorResponse('Failed to fetch project', 500);
+  }
+}
 
-    // Additional check: only creator or admin can update
-    const isCreator = project.created_by === auth.user.id;
-    const isAdmin = auth.profile.role === 'admin';
+// PUT /api/projects/[id] - Update a project
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await authenticateApiRequest(request);
+  if (!auth.success) {
+    return errorResponse(auth.error || 'Unauthorized', 401);
+  }
 
-    if (!hasAccess || (!isCreator && !isAdmin)) {
-      throw new AuthorizationError('You do not have permission to update this project');
+  const { supabase } = auth;
+  const projectId = params.id;
+
+  try {
+    const body = await request.json();
+    const validation = projectSchema.safeParse(body);
+
+    if (!validation.success) {
+      return validationErrorResponse(validation.error.errors);
     }
 
-    // Extract fields
-    const {
-      name,
-      description,
-      status,
-      due_date,
-      end_date = due_date, // Support both due_date and end_date
-      start_date,
-      client_name,
-      client_email,
-      custom_fields,
-      tags,
-      assigned_to,
-    } = updates;
+    // Verify project exists and belongs to the user's organization
+    const { data: existingProject, error: fetchError } = await supabase
+      .from('projects')
+      .select('id, organization_id')
+      .eq('id', projectId)
+      .single();
 
-    // Validate dates if provided
-    if (start_date && end_date && new Date(start_date) > new Date(end_date)) {
-      return errorResponse('Start date cannot be after end date', 400);
+    if (fetchError || !existingProject) {
+      return errorResponse('Project not found', 404);
     }
 
-    // Prepare update data
-    const updateData = {
-      name,
-      description,
-      client_name,
-      client_email,
-      start_date,
-      end_date,
-      status,
-      custom_fields: custom_fields || undefined,
-      tags: tags || undefined,
-      assigned_to,
-      updated_at: new Date().toISOString(),
-    };
+    // Check if user has access to this organization
+    const hasAccess = await checkOrganizationAccess(supabase, auth.profile, existingProject.organization_id);
+    if (!hasAccess) {
+      return errorResponse('Forbidden: You do not have access to this project\'s organization.', 403);
+    }
 
-    // Remove undefined fields
-    Object.keys(updateData).forEach(
-      (key) => (updateData as any)[key] === undefined && delete (updateData as any)[key]
-    );
+    // Only admins or project managers can update
+    if (auth.profile.role !== 'admin' && auth.profile.role !== 'super_admin') {
+      // Check if user is a project manager for this project
+      const { data: projectMember, error: memberError } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', projectId)
+        .eq('user_id', auth.user.id)
+        .single();
 
-    // Update project
+      if (memberError || !projectMember || projectMember.role !== 'manager') {
+        return errorResponse('Forbidden: You must be an admin or project manager to update this project.', 403);
+      }
+    }
+
     const { data: updatedProject, error: updateError } = await supabase
       .from('projects')
-      .update(updateData)
+      .update({
+        ...validation.data,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', projectId)
-      .eq('deleted_at', null)
       .select()
       .single();
 
     if (updateError) {
-      throw new Error(`Failed to update project: ${updateError.message}`);
+      console.error('Error updating project:', updateError);
+      return errorResponse('Failed to update project', 500);
     }
 
-    // Create audit log entry
-    await supabase.from('audit_logs').insert([
-      {
-        organization_id: auth.profile.organization_id,
-        user_id: auth.user.id,
-        action: 'project_updated',
-        resource_type: 'project',
-        resource_id: projectId,
-        details: {
-          updates: Object.keys(updateData).filter((k) => k !== 'updated_at'),
-        },
+    // Log the update
+    await supabase.from('audit_logs').insert({
+      organization_id: existingProject.organization_id,
+      user_id: auth.user.id,
+      action: 'update_project',
+      resource_type: 'project',
+      resource_id: projectId,
+      details: {
+        changes: validation.data,
       },
-    ]);
-
-    return successResponse(updatedProject, 'Project updated successfully');
-  }
-);
-
-/**
- * DELETE handler for a specific project
- * Soft deletes a project
- */
-export const DELETE = withErrorHandling(
-  async (request: NextRequest, context: { params: { id: string } }) => {
-    const projectId = context.params.id;
-
-    // Authenticate request with admin role requirement
-    const auth = await authenticateApiRequest(request, {
-      requireRole: 'admin', // Only admins can delete projects
+      ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
     });
 
-    if (!auth.success) {
-      // Type assertion to help TypeScript understand the auth object structure
-      return (auth as import('@/lib/auth/apiAuth').AuthFailure).response;
-    }
+    return successResponse(updatedProject);
+  } catch (error) {
+    console.error('Error processing project update:', error);
+    return errorResponse('Failed to process project update', 500);
+  }
+}
 
-    // Initialize Supabase client
-    const supabase = await createClient();
+// DELETE /api/projects/[id] - Delete a project
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await authenticateApiRequest(request, ['admin', 'super_admin']);
+  if (!auth.success) {
+    return errorResponse(auth.error || 'Unauthorized', 401);
+  }
 
-    // Get project to check organization
-    const { data: project, error } = await supabase
+  const { supabase } = auth;
+  const projectId = params.id;
+
+  try {
+    // Verify project exists and belongs to the user's organization
+    const { data: project, error: fetchError } = await supabase
       .from('projects')
-      .select('organization_id')
+      .select('id, organization_id')
       .eq('id', projectId)
       .single();
 
-    if (error || !project) {
-      throw new NotFoundError('Project');
+    if (fetchError || !project) {
+      return errorResponse('Project not found', 404);
     }
 
-    // Check if user has access to this project's organization
-    const hasAccess = await checkOrganizationAccess(
-      supabase,
-      auth.profile,
-      project.organization_id
-    );
-
+    // Double-check organization access
+    const hasAccess = await checkOrganizationAccess(supabase, auth.profile, project.organization_id);
     if (!hasAccess) {
-      throw new AuthorizationError('You do not have permission to delete this project');
+      return errorResponse('Forbidden: You do not have access to this project\'s organization.', 403);
     }
 
-    try {
-      // Try to use the soft_delete RPC function if it exists
-      const { error: softDeleteError } = await supabase.rpc('soft_delete', {
-        table_name: 'projects',
-        row_id: projectId,
-        org_id: auth.profile.organization_id,
-        user_id: auth.user.id,
-      });
+    // Soft delete the project
+    const { error: deleteError } = await supabase
+      .from('projects')
+      .update({
+        deleted_at: new Date().toISOString(),
+        status: 'archived',
+      })
+      .eq('id', projectId);
 
-      if (softDeleteError) {
-        // If RPC fails, fall back to manual soft delete
-        const { error: updateError } = await supabase
-          .from('projects')
-          .update({
-            status: 'archived',
-            deleted_at: new Date().toISOString(),
-          })
-          .eq('id', projectId);
-
-        if (updateError) {
-          throw new Error(`Failed to delete project: ${updateError.message}`);
-        }
-      }
-
-      // Create audit log entry
-      await supabase.from('audit_logs').insert([
-        {
-          organization_id: auth.profile.organization_id,
-          user_id: auth.user.id,
-          action: 'project_deleted',
-          resource_type: 'project',
-          resource_id: projectId,
-          details: {
-            deleted_at: new Date().toISOString(),
-          },
-        },
-      ]);
-
-      return successResponse({ message: 'Project archived (soft deleted)' });
-    } catch (error: any) {
-      throw new Error(`Failed to delete project: ${error.message}`);
+    if (deleteError) {
+      console.error('Error deleting project:', deleteError);
+      return errorResponse('Failed to delete project', 500);
     }
+
+    // Log the deletion
+    await supabase.from('audit_logs').insert({
+      organization_id: project.organization_id,
+      user_id: auth.user.id,
+      action: 'delete_project',
+      resource_type: 'project',
+      resource_id: projectId,
+      details: {
+        message: `Project with ID ${projectId} was soft-deleted.`, 
+      },
+      ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
+    });
+
+    return successResponse({ message: 'Project deleted successfully' }, 200);
+  } catch (error) {
+    console.error('Error processing project deletion:', error);
+    return errorResponse('Failed to process project deletion', 500);
   }
-);
+}

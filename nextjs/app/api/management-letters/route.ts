@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { withAuth, AuthenticatedUser } from '@/lib/auth/apiAuth';
+import { SupabaseClient } from '@supabase/supabase-js';
 import {
   managementLetterGenerator,
   ManagementLetterFinding,
@@ -14,25 +15,14 @@ import {
  * Handles management letter generation, findings management, and templates
  */
 
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+export const GET = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get('action');
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-    const organizationId = searchParams.get('organizationId');
-
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-    }
+  if (!organizationId) {
+    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
+  }
 
     switch (action) {
       case 'templates':
@@ -65,40 +55,27 @@ export async function GET(request: NextRequest) {
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Management letter API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+});
+
+export const POST = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const body = await request.json();
+  const { action } = body; // organizationId will come from user object
+
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
+
+  if (!organizationId) {
+    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
   }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { action, organizationId } = body;
-
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-    }
 
     switch (action) {
       case 'generate':
-        return await handleGenerateManagementLetter(supabase, body, user.id);
+        return await handleGenerateManagementLetter(supabase, { ...body, organizationId }, user.id);
 
       case 'createFinding':
-        return await handleCreateFinding(supabase, body, user.id);
+        return await handleCreateFinding(supabase, { ...body, organizationId }, user.id);
 
       case 'bulkCreateFindings':
-        return await handleBulkCreateFindings(supabase, body, user.id);
+        return await handleBulkCreateFindings(supabase, { ...body, organizationId }, user.id);
 
       case 'validate':
         return await handleValidateLetter(body);
@@ -106,30 +83,17 @@ export async function POST(request: NextRequest) {
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Management letter POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+});
+
+export const PUT = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const body = await request.json();
+  const { action } = body; // organizationId will come from user object
+
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
+
+  if (!organizationId) {
+    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
   }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { action, organizationId } = body;
-
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-    }
 
     switch (action) {
       case 'updateLetter': {
@@ -175,31 +139,16 @@ export async function PUT(request: NextRequest) {
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Management letter PUT error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+});
+
+export const DELETE = withAuth(async (request: NextRequest, user: AuthenticatedUser, supabase: SupabaseClient) => {
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get('action');
+  const organizationId = user.organizationId; // Use organizationId from authenticated user
+
+  if (!organizationId) {
+    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
   }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-    const organizationId = searchParams.get('organizationId');
-
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-    }
 
     switch (action) {
       case 'finding': {
@@ -213,11 +162,7 @@ export async function DELETE(request: NextRequest) {
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Management letter DELETE error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
+});
 
 /**
  * Handler Functions
@@ -263,6 +208,7 @@ async function handleListManagementLetters(supabase: any, organizationId: string
     throw new Error(`Failed to fetch management letters: ${error.message}`);
   }
 
+  // Return 200 with empty array when no letters found - this is not an error condition
   // Calculate summary statistics
   const summary = {
     total: letters?.length || 0,
@@ -308,6 +254,7 @@ async function handleGetManagementLetter(supabase: any, letterId: string, organi
   }
 
   if (!letter) {
+    // Correctly uses 404 only for specific resource lookup (single letter by ID)
     return NextResponse.json({ error: 'Management letter not found' }, { status: 404 });
   }
 
@@ -340,6 +287,7 @@ async function handleGetFindings(supabase: any, engagementId: string, organizati
     throw new Error(`Failed to fetch findings: ${error.message}`);
   }
 
+  // Return 200 with empty array when no findings found - this is not an error condition
   const analytics = {
     summary: generateFindingSummary(findings || []),
     categorized: categorizeFindings(findings || []),
